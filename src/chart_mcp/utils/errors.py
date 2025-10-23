@@ -43,9 +43,9 @@ class UpstreamError(ApiError):
     code = "upstream_error"
 
 
-def api_error_handler(_: Request, exc: ApiError) -> JSONResponse:
+def api_error_handler(_: Request, exc: Exception) -> JSONResponse:
     """Return a standardized JSON response for custom exceptions."""
-
+    assert isinstance(exc, ApiError)
     payload = {
         "code": exc.code,
         "message": exc.message,
@@ -55,9 +55,9 @@ def api_error_handler(_: Request, exc: ApiError) -> JSONResponse:
     return JSONResponse(status_code=exc.status_code, content=payload)
 
 
-def http_exception_handler(_: Request, exc: HTTPException) -> JSONResponse:
+def http_exception_handler(_: Request, exc: Exception) -> JSONResponse:
     """Translate FastAPI HTTPException into project JSON schema."""
-
+    assert isinstance(exc, HTTPException)
     payload = {
         "code": "http_error",
         "message": exc.detail,
@@ -69,7 +69,6 @@ def http_exception_handler(_: Request, exc: HTTPException) -> JSONResponse:
 
 def unexpected_exception_handler(_: Request, exc: Exception) -> JSONResponse:
     """Catch-all handler for unexpected exceptions."""
-
     payload = {
         "code": "internal_error",
         "message": str(exc),

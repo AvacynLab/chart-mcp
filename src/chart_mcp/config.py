@@ -24,10 +24,13 @@ class Settings(BaseSettings):
     @validator("allowed_origins", pre=True)
     def _split_origins(cls, value: List[str] | str) -> List[str]:
         if isinstance(value, str):
+            # Accept comma-separated origins for ergonomic environment configuration.
             return [origin.strip() for origin in value.split(",") if origin.strip()]
         return value
 
     class Config:
+        """Pydantic settings metadata for environment loading."""
+
         env_file = ".env"
         env_file_encoding = "utf-8"
         validate_by_name = True
@@ -36,8 +39,7 @@ class Settings(BaseSettings):
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
     """Return cached application settings instance."""
-
-    return Settings()
+    return Settings()  # type: ignore[call-arg]
 
 
 settings = get_settings()

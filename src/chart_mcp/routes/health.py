@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import time
 from datetime import datetime
+from typing import Dict
 
 from fastapi import APIRouter
 
@@ -16,9 +17,8 @@ router = APIRouter(tags=["health"])
 
 
 @router.get("/health")
-def health() -> dict:
+def health() -> Dict[str, object]:
     """Return uptime, version and configured exchange."""
-
     uptime = time.time() - _router_start
     return {
         "status": "ok",

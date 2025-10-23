@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from typing import AsyncIterator, Dict, Iterable, List
+from typing import AsyncIterator, Dict, Iterable, List, Mapping, SupportsFloat, cast
 
 from chart_mcp.services.analysis_llm import AnalysisLLMService
 from chart_mcp.services.data_providers.base import MarketDataProvider
@@ -37,6 +37,7 @@ class StreamingService:
         indicators: Iterable[Dict[str, object]],
         limit: int = 500,
     ) -> AsyncIterator[str]:
+        """Stream SSE chunks by chaining provider, indicator, and LLM calls."""
         streamer = SseStreamer()
         await streamer.start()
 
@@ -45,40 +46,55 @@ class StreamingService:
                 "tool_start",
                 {
                     "type": "tool",
-                    "payload": {"tool": "get_crypto_data", "symbol": symbol, "timeframe": timeframe},
+                    "payload": {
+                        "tool": "get_crypto_data",
+                        "symbol": symbol,
+                        "timeframe": timeframe,
+                    },
                 },
             )
-            frame = await asyncio.to_thread(
-                self.provider.get_ohlcv, symbol, timeframe, limit=limit
-            )
+            frame = await asyncio.to_thread(self.provider.get_ohlcv, symbol, timeframe, limit=limit)
             await streamer.publish(
                 "tool_end",
                 {"type": "tool", "payload": {"tool": "get_crypto_data", "rows": len(frame)}},
             )
 
             indicator_values: Dict[str, Dict[str, float]] = {}
+            # Accumulate the latest indicator values to feed heuristics and streaming payloads.
             for spec in indicators:
-                name = str(spec.get("name"))
+                name = str(spec.get("name") or "unknown")
                 params_raw = spec.get("params") or {}
-                params = {str(k): float(v) for k, v in dict(params_raw).items()}
-                await streamer.publish(
-                    "tool_start",
-                    {"type": "tool", "payload": {"tool": "compute_indicator", "name": name}},
+                params_mapping: Mapping[str, object] = (
+                    params_raw if isinstance(params_raw, Mapping) else {}
                 )
+                params = {
+                    str(k): float(cast(SupportsFloat, v))
+                    for k, v in params_mapping.items()
+                }
                 data = await asyncio.to_thread(self.indicator_service.compute, frame, name, params)
                 cleaned = data.dropna()
                 latest = cleaned.iloc[-1].to_dict() if not cleaned.empty else {}
-                indicator_values[name] = {k: float(v) for k, v in latest.items()}
+                indicator_values[name] = {
+                    k: float(cast(SupportsFloat, v)) for k, v in latest.items()
+                }
                 await streamer.publish(
                     "tool_end",
                     {
                         "type": "tool",
-                        "payload": {"tool": "compute_indicator", "name": name, "latest": indicator_values[name]},
+                        "payload": {
+                            "tool": "compute_indicator",
+                            "name": name,
+                            "latest": indicator_values[name],
+                        },
                     },
                 )
 
-            levels: List[LevelCandidate] = await asyncio.to_thread(self.levels_service.detect_levels, frame)
-            patterns: List[PatternResult] = await asyncio.to_thread(self.patterns_service.detect, frame)
+            levels: List[LevelCandidate] = await asyncio.to_thread(
+                self.levels_service.detect_levels, frame
+            )
+            patterns: List[PatternResult] = await asyncio.to_thread(
+                self.patterns_service.detect, frame
+            )
             await streamer.publish(
                 "result_partial",
                 {
@@ -97,14 +113,21 @@ class StreamingService:
                 self.analysis_service.summarize,
                 symbol,
                 timeframe,
-                {f"{name}": list(values.values())[0] if values else 0.0 for name, values in indicator_values.items()},
+                {
+                    name: float(
+                        cast(SupportsFloat, next(iter(values.values()), 0.0))
+                    )
+                    for name, values in indicator_values.items()
+                },
                 levels,
                 patterns,
             )
             for sentence in summary.split("."):
                 text = sentence.strip()
                 if text:
-                    await streamer.publish("token", {"type": "token", "payload": {"text": text + "."}})
+                    await streamer.publish(
+                        "token", {"type": "token", "payload": {"text": text + "."}}
+                    )
             await streamer.publish(
                 "result_final",
                 {

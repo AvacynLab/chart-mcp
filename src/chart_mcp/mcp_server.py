@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, List, Mapping, Optional, SupportsFloat, cast
 
 import pandas as pd
 
@@ -28,20 +28,19 @@ def get_crypto_data(
     end: Optional[int] = None,
 ) -> pd.DataFrame:
     """Return OHLCV data for MCP consumption."""
-
     return _provider.get_ohlcv(symbol, timeframe, limit=limit, start=start, end=end)
 
 
-def compute_indicator(symbol: str, timeframe: str, indicator: str, params: Optional[Dict[str, float]] = None) -> pd.DataFrame:
+def compute_indicator(
+    symbol: str, timeframe: str, indicator: str, params: Optional[Dict[str, float]] = None
+) -> pd.DataFrame:
     """Compute indicator using shared indicator service."""
-
     frame = get_crypto_data(symbol, timeframe)
     return _indicator_service.compute(frame, indicator, params or {})
 
 
-def identify_support_resistance(symbol: str, timeframe: str) -> List[Dict[str, float]]:
+def identify_support_resistance(symbol: str, timeframe: str) -> List[Dict[str, object]]:
     """Detect support/resistance levels for MCP tool."""
-
     frame = get_crypto_data(symbol, timeframe)
     levels = _levels_service.detect_levels(frame)
     return [
@@ -52,7 +51,6 @@ def identify_support_resistance(symbol: str, timeframe: str) -> List[Dict[str, f
 
 def detect_chart_patterns(symbol: str, timeframe: str) -> List[Dict[str, object]]:
     """Detect chart patterns for MCP tool."""
-
     frame = get_crypto_data(symbol, timeframe)
     patterns = _patterns_service.detect(frame)
     return [
@@ -76,22 +74,30 @@ def generate_analysis_summary(
     include_patterns: bool = True,
 ) -> str:
     """Generate heuristic analysis summary for MCP tool."""
-
     frame = get_crypto_data(symbol, timeframe)
-    indicator_specs = indicators or [
+    indicator_specs: Iterable[Dict[str, object]] = indicators or [
+        # Provide sensible defaults to guarantee coverage for summary heuristics.
         {"name": "ema", "params": {"window": 50}},
         {"name": "rsi", "params": {"window": 14}},
     ]
     highlights: Dict[str, float] = {}
     for spec in indicator_specs:
-        name = str(spec.get("name"))
-        params = {str(k): float(v) for k, v in dict(spec.get("params", {})).items()}
+        name_obj = spec.get("name")
+        params_raw = spec.get("params", {})
+        name = str(name_obj) if name_obj is not None else "unknown"
+        params_mapping: Mapping[str, object] = params_raw if isinstance(params_raw, Mapping) else {}
+        params = {
+            str(key): float(cast(SupportsFloat, value))
+            for key, value in params_mapping.items()
+        }
         data = _indicator_service.compute(frame, name, params)
         cleaned = data.dropna()
         if cleaned.empty:
             continue
         latest = cleaned.iloc[-1]
-        highlights[name] = float(list(latest.values)[0])
+        first_value_raw = next(iter(latest.values), 0.0)
+        first_value = float(cast(SupportsFloat, first_value_raw))
+        highlights[name] = first_value
     levels = _levels_service.detect_levels(frame) if include_levels else []
     patterns = _patterns_service.detect(frame) if include_patterns else []
     return _analysis_service.summarize(symbol, timeframe, highlights, levels, patterns)
