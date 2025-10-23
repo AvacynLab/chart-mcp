@@ -16,7 +16,9 @@ _STOP_SENTINEL = "__STOP__"
 def format_sse(event: str, payload: Dict[str, Any]) -> str:
     """Format a SSE event using NDJSON payload."""
 
-    return f"event: {event}\ndata: {json.dumps(payload, separators=(",", ":"))}\n\n"
+    # Serialize the payload using NDJSON-friendly separators to keep the SSE stream compact.
+    payload_ndjson = json.dumps(payload, separators=(",", ":"))
+    return f"event: {event}\ndata: {payload_ndjson}\n\n"
 
 
 async def heartbeat_sender(queue: "asyncio.Queue[str]") -> None:
