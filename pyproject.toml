@@ -1,0 +1,58 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "chart-mcp"
+version = "0.1.0"
+description = "Alpha MCP server for crypto technical analysis"
+requires-python = ">=3.11"
+readme = "README.md"
+authors = [{ name = "chart-mcp contributors" }]
+license = { file = "LICENSE" }
+dependencies = []
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+include = "src"
+
+[tool.isort]
+profile = "black"
+line_length = 100
+force_single_line = false
+known_first_party = ["chart_mcp"]
+combine_as_imports = true
+
+[tool.ruff]
+line-length = 100
+src = ["src"]
+extend-select = ["B", "SIM", "I", "D"]
+ignore = ["D100", "D104", "D105", "D107"]
+exclude = ["tests/snapshots"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["D103"]
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+disallow_untyped_defs = true
+disallow_any_generics = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+warn_unused_configs = true
+strict_optional = true
+no_implicit_optional = true
+plugins = []
+namespace_packages = true
+mypy_path = ["src"]
+
+[tool.mypy."src.chart_mcp.*"]
+strict = true
+
+[tool.pytest.ini_options]
+addopts = "-q --cov=src --cov-report=xml"
+asyncio_mode = "auto"
+testpaths = ["tests"]
+filterwarnings = ["ignore::DeprecationWarning"]
