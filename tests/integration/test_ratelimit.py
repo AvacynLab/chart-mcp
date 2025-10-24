@@ -12,7 +12,6 @@ import chart_mcp.config as config_module
 
 def test_rate_limit_enforced(monkeypatch):
     """Requests exceeding the configured quota should return HTTP 429."""
-
     monkeypatch.setenv("API_TOKEN", "ratelimit-token")
     monkeypatch.setenv("PLAYWRIGHT", "false")
     monkeypatch.setenv("RATE_LIMIT_PER_MINUTE", "2")
