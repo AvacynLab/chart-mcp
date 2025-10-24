@@ -6,14 +6,21 @@ ENV POETRY_VIRTUALENVS_CREATE=false \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
+ARG BUILD_ESSENTIAL_VERSION="12.9"
+ARG PIP_VERSION="24.2"
+
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
+# Pin the compiler toolchain to guarantee reproducible wheels for numpy/scipy.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        build-essential="${BUILD_ESSENTIAL_VERSION}" \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt pyproject.toml ./
-RUN pip install --upgrade pip && pip install --prefix=/install -r requirements.txt
+# Pin pip and disable its cache so hadolint and build reproducibility requirements are met.
+RUN python -m pip install --no-cache-dir --upgrade "pip==${PIP_VERSION}" \
+    && pip install --no-cache-dir --prefix=/install --requirement requirements.txt
 
 FROM python:3.11-slim AS runtime
 

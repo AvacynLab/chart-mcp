@@ -344,3 +344,4 @@ Historique récent:
 - 2025-10-24T18:25:00Z : Activé ORJSON par défaut sur FastAPI, revu la checklist (docs/tests/CI) et confirmé la non-exposition des headers sensibles ; suite pytest complète passée.
 - 2025-10-24T19:05:00Z : Ajout du job hadolint dans la CI, vérification des cibles Makefile cochées et exécution de `pytest --cov=src --cov-report=xml` pour valider la pipeline.
 - 2025-10-24T19:45:00Z : Durci le middleware de rate-limit avec l’entête `X-RateLimit-Remaining` et ajouté le test d’intégration `test_ratelimit.py` (quota 429).
+- 2025-10-24T21:20:49Z : Pinned `build-essential` et `pip` dans le Dockerfile (avec cache pip désactivé) pour satisfaire hadolint et stabiliser les builds.
