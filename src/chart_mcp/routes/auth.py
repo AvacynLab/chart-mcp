@@ -4,14 +4,18 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import Depends
+from fastapi import Depends, Header
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from chart_mcp.config import settings
-from chart_mcp.utils.errors import Unauthorized
+from chart_mcp.utils.errors import Forbidden, Unauthorized
 
 _security = HTTPBearer(auto_error=False)
 BearerCredentials = Annotated[HTTPAuthorizationCredentials | None, Depends(_security)]
+RegularUserHeader = Annotated[
+    str | None,
+    Header(alias="X-User-Type", convert_underscores=False),
+]
 
 
 def require_token(credentials: BearerCredentials) -> None:
@@ -22,4 +26,12 @@ def require_token(credentials: BearerCredentials) -> None:
         raise Unauthorized("Invalid token provided")
 
 
-__all__ = ["require_token"]
+def require_regular_user(user_type: RegularUserHeader = None) -> None:
+    """Ensure the request originates from a regular (non-guest) session."""
+    if user_type is None:
+        raise Forbidden("Regular session required", code="forbidden:chat")
+    if user_type.lower() != "regular":
+        raise Forbidden("Regular session required", code="forbidden:chat")
+
+
+__all__ = ["require_token", "require_regular_user"]

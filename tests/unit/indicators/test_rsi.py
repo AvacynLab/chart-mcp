@@ -6,6 +6,7 @@ import pandas as pd
 import pytest
 
 from chart_mcp.services.indicators import IndicatorService, relative_strength_index
+from chart_mcp.utils.errors import BadRequest
 
 
 def test_rsi_flat_series():
@@ -19,3 +20,14 @@ def test_indicator_service_rsi():
     service = IndicatorService()
     data = service.compute(frame, "rsi", {"window": 3})
     assert "rsi" in data.columns
+
+
+def test_rsi_invalid_window_values():
+    """RSI should guard against too-small windows and missing history."""
+    frame = pd.DataFrame({"c": [60.0, 61.0, 62.0]})
+    with pytest.raises(BadRequest):
+        relative_strength_index(frame, 0)
+    with pytest.raises(BadRequest):
+        relative_strength_index(frame, 1)
+    with pytest.raises(BadRequest):
+        relative_strength_index(frame, 10)

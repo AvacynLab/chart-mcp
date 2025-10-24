@@ -7,11 +7,16 @@ from typing import Annotated, Dict, List, cast
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import StreamingResponse
 
-from chart_mcp.routes.auth import require_token
+from chart_mcp.routes.auth import require_regular_user, require_token
 from chart_mcp.services.streaming import StreamingService
+from chart_mcp.utils.errors import BadRequest
 from chart_mcp.utils.timeframes import parse_timeframe
 
-router = APIRouter(prefix="/stream", tags=["stream"], dependencies=[Depends(require_token)])
+router = APIRouter(
+    prefix="/stream",
+    tags=["stream"],
+    dependencies=[Depends(require_token), Depends(require_regular_user)],
+)
 
 
 def get_streaming_service(request: Request) -> StreamingService:
@@ -28,17 +33,35 @@ async def stream_analysis(
         Query(default_factory=list, description="Indicator names such as ema,rsi"),
     ],
     streaming_service: Annotated[StreamingService, Depends(get_streaming_service)],
+    limit: Annotated[
+        int,
+        Query(ge=1, description="Number of OHLCV rows requested for the stream (1-5000)."),
+    ] = 500,
 ) -> StreamingResponse:
     """Stream analysis events using Server-Sent Events."""
     parse_timeframe(timeframe)
+    if limit > 5000:
+        # FastAPI already enforces the ``ge`` lower bound. We keep the upper bound
+        # on our side so the resulting error payload aligns with the rest of the API.
+        raise BadRequest("limit must be between 1 and 5000 for streaming analysis")
+    if len(indicators) > 10:
+        raise BadRequest("A maximum of 10 indicators can be requested per stream")
+    cleaned_indicators: List[str] = []
+    for raw_indicator in indicators:
+        indicator = raw_indicator.strip()
+        if not indicator:
+            raise BadRequest("Indicator names cannot be empty")
+        cleaned_indicators.append(indicator)
     indicator_specs: List[Dict[str, object]]
-    if indicators:
-        indicator_specs = [{"name": name, "params": {}} for name in indicators]
+    if cleaned_indicators:
+        indicator_specs = [{"name": name, "params": {}} for name in cleaned_indicators]
     else:
         indicator_specs = [
             # Fall back to EMA and RSI defaults for streaming heuristics.
             {"name": "ema", "params": {"window": 50}},
             {"name": "rsi", "params": {"window": 14}},
         ]
-    iterator = streaming_service.stream_analysis(symbol, timeframe, indicator_specs)
+    iterator = streaming_service.stream_analysis(
+        symbol, timeframe, indicator_specs, limit=limit
+    )
     return StreamingResponse(iterator, media_type="text/event-stream")

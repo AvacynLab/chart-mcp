@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Optional, cast
 
 from fastapi import HTTPException, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
+from chart_mcp.types import JSONDict, JSONValue
 from chart_mcp.utils.logging import get_trace_id
 
 
@@ -16,10 +18,30 @@ class ApiError(Exception):
     status_code = 500
     code = "internal_error"
 
-    def __init__(self, message: str, *, details: Optional[Dict[str, Any]] = None) -> None:
+    def __init__(
+        self,
+        message: str,
+        *,
+        details: Optional[JSONValue] = None,
+        code: str | None = None,
+    ) -> None:
+        """Capture the human message, optional structured details and override code."""
         super().__init__(message)
         self.message = message
-        self.details = details or {}
+        # ``details`` defaults to an empty dict so callers can attach structured
+        # metadata without falling back to ``Any``.
+        self.details: JSONValue = details if details is not None else {}
+        # Individual error instances may supply a more specific machine-friendly
+        # code (e.g. ``forbidden:chat``) without the need for bespoke subclasses.
+        self.code = code or self.__class__.code
+
+    def to_payload(self) -> JSONDict:
+        """Return the standard error document used across HTTP handlers."""
+        return {
+            "error": {"code": self.code, "message": self.message},
+            "details": self.details,
+            "trace_id": get_trace_id(),
+        }
 
 
 class BadRequest(ApiError):
@@ -36,6 +58,13 @@ class Unauthorized(ApiError):
     code = "unauthorized"
 
 
+class Forbidden(ApiError):
+    """Exception raised when the caller is authenticated but not authorized."""
+
+    status_code = 403
+    code = "forbidden"
+
+
 class UpstreamError(ApiError):
     """Exception raised when an external dependency (exchange) fails."""
 
@@ -43,24 +72,31 @@ class UpstreamError(ApiError):
     code = "upstream_error"
 
 
+class TooManyRequests(ApiError):
+    """Exception raised when a caller exceeds the configured rate limit."""
+
+    status_code = 429
+    code = "too_many_requests"
+
+
+class NotFound(ApiError):
+    """Exception raised when a resource cannot be located."""
+
+    status_code = 404
+    code = "not_found"
+
+
 def api_error_handler(_: Request, exc: Exception) -> JSONResponse:
     """Return a standardized JSON response for custom exceptions."""
     assert isinstance(exc, ApiError)
-    payload = {
-        "code": exc.code,
-        "message": exc.message,
-        "details": exc.details,
-        "trace_id": get_trace_id(),
-    }
-    return JSONResponse(status_code=exc.status_code, content=payload)
+    return JSONResponse(status_code=exc.status_code, content=exc.to_payload())
 
 
 def http_exception_handler(_: Request, exc: Exception) -> JSONResponse:
     """Translate FastAPI HTTPException into project JSON schema."""
     assert isinstance(exc, HTTPException)
-    payload = {
-        "code": "http_error",
-        "message": exc.detail,
+    payload: JSONDict = {
+        "error": {"code": "http_error", "message": exc.detail},
         "details": {},
         "trace_id": get_trace_id(),
     }
@@ -69,10 +105,26 @@ def http_exception_handler(_: Request, exc: Exception) -> JSONResponse:
 
 def unexpected_exception_handler(_: Request, exc: Exception) -> JSONResponse:
     """Catch-all handler for unexpected exceptions."""
-    payload = {
-        "code": "internal_error",
-        "message": str(exc),
+    payload: JSONDict = {
+        "error": {"code": "internal_error", "message": str(exc)},
         "details": {},
         "trace_id": get_trace_id(),
     }
     return JSONResponse(status_code=500, content=payload)
+
+
+def request_validation_exception_handler(_: Request, exc: Exception) -> JSONResponse:
+    """Return a consistent payload for FastAPI validation errors."""
+    assert isinstance(exc, RequestValidationError)
+    raw_errors = exc.errors()
+    formatted_errors = [
+        {str(key): cast(object, value) for key, value in error.items()}
+        for error in raw_errors
+    ]
+    details: list[object] = [cast(object, error) for error in formatted_errors]
+    payload: JSONDict = {
+        "error": {"code": "validation_error", "message": "Request validation failed"},
+        "details": details,
+        "trace_id": get_trace_id(),
+    }
+    return JSONResponse(status_code=422, content=payload)

@@ -1,19 +1,27 @@
-"""Helpers to produce Server-Sent Events compatible with Vercel SDK."""
+"""Server-Sent Events helpers used by streaming endpoints."""
 
 from __future__ import annotations
 
 import asyncio
 import contextlib
 import json
-from typing import Any, AsyncIterator, Dict, Iterable
+from typing import AsyncIterator, Iterable, TypedDict
 
 from chart_mcp.config import settings
+from chart_mcp.types import JSONValue
 
 _HEARTBEAT_COMMENT = ": ping\n\n"
 _STOP_SENTINEL = "__STOP__"
 
 
-def format_sse(event: str, payload: Dict[str, Any]) -> str:
+class SseEvent(TypedDict):
+    """Typed representation of an outbound SSE packet."""
+
+    event: str
+    data: JSONValue
+
+
+def format_sse(event: str, payload: JSONValue) -> str:
     """Format a SSE event using NDJSON payload."""
     # Serialize the payload using NDJSON-friendly separators to keep the SSE stream compact.
     payload_ndjson = json.dumps(payload, separators=(",", ":"))
@@ -47,7 +55,7 @@ class SseStreamer:
                 await self._heartbeat_task
         await self._queue.put(_STOP_SENTINEL)
 
-    async def publish(self, event: str, payload: Dict[str, Any]) -> None:
+    async def publish(self, event: str, payload: JSONValue) -> None:
         """Publish a SSE event to the internal queue."""
         await self._queue.put(format_sse(event, payload))
 
@@ -60,7 +68,7 @@ class SseStreamer:
             yield message
 
 
-async def iter_events(events: Iterable[Dict[str, Any]]) -> AsyncIterator[str]:
+async def iter_events(events: Iterable[SseEvent]) -> AsyncIterator[str]:
     """Stream a finite list of events followed by a terminal marker."""
     for event in events:
         yield format_sse(event["event"], event["data"])

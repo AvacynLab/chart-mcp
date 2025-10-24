@@ -6,7 +6,7 @@ from typing import Annotated, Dict, List, Tuple, cast
 
 from fastapi import APIRouter, Depends, Request
 
-from chart_mcp.routes.auth import require_token
+from chart_mcp.routes.auth import require_regular_user, require_token
 from chart_mcp.schemas.analysis import (
     AnalysisRequest,
     AnalysisResponse,
@@ -27,7 +27,9 @@ ServicesTuple = Tuple[
 ]
 
 router = APIRouter(
-    prefix="/api/v1/analysis", tags=["analysis"], dependencies=[Depends(require_token)]
+    prefix="/api/v1/analysis",
+    tags=["analysis"],
+    dependencies=[Depends(require_token), Depends(require_regular_user)],
 )
 
 

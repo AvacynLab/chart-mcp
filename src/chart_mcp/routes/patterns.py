@@ -6,13 +6,17 @@ from typing import List
 
 from fastapi import APIRouter, Depends, Query, Request
 
-from chart_mcp.routes.auth import require_token
+from chart_mcp.routes.auth import require_regular_user, require_token
 from chart_mcp.schemas.patterns import Pattern, PatternPoint, PatternsResponse
 from chart_mcp.services.data_providers.base import MarketDataProvider
 from chart_mcp.services.patterns import PatternResult, PatternsService
 from chart_mcp.utils.timeframes import parse_timeframe
 
-router = APIRouter(prefix="/api/v1/patterns", tags=["patterns"], dependencies=[Depends(require_token)])
+router = APIRouter(
+    prefix="/api/v1/patterns",
+    tags=["patterns"],
+    dependencies=[Depends(require_token), Depends(require_regular_user)],
+)
 
 
 def get_services(request: Request) -> tuple[MarketDataProvider, PatternsService]:

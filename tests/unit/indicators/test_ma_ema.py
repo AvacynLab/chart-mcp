@@ -10,6 +10,7 @@ from chart_mcp.services.indicators import (
     exponential_moving_average,
     simple_moving_average,
 )
+from chart_mcp.utils.errors import BadRequest
 
 
 def test_simple_moving_average():
@@ -22,6 +23,17 @@ def test_exponential_moving_average():
     data = pd.DataFrame({"c": [10, 11, 12, 13, 14], "ts": [1, 2, 3, 4, 5]})
     result = exponential_moving_average(data, 3)
     assert result.iloc[-1] == pytest.approx(13.06, abs=0.01)
+
+
+def test_moving_average_invalid_window():
+    """Window size must be positive and not exceed the available rows."""
+    data = pd.DataFrame({"c": [1.0, 2.0, 3.0]})
+    with pytest.raises(BadRequest):
+        simple_moving_average(data, 0)
+    with pytest.raises(BadRequest):
+        simple_moving_average(data, -5)
+    with pytest.raises(BadRequest):
+        simple_moving_average(data, 10)
 
 
 def test_indicator_service_ma():
