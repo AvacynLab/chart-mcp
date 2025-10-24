@@ -5,7 +5,11 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
-from chart_mcp.services.indicators import IndicatorService, exponential_moving_average, simple_moving_average
+from chart_mcp.services.indicators import (
+    IndicatorService,
+    exponential_moving_average,
+    simple_moving_average,
+)
 
 
 def test_simple_moving_average():

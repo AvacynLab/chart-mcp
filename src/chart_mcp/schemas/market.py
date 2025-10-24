@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import List, Optional
+from typing import List
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, ConfigDict, Field, validator
 
 from chart_mcp.schemas.common import DatetimeRange
 
@@ -14,11 +14,12 @@ class OhlcvRow(BaseModel):
     """Single OHLCV entry."""
 
     ts: int = Field(..., description="Unix timestamp in seconds")
-    o: float
-    h: float
-    l: float
-    c: float
-    v: float
+    open: float = Field(..., alias="o")
+    high: float = Field(..., alias="h")
+    low: float = Field(..., alias="l")
+    close: float = Field(..., alias="c")
+    volume: float = Field(..., alias="v")
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class MarketDataRequest(DatetimeRange):
@@ -40,4 +41,5 @@ class MarketDataResponse(BaseModel):
 
     @validator("symbol")
     def uppercase_symbol(cls, value: str) -> str:
+        """Normalize symbol casing for consistent responses."""
         return value.upper()

@@ -16,6 +16,7 @@ router = APIRouter(prefix="/api/v1/levels", tags=["levels"], dependencies=[Depen
 
 
 def get_services(request: Request) -> tuple[MarketDataProvider, LevelsService]:
+    """Return provider and levels service from the application state."""
     return request.app.state.provider, request.app.state.levels_service
 
 
@@ -27,7 +28,6 @@ def list_levels(
     services: tuple[MarketDataProvider, LevelsService] = Depends(get_services),
 ) -> LevelsResponse:
     """Compute supports and resistances for a symbol."""
-
     provider, service = services
     parse_timeframe(timeframe)
     frame = provider.get_ohlcv(symbol, timeframe, limit=limit)

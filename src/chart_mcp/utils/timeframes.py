@@ -20,7 +20,6 @@ _TIMEFRAME_TO_SECONDS: Dict[str, int] = {
 
 def parse_timeframe(value: str) -> int:
     """Convert timeframe string to seconds, raising BadRequest if invalid."""
-
     try:
         return _TIMEFRAME_TO_SECONDS[value]
     except KeyError as exc:
@@ -29,13 +28,11 @@ def parse_timeframe(value: str) -> int:
 
 def to_timedelta(value: str) -> timedelta:
     """Return a timedelta representing the timeframe duration."""
-
     return timedelta(seconds=parse_timeframe(value))
 
 
 def ccxt_timeframe(value: str) -> str:
     """Return CCXT compatible timeframe string."""
-
     parse_timeframe(value)  # validate
     return value
 

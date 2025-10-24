@@ -15,7 +15,6 @@ _STOP_SENTINEL = "__STOP__"
 
 def format_sse(event: str, payload: Dict[str, Any]) -> str:
     """Format a SSE event using NDJSON payload."""
-
     # Serialize the payload using NDJSON-friendly separators to keep the SSE stream compact.
     payload_ndjson = json.dumps(payload, separators=(",", ":"))
     return f"event: {event}\ndata: {payload_ndjson}\n\n"
@@ -23,7 +22,6 @@ def format_sse(event: str, payload: Dict[str, Any]) -> str:
 
 async def heartbeat_sender(queue: "asyncio.Queue[str]") -> None:
     """Send heartbeat comments at a configured interval."""
-
     interval = settings.stream_heartbeat_ms / 1000
     while True:
         await asyncio.sleep(interval)
@@ -39,12 +37,10 @@ class SseStreamer:
 
     async def start(self) -> None:
         """Start background heartbeat task."""
-
         self._heartbeat_task = asyncio.create_task(heartbeat_sender(self._queue))
 
     async def stop(self) -> None:
         """Stop heartbeat task and signal stream termination."""
-
         if self._heartbeat_task:
             self._heartbeat_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
@@ -53,12 +49,10 @@ class SseStreamer:
 
     async def publish(self, event: str, payload: Dict[str, Any]) -> None:
         """Publish a SSE event to the internal queue."""
-
         await self._queue.put(format_sse(event, payload))
 
     async def stream(self) -> AsyncIterator[str]:
         """Yield SSE payloads until the stop sentinel is received."""
-
         while True:
             message = await self._queue.get()
             if message == _STOP_SENTINEL:
@@ -67,8 +61,7 @@ class SseStreamer:
 
 
 async def iter_events(events: Iterable[Dict[str, Any]]) -> AsyncIterator[str]:
-    """Convenience helper to stream a finite list of events."""
-
+    """Stream a finite list of events followed by a terminal marker."""
     for event in events:
         yield format_sse(event["event"], event["data"])
     yield format_sse("done", {})

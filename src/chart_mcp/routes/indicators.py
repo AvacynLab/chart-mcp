@@ -16,6 +16,7 @@ router = APIRouter(prefix="/api/v1/indicators", tags=["indicators"], dependencie
 
 
 def get_services(request: Request) -> tuple[MarketDataProvider, IndicatorService]:
+    """Return provider and indicator service from the application state."""
     return request.app.state.provider, request.app.state.indicator_service
 
 
@@ -25,7 +26,6 @@ def compute_indicator(
     services: tuple[MarketDataProvider, IndicatorService] = Depends(get_services),
 ) -> IndicatorResponse:
     """Compute selected indicator and return the time series."""
-
     provider, service = services
     parse_timeframe(payload.timeframe)
     frame = provider.get_ohlcv(payload.symbol, payload.timeframe, limit=payload.limit)

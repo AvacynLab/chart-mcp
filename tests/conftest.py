@@ -18,12 +18,12 @@ sys.path.insert(0, str(SRC))
 
 os.environ.setdefault("API_TOKEN", "testingtoken")
 
-from chart_mcp.app import create_app
-from chart_mcp.services.analysis_llm import AnalysisLLMService
-from chart_mcp.services.data_providers.base import MarketDataProvider
-from chart_mcp.services.indicators import IndicatorService
-from chart_mcp.services.levels import LevelsService
-from chart_mcp.services.patterns import PatternsService
+from chart_mcp.app import create_app  # noqa: E402
+from chart_mcp.services.analysis_llm import AnalysisLLMService  # noqa: E402
+from chart_mcp.services.data_providers.base import MarketDataProvider  # noqa: E402
+from chart_mcp.services.indicators import IndicatorService  # noqa: E402
+from chart_mcp.services.levels import LevelsService  # noqa: E402
+from chart_mcp.services.patterns import PatternsService  # noqa: E402
 
 
 class FakeProvider(MarketDataProvider):
@@ -42,6 +42,7 @@ class FakeProvider(MarketDataProvider):
         start: int | None = None,
         end: int | None = None,
     ) -> pd.DataFrame:
+        """Return a copy of the synthetic OHLCV frame sliced by limit and range."""
         frame = self.frame.copy().head(limit)
         if start:
             frame = frame[frame["ts"] >= start]

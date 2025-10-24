@@ -16,6 +16,7 @@ router = APIRouter(prefix="/api/v1/patterns", tags=["patterns"], dependencies=[D
 
 
 def get_services(request: Request) -> tuple[MarketDataProvider, PatternsService]:
+    """Return provider and patterns service from the application state."""
     return request.app.state.provider, request.app.state.patterns_service
 
 
@@ -27,7 +28,6 @@ def list_patterns(
     services: tuple[MarketDataProvider, PatternsService] = Depends(get_services),
 ) -> PatternsResponse:
     """Detect chart patterns for the provided symbol/timeframe."""
-
     provider, service = services
     parse_timeframe(timeframe)
     frame = provider.get_ohlcv(symbol, timeframe, limit=limit)

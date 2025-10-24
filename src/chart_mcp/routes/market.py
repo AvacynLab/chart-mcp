@@ -39,11 +39,11 @@ def get_ohlcv(
     rows: List[OhlcvRow] = [
         OhlcvRow(
             ts=int(row.ts),
-            o=float(row.o),
-            h=float(row.h),
-            l=float(row.l),
-            c=float(row.c),
-            v=float(row.v),
+            open=float(row.o),
+            high=float(row.h),
+            low=float(row.l),
+            close=float(row.c),
+            volume=float(row.v),
         )
         for row in frame.itertuples(index=False)
     ]

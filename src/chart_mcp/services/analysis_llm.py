@@ -22,7 +22,6 @@ class AnalysisLLMService:
         patterns: Iterable[PatternResult],
     ) -> str:
         """Create a deterministic summary string."""
-
         parts: List[str] = []
         parts.append(
             f"Analyse de {symbol.upper()} sur l'horizon {timeframe}. Les observations suivantes ressortent :"

@@ -4,8 +4,13 @@ from __future__ import annotations
 
 import pytest
 
-from chart_mcp.utils.timeframes import SUPPORTED_TIMEFRAMES, ccxt_timeframe, parse_timeframe, to_timedelta
 from chart_mcp.utils.errors import BadRequest
+from chart_mcp.utils.timeframes import (
+    SUPPORTED_TIMEFRAMES,
+    ccxt_timeframe,
+    parse_timeframe,
+    to_timedelta,
+)
 
 
 def test_parse_timeframe_valid():

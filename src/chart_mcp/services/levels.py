@@ -20,10 +20,12 @@ class LevelCandidate:
 
     @property
     def strength(self) -> float:
+        """Return normalized strength score based on the number of touches."""
         return min(1.0, len(self.timestamps) / 10)
 
     @property
     def ts_range(self) -> Tuple[int, int]:
+        """Return the minimum and maximum timestamp covered by the level."""
         return min(self.timestamps), max(self.timestamps)
 
 
@@ -32,7 +34,6 @@ class LevelsService:
 
     def detect_levels(self, frame: pd.DataFrame) -> List[LevelCandidate]:
         """Return aggregated support and resistance levels."""
-
         if frame.empty:
             return []
         closes = frame["c"].to_numpy()

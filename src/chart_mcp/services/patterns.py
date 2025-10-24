@@ -25,6 +25,7 @@ class PatternsService:
     """Service identifying double tops/bottoms, triangles and channels."""
 
     def detect(self, frame: pd.DataFrame) -> List[PatternResult]:
+        """Detect chart patterns on the provided OHLCV frame."""
         if len(frame) < 10:
             return []
         closes = frame["c"].to_numpy()
@@ -46,8 +47,10 @@ class PatternsService:
 
     def _detect_double_extrema(self, closes: np.ndarray, timestamps: np.ndarray) -> List[PatternResult]:
         results: List[PatternResult] = []
-        peaks = self._local_extrema(closes, lambda l, c, r: c >= l and c >= r)
-        troughs = self._local_extrema(closes, lambda l, c, r: c <= l and c <= r)
+        peaks = self._local_extrema(closes, lambda left, center, right: center >= left and center >= right)
+        troughs = self._local_extrema(
+            closes, lambda left, center, right: center <= left and center <= right
+        )
         # Double top
         if len(peaks) >= 2:
             best = sorted(peaks, key=lambda idx: closes[idx], reverse=True)[:2]

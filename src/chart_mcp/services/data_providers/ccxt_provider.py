@@ -35,7 +35,6 @@ class CcxtDataProvider(MarketDataProvider):
         end: Optional[int] = None,
     ) -> pd.DataFrame:
         """Return OHLCV data as DataFrame with UTC timestamps."""
-
         params = {}
         since = start * 1000 if start else None
         timeframe_value = ccxt_timeframe(timeframe)

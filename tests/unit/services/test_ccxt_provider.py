@@ -6,12 +6,16 @@ import pandas as pd
 import pytest
 
 from chart_mcp.services.data_providers.ccxt_provider import CcxtDataProvider
+from chart_mcp.utils.errors import UpstreamError
 
 
 class DummyClient:
+    """Minimal CCXT-like client returning deterministic candles."""
+
     id = "dummy"
 
-    def fetch_ohlcv(self, symbol, timeframe, since=None, limit=None, params=None):  # noqa: D401
+    def fetch_ohlcv(self, symbol, timeframe, since=None, limit=None, params=None):
+        """Return two synthetic OHLCV rows for testing normalization."""
         return [
             [1000, 1.0, 2.0, 0.5, 1.5, 100],
             [2000, 1.6, 2.1, 1.2, 1.9, 110],
@@ -34,5 +38,5 @@ def test_ccxt_provider_empty(monkeypatch):
 
     provider = CcxtDataProvider("binance")
     provider.client = EmptyClient()
-    with pytest.raises(Exception):
+    with pytest.raises(UpstreamError):
         provider.get_ohlcv("BTC/USDT", "1h", limit=2)

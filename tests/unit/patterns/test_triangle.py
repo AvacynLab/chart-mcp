@@ -10,7 +10,7 @@ from chart_mcp.services.patterns import PatternsService
 def test_triangle_detection():
     highs = [20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 9]
     lows = [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
-    closes = [(h + l) / 2 for h, l in zip(highs, lows)]
+    closes = [(high + low) / 2 for high, low in zip(highs, lows, strict=True)]
     frame = pd.DataFrame(
         {
             "ts": list(range(len(closes))),

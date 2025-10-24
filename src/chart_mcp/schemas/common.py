@@ -17,6 +17,7 @@ class Symbol(BaseModel):
 
     @validator("value")
     def uppercase(cls, value: str) -> str:
+        """Return the symbol uppercased to enforce canonical form."""
         return value.upper()
 
 
@@ -27,6 +28,7 @@ class Timeframe(BaseModel):
 
     @validator("value")
     def validate_supported(cls, value: str) -> str:
+        """Ensure the timeframe belongs to the supported set."""
         if value not in SUPPORTED_TIMEFRAMES:
             raise ValueError("unsupported timeframe")
         return value
@@ -40,6 +42,7 @@ class DatetimeRange(BaseModel):
 
     @validator("end")
     def validate_order(cls, end: Optional[datetime], values):
+        """Validate that the end timestamp is greater than the start."""
         start = values.get("start")
         if start and end and end <= start:
             raise ValueError("end must be greater than start")
