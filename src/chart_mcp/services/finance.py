@@ -4,7 +4,18 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Dict, Iterable, List, Literal, Mapping, Optional, Sequence, SupportsInt, cast
+from typing import (
+    TYPE_CHECKING,
+    Dict,
+    Iterable,
+    List,
+    Literal,
+    Mapping,
+    Optional,
+    Sequence,
+    SupportsInt,
+    cast,
+)
 
 import pandas as pd
 

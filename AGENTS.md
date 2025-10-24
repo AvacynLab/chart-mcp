@@ -315,3 +315,4 @@ Historique récent:
 - 2025-10-24T18:30:00Z : Ajout du harnais Playwright finance, interceptions complètes `/api/v1/finance/*`, nouvelles specs e2e (interactions chart/backtest/fundamentaux/news, a11y) et optimisation du setup d’authentification pour réutiliser le storage state.
 - 2025-10-24T19:15:00Z : Seed initial du chat `/chat` avec les artefacts finance démo, partage des fixtures via `lib/demo/finance.ts`, ajout de la spec Playwright `chat-finance.spec.ts` et vérification Vitest/Pytest (+ tentative Playwright bloquée faute de navigateurs installés).
 - 2025-10-24T19:45:00Z : Passage de `ruff check . --fix`, correction manuelle des docstrings/imports restants et validation finale `ruff check .` pour garantir une base sans avertissements D/SIM/E.
+- 2025-10-24T20:25:00Z : Tri manuel des imports dans `src/chart_mcp/services/finance.py` pour satisfaire Ruff, exécution de `ruff check .` et `pytest` afin de confirmer que la base reste propre.
