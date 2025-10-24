@@ -7,7 +7,7 @@ from typing import Dict, List, Tuple
 
 import numpy as np
 import pandas as pd
-from scipy.signal import find_peaks
+from scipy.signal import find_peaks  # type: ignore[import-untyped]
 
 
 @dataclass
@@ -36,7 +36,7 @@ class LevelsService:
         """Return aggregated support and resistance levels."""
         if frame.empty:
             return []
-        closes = frame["c"].to_numpy()
+        closes = frame["c"].astype(float).to_numpy(copy=False)
         timestamps = frame["ts"].astype(int).to_list()
         # Determine peak distance heuristically to avoid noise.
         min_distance = max(2, len(frame) // 20)

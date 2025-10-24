@@ -48,7 +48,9 @@ plugins = []
 namespace_packages = true
 mypy_path = ["src"]
 
-[tool.mypy."src.chart_mcp.*"]
+
+[[tool.mypy.overrides]]
+module = ["chart_mcp.*"]
 strict = true
 
 [tool.pytest.ini_options]

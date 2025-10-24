@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional
+from typing import Any, Dict, Optional
 
 from pydantic import BaseModel, Field, validator
 
@@ -41,7 +41,7 @@ class DatetimeRange(BaseModel):
     end: Optional[datetime] = None
 
     @validator("end")
-    def validate_order(cls, end: Optional[datetime], values):
+    def validate_order(cls, end: Optional[datetime], values: Dict[str, Any]) -> Optional[datetime]:
         """Validate that the end timestamp is greater than the start."""
         start = values.get("start")
         if start and end and end <= start:
@@ -54,7 +54,7 @@ class ApiError(BaseModel):
 
     code: str
     message: str
-    details: dict = Field(default_factory=dict)
+    details: Dict[str, Any] = Field(default_factory=dict)
     trace_id: str
 
 

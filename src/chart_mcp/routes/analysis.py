@@ -72,7 +72,7 @@ def summary(
         if cleaned.empty:
             continue
         latest_row = cleaned.iloc[-1]
-        latest_values = {k: float(v) for k, v in latest_row.items()}
+        latest_values = {str(k): float(v) for k, v in latest_row.items()}
         indicator_snapshots.append(IndicatorSnapshot(name=spec.name, latest=latest_values))
         first_value = next(iter(latest_values.values()), 0.0)
         indicator_highlights[spec.name] = float(first_value)

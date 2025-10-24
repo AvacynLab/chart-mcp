@@ -18,23 +18,26 @@ def _validate_min_length(frame: pd.DataFrame, window: int) -> None:
 def simple_moving_average(frame: pd.DataFrame, window: int) -> pd.Series:
     """Return simple moving average over the closing price."""
     _validate_min_length(frame, window)
-    return frame["c"].rolling(window=window, min_periods=window).mean()
+    close_series = frame["c"].astype(float)
+    return close_series.rolling(window=window, min_periods=window).mean()
 
 
 def exponential_moving_average(frame: pd.DataFrame, window: int) -> pd.Series:
     """Return exponential moving average using pandas ewm."""
     _validate_min_length(frame, window)
-    return frame["c"].ewm(span=window, adjust=False).mean()
+    close_series = frame["c"].astype(float)
+    return close_series.ewm(span=window, adjust=False).mean()
 
 
 def relative_strength_index(frame: pd.DataFrame, window: int) -> pd.Series:
     """Compute RSI following the classic Wilder smoothing."""
     _validate_min_length(frame, window)
-    delta = frame["c"].diff()
-    gain = np.where(delta > 0, delta, 0.0)
-    loss = np.where(delta < 0, -delta, 0.0)
-    gain_series = pd.Series(gain, index=frame.index)
-    loss_series = pd.Series(loss, index=frame.index)
+    close_series = frame["c"].astype(float)
+    delta = close_series.diff().to_numpy()
+    gain = np.where(delta > 0, delta, 0.0).astype(float)
+    loss = np.where(delta < 0, -delta, 0.0).astype(float)
+    gain_series = pd.Series(gain, index=frame.index, dtype=float)
+    loss_series = pd.Series(loss, index=frame.index, dtype=float)
     avg_gain = gain_series.ewm(alpha=1 / window, adjust=False).mean()
     avg_loss = loss_series.ewm(alpha=1 / window, adjust=False).mean()
     rs = avg_gain / avg_loss.replace({0.0: np.nan})
@@ -57,7 +60,8 @@ def bollinger_bands(frame: pd.DataFrame, window: int = 20, stddev: float = 2.0) 
     """Compute Bollinger Bands around the simple moving average."""
     _validate_min_length(frame, window)
     sma = simple_moving_average(frame, window)
-    std = frame["c"].rolling(window=window, min_periods=window).std()
+    close_series = frame["c"].astype(float)
+    std = close_series.rolling(window=window, min_periods=window).std()
     upper = sma + stddev * std
     lower = sma - stddev * std
     return pd.DataFrame({"middle": sma, "upper": upper, "lower": lower})

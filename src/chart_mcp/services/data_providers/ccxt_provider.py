@@ -1,17 +1,32 @@
-"""CCXT data provider implementation."""
-
+"""CCXT-backed implementation of the market data provider."""
 from __future__ import annotations
 
 import time
-from typing import Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional, Protocol
 
-import ccxt
+import ccxt  # type: ignore[import-untyped]
 import pandas as pd
 
 from chart_mcp.config import settings
 from chart_mcp.services.data_providers.base import MarketDataProvider
 from chart_mcp.utils.errors import UpstreamError
 from chart_mcp.utils.timeframes import ccxt_timeframe
+
+if TYPE_CHECKING:
+    class _ExchangeLike(Protocol):
+        """Structural type describing the ccxt client used at runtime."""
+
+        id: str
+
+        def fetch_ohlcv(
+            self,
+            symbol: str,
+            timeframe: str,
+            since: Optional[int] = None,
+            limit: Optional[int] = None,
+            params: Optional[Dict[str, Any]] = None,
+        ) -> list[list[float | int]]:
+            ...
 
 
 class CcxtDataProvider(MarketDataProvider):
@@ -23,7 +38,7 @@ class CcxtDataProvider(MarketDataProvider):
             exchange_class = getattr(ccxt, exchange_name)
         except AttributeError as exc:
             raise UpstreamError(f"Unknown exchange '{exchange_name}'") from exc
-        self.client = exchange_class({"enableRateLimit": True})
+        self.client: "_ExchangeLike" = exchange_class({"enableRateLimit": True})
 
     def get_ohlcv(
         self,
@@ -35,7 +50,7 @@ class CcxtDataProvider(MarketDataProvider):
         end: Optional[int] = None,
     ) -> pd.DataFrame:
         """Return OHLCV data as DataFrame with UTC timestamps."""
-        params = {}
+        params: Dict[str, Any] = {}
         since = start * 1000 if start else None
         timeframe_value = ccxt_timeframe(timeframe)
         attempts = 0

@@ -31,9 +31,14 @@ def compute_indicator(
     frame = provider.get_ohlcv(payload.symbol, payload.timeframe, limit=payload.limit)
     data = service.compute(frame, payload.indicator, payload.params)
     cleaned = data.dropna()
+    ts_values = frame.loc[cleaned.index, "ts"].astype(int).tolist()
+    records = cleaned.to_dict(orient="records")
     series = [
-        IndicatorValue(ts=int(frame.iloc[idx]["ts"]), values={k: float(v) for k, v in row.items()})
-        for idx, row in cleaned.iterrows()
+        IndicatorValue(
+            ts=int(ts_value),
+            values={str(k): float(v) for k, v in record.items()},
+        )
+        for ts_value, record in zip(ts_values, records, strict=True)
     ]
     meta: Dict[str, float | str] = {
         "indicator": payload.indicator,

@@ -7,6 +7,7 @@ numpy
 ccxt
 ta
 scipy
+pandas-stubs
 httpx
 python-dotenv
 orjson

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Annotated, List, cast
+from typing import Annotated, List, SupportsFloat, SupportsInt, cast
 
 from fastapi import APIRouter, Depends, Query, Request
 
@@ -36,17 +36,19 @@ def get_ohlcv(
     if start and end and end <= start:
         raise BadRequest("Parameter 'end' must be greater than 'start'")
     frame = provider.get_ohlcv(symbol, timeframe, limit=limit, start=start, end=end)
-    rows: List[OhlcvRow] = [
-        OhlcvRow(
-            ts=int(row.ts),
-            open=float(row.o),
-            high=float(row.h),
-            low=float(row.l),
-            close=float(row.c),
-            volume=float(row.v),
+    rows: List[OhlcvRow] = []
+    for ts, open_, high, low, close, volume in frame.itertuples(index=False, name=None):
+        rows.append(
+            OhlcvRow(
+                ts=int(cast(SupportsInt, ts)),
+                # Populate fields via their short aliases so the Pydantic signature aligns with NDJSON contract.
+                o=float(cast(SupportsFloat, open_)),
+                h=float(cast(SupportsFloat, high)),
+                l=float(cast(SupportsFloat, low)),
+                c=float(cast(SupportsFloat, close)),
+                v=float(cast(SupportsFloat, volume)),
+            )
         )
-        for row in frame.itertuples(index=False)
-    ]
     return MarketDataResponse(
         symbol=symbol,
         timeframe=timeframe,
