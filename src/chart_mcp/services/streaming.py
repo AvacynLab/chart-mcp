@@ -8,11 +8,20 @@ from typing import AsyncIterator, Dict, Iterable, List, Mapping, SupportsFloat, 
 from loguru import logger
 
 from chart_mcp.schemas.streaming import (
+    DoneDetails,
     DoneStreamPayload,
+    ErrorDetails,
     ErrorStreamPayload,
+    LevelDetail,
+    LevelPreview,
+    PatternDetail,
+    ResultFinalDetails,
     ResultFinalStreamPayload,
+    ResultPartialDetails,
     ResultPartialStreamPayload,
+    TokenPayload,
     TokenStreamPayload,
+    ToolEventDetails,
     ToolStreamPayload,
 )
 from chart_mcp.services.analysis_llm import AnalysisLLMService
@@ -78,12 +87,12 @@ class StreamingService:
                     "tool_start",
                     ToolStreamPayload(
                         type="tool",
-                        payload={
-                            "tool": "get_crypto_data",
-                            "symbol": symbol,
-                            "timeframe": timeframe,
-                        },
-                    ).dict(),
+                        payload=ToolEventDetails(
+                            tool="get_crypto_data",
+                            symbol=symbol,
+                            timeframe=timeframe,
+                        ),
+                    ).model_dump(),
                 )
                 frame = await asyncio.to_thread(
                     self.provider.get_ohlcv, symbol, timeframe, limit=limit
@@ -92,11 +101,11 @@ class StreamingService:
                     "tool_end",
                     ToolStreamPayload(
                         type="tool",
-                        payload={
-                            "tool": "get_crypto_data",
-                            "rows": len(frame),
-                        },
-                    ).dict(),
+                        payload=ToolEventDetails(
+                            tool="get_crypto_data",
+                            rows=len(frame),
+                        ),
+                    ).model_dump(),
                 )
 
                 indicator_values: Dict[str, Dict[str, float]] = {}
@@ -123,12 +132,12 @@ class StreamingService:
                         "tool_end",
                         ToolStreamPayload(
                             type="tool",
-                            payload={
-                                "tool": "compute_indicator",
-                                "name": name,
-                                "latest": indicator_values[name],
-                            },
-                        ).dict(),
+                            payload=ToolEventDetails(
+                                tool="compute_indicator",
+                                name=name,
+                                latest=indicator_values[name],
+                            ),
+                        ).model_dump(),
                     )
 
                 levels: List[LevelCandidate] = await asyncio.to_thread(
@@ -141,18 +150,18 @@ class StreamingService:
                     "result_partial",
                     ResultPartialStreamPayload(
                         type="result_partial",
-                        payload={
-                            "indicators": indicator_values,
-                            "levels": [
-                                {
-                                    "price": lvl.price,
-                                    "kind": lvl.kind,
-                                    "strength": lvl.strength,
-                                }
+                        payload=ResultPartialDetails(
+                            indicators=indicator_values,
+                            levels=[
+                                LevelPreview(
+                                    price=float(lvl.price),
+                                    kind=lvl.kind,
+                                    strength=float(lvl.strength),
+                                )
                                 for lvl in levels[:3]
                             ],
-                        },
-                    ).dict(),
+                        ),
+                    ).model_dump(),
                 )
 
                 summary = await asyncio.to_thread(
@@ -175,43 +184,43 @@ class StreamingService:
                             "token",
                             TokenStreamPayload(
                                 type="token",
-                                payload={"text": text + "."},
-                            ).dict(),
+                                payload=TokenPayload(text=f"{text}."),
+                            ).model_dump(),
                         )
                 await streamer.publish(
                     "result_final",
                     ResultFinalStreamPayload(
                         type="result_final",
-                        payload={
-                            "summary": summary,
-                            "levels": [
-                                {
-                                    "price": lvl.price,
-                                    "kind": lvl.kind,
-                                    "strength": lvl.strength,
-                                    "ts_range": lvl.ts_range,
-                                }
+                        payload=ResultFinalDetails(
+                            summary=summary,
+                            levels=[
+                                LevelDetail(
+                                    price=float(lvl.price),
+                                    kind=lvl.kind,
+                                    strength=float(lvl.strength),
+                                    ts_range=(int(lvl.ts_range[0]), int(lvl.ts_range[1])),
+                                )
                                 for lvl in levels
                             ],
-                            "patterns": [
-                                {
-                                    "name": p.name,
-                                    "score": p.score,
-                                    "confidence": p.confidence,
-                                    "start_ts": p.start_ts,
-                                    "end_ts": p.end_ts,
-                                }
+                            patterns=[
+                                PatternDetail(
+                                    name=p.name,
+                                    score=float(p.score),
+                                    confidence=float(p.confidence),
+                                    start_ts=int(p.start_ts),
+                                    end_ts=int(p.end_ts),
+                                )
                                 for p in patterns
                             ],
-                        },
-                    ).dict(),
+                        ),
+                    ).model_dump(),
                 )
                 await streamer.publish(
                     "done",
                     DoneStreamPayload(
                         type="done",
-                        payload={"status": "success"},
-                    ).dict(),
+                        payload=DoneDetails(status="success"),
+                    ).model_dump(),
                 )
             except ApiError as exc:
                 # Surface domain validation issues to the client without terminating the stream abruptly.
@@ -224,15 +233,15 @@ class StreamingService:
                     "error",
                     ErrorStreamPayload(
                         type="error",
-                        payload={"code": exc.code, "message": exc.message},
-                    ).dict(),
+                        payload=ErrorDetails(code=exc.code, message=exc.message),
+                    ).model_dump(),
                 )
                 await streamer.publish(
                     "done",
                     DoneStreamPayload(
                         type="done",
-                        payload={"status": "error", "code": exc.code},
-                    ).dict(),
+                        payload=DoneDetails(status="error", code=exc.code),
+                    ).model_dump(),
                 )
             except Exception:
                 # Log unexpected crashes with a traceback while emitting a generic error message.
@@ -241,18 +250,18 @@ class StreamingService:
                     "error",
                     ErrorStreamPayload(
                         type="error",
-                        payload={
-                            "code": "internal_error",
-                            "message": "Streaming pipeline failed",
-                        },
-                    ).dict(),
+                        payload=ErrorDetails(
+                            code="internal_error",
+                            message="Streaming pipeline failed",
+                        ),
+                    ).model_dump(),
                 )
                 await streamer.publish(
                     "done",
                     DoneStreamPayload(
                         type="done",
-                        payload={"status": "error", "code": "internal_error"},
-                    ).dict(),
+                        payload=DoneDetails(status="error", code="internal_error"),
+                    ).model_dump(),
                 )
             finally:
                 await streamer.stop()

@@ -5,11 +5,13 @@ from __future__ import annotations
 import time
 from collections import defaultdict, deque
 from threading import Lock
-from typing import Callable, DefaultDict, Deque
+from typing import Awaitable, Callable, DefaultDict, Deque
 
 from fastapi import Request
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import Response
+from starlette.types import ASGIApp
 
 from chart_mcp.utils.errors import TooManyRequests
 
@@ -59,7 +61,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
     def __init__(
         self,
-        app,
+        app: ASGIApp,
         limiter: RateLimiter,
         *,
         key_func: KeyFunc | None = None,
@@ -74,7 +76,11 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         client = request.client
         return client.host if client else "global"
 
-    async def dispatch(self, request: Request, call_next):  # type: ignore[override]
+    async def dispatch(
+        self,
+        request: Request,
+        call_next: Callable[[Request], Awaitable[Response]],
+    ) -> Response:
         """Gate each request through the configured limiter."""
         key = self._key_func(request)
         try:

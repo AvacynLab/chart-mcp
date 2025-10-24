@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Dict, Iterable, List, Literal, Optional, Sequence
+from typing import TYPE_CHECKING, Dict, Iterable, List, Literal, Mapping, Optional, Sequence, SupportsInt, cast
 
 import pandas as pd
 
@@ -143,7 +143,7 @@ class FinanceDataService:
         *,
         quotes: Dict[str, QuoteSnapshot] | None = None,
         fundamentals: Dict[str, FundamentalsSnapshot] | None = None,
-        news: Dict[str, Sequence[NewsArticle]] | None = None,
+        news: Mapping[str, Sequence[NewsArticle]] | None = None,
         screened_assets: Sequence[ScreenedAsset] | None = None,
     ) -> None:
         """Store lookup tables used to serve deterministic responses."""
@@ -346,7 +346,7 @@ class FinanceDataService:
 
                 points = tuple(
                     OverlayPointSnapshot(
-                        ts=int(ts),
+                        ts=int(cast(SupportsInt, ts)),
                         value=None if pd.isna(value) else float(value),
                     )
                     for ts, value in series.items()

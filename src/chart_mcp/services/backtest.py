@@ -220,7 +220,7 @@ class BacktestEngine:
         """Compute the maximum drawdown from the equity curve."""
         if not equity_curve:
             return 0.0
-        peaks = []
+        peaks: list[float] = []
         max_drawdown = 0.0
         for _, equity in equity_curve:
             peaks.append(equity if not peaks else max(peaks[-1], equity))

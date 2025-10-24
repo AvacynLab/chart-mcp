@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Optional, cast
 
 from fastapi import HTTPException, Request
 from fastapi.exceptions import RequestValidationError
@@ -116,9 +116,15 @@ def unexpected_exception_handler(_: Request, exc: Exception) -> JSONResponse:
 def request_validation_exception_handler(_: Request, exc: Exception) -> JSONResponse:
     """Return a consistent payload for FastAPI validation errors."""
     assert isinstance(exc, RequestValidationError)
+    raw_errors = exc.errors()
+    formatted_errors = [
+        {str(key): cast(object, value) for key, value in error.items()}
+        for error in raw_errors
+    ]
+    details: list[object] = [cast(object, error) for error in formatted_errors]
     payload: JSONDict = {
         "error": {"code": "validation_error", "message": "Request validation failed"},
-        "details": exc.errors(),
+        "details": details,
         "trace_id": get_trace_id(),
     }
     return JSONResponse(status_code=422, content=payload)

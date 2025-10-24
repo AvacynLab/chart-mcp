@@ -8,7 +8,13 @@ from typing import Annotated, cast
 from fastapi import APIRouter, Depends, Query, Request
 
 from chart_mcp.routes.auth import require_regular_user, require_token
-from chart_mcp.schemas.backtest import BacktestRequest, BacktestResponse, MetricsModel, TradeModel
+from chart_mcp.schemas.backtest import (
+    BacktestRequest,
+    BacktestResponse,
+    EquityPoint,
+    MetricsModel,
+    TradeModel,
+)
 from chart_mcp.schemas.finance import (
     ChartArtifactQuery,
     ChartArtifactResponse,
@@ -166,7 +172,7 @@ def _serialize_backtest(symbol: str, timeframe: str, result: BacktestResult) -> 
         for trade in result.trades
     ]
     equity_curve = [
-        {"ts": ts, "equity": equity}
+        EquityPoint(ts=ts, equity=equity)
         for ts, equity in result.equity_curve
     ]
     return BacktestResponse(
