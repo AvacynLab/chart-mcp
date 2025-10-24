@@ -24,7 +24,7 @@ from chart_mcp.app import create_app  # noqa: E402
 from chart_mcp.services.analysis_llm import AnalysisLLMService  # noqa: E402
 from chart_mcp.services.backtest import BacktestService  # noqa: E402
 from chart_mcp.services.data_providers.base import MarketDataProvider  # noqa: E402
-from chart_mcp.services.finance import (
+from chart_mcp.services.finance import (  # noqa: E402
     FinanceDataService,
     FundamentalsSnapshot,
     NewsArticle,

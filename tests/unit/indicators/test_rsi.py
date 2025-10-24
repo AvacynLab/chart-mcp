@@ -24,7 +24,6 @@ def test_indicator_service_rsi():
 
 def test_rsi_invalid_window_values():
     """RSI should guard against too-small windows and missing history."""
-
     frame = pd.DataFrame({"c": [60.0, 61.0, 62.0]})
     with pytest.raises(BadRequest):
         relative_strength_index(frame, 0)

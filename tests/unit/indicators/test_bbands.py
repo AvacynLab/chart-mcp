@@ -23,7 +23,6 @@ def test_indicator_service_bbands():
 
 def test_bollinger_invalid_params():
     """Bollinger Bands validation covers window and stddev arguments."""
-
     frame = pd.DataFrame({"c": [float(i) for i in range(1, 10)]})
     with pytest.raises(BadRequest):
         bollinger_bands(frame, window=0)

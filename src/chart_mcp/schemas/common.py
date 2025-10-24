@@ -7,8 +7,8 @@ from typing import Dict, Optional
 
 from pydantic import BaseModel, Field, validator
 
-from chart_mcp.utils.timeframes import SUPPORTED_TIMEFRAMES
 from chart_mcp.types import JSONValue
+from chart_mcp.utils.timeframes import SUPPORTED_TIMEFRAMES
 
 
 class Symbol(BaseModel):

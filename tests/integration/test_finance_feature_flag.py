@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import importlib
-
 from datetime import timezone
 
 from fastapi.testclient import TestClient
@@ -43,7 +42,6 @@ def test_finance_routes_disabled(monkeypatch) -> None:
 
 def test_finance_service_freezes_clock_in_playwright(monkeypatch) -> None:
     """Playwright mode should wire deterministic timestamps into finance data."""
-
     monkeypatch.setenv("API_TOKEN", "testingtoken")
     monkeypatch.setenv("FEATURE_FINANCE", "true")
     monkeypatch.setenv("PLAYWRIGHT", "true")
@@ -62,7 +60,6 @@ def test_finance_service_freezes_clock_in_playwright(monkeypatch) -> None:
 
 def test_finance_service_uses_realtime_clock_when_not_playwright(monkeypatch) -> None:
     """Disabling Playwright mode should fall back to the actual wall clock."""
-
     monkeypatch.setenv("API_TOKEN", "testingtoken")
     monkeypatch.setenv("FEATURE_FINANCE", "true")
     monkeypatch.setenv("PLAYWRIGHT", "false")

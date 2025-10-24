@@ -11,7 +11,6 @@ from chart_mcp.utils.data_adapter import normalize_ohlcv_frame
 
 def test_normalize_ohlcv_frame_success():
     """The adapter should convert well-formed rows into ``OhlcvRow`` entries."""
-
     frame = pd.DataFrame(
         {
             "ts": [1, 2],
@@ -32,7 +31,6 @@ def test_normalize_ohlcv_frame_success():
 
 def test_normalize_ohlcv_frame_skips_invalid_rows():
     """Rows containing ``NaN`` or non numeric values must be skipped."""
-
     frame = pd.DataFrame(
         {
             "ts": [1, 2, None],
@@ -52,7 +50,6 @@ def test_normalize_ohlcv_frame_skips_invalid_rows():
 
 def test_normalize_ohlcv_frame_missing_columns():
     """If the provider payload lacks the expected columns, nothing is returned."""
-
     frame = pd.DataFrame({"timestamp": [1, 2], "open": [1, 2]})
 
     rows = normalize_ohlcv_frame(frame)

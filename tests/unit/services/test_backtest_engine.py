@@ -11,8 +11,7 @@ from chart_mcp.services.backtest import BacktestEngine, SmaCrossStrategy
 
 
 def _build_frame(prices: list[float], start: datetime | None = None) -> pd.DataFrame:
-    """Helper building a synthetic OHLCV frame from closing prices."""
-
+    """Build a synthetic OHLCV frame from closing prices."""
     start_ts = start or datetime(2024, 1, 1)
     timestamps = [int((start_ts + timedelta(hours=i)).timestamp()) for i in range(len(prices))]
     frame = pd.DataFrame(
@@ -30,7 +29,6 @@ def _build_frame(prices: list[float], start: datetime | None = None) -> pd.DataF
 
 def test_engine_returns_zero_metrics_when_no_trades() -> None:
     """A flat market should result in zero trades and neutral metrics."""
-
     engine = BacktestEngine()
     frame = _build_frame([100.0] * 200)
     strategy = SmaCrossStrategy(fast_window=5, slow_window=20)
@@ -44,7 +42,6 @@ def test_engine_returns_zero_metrics_when_no_trades() -> None:
 
 def test_engine_handles_high_fees_without_numerical_errors() -> None:
     """Large fees/slippage should degrade returns without causing NaNs."""
-
     engine = BacktestEngine()
     prices = [100 + i for i in range(100)]
     frame = _build_frame(prices)
@@ -59,7 +56,6 @@ def test_engine_handles_high_fees_without_numerical_errors() -> None:
 
 def test_engine_generates_trades_and_equity_curve() -> None:
     """The engine should emit trades and a monotonic equity curve on rising prices."""
-
     engine = BacktestEngine()
     prices = [100 + np.sin(i / 2) * 2 + i * 0.5 for i in range(120)]
     frame = _build_frame([float(p) for p in prices])

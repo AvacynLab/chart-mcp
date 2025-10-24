@@ -7,7 +7,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from chart_mcp.schemas.market import OhlcvRow, OhlcvQuery
+from chart_mcp.schemas.market import OhlcvQuery, OhlcvRow
 
 
 class QuoteQuery(BaseModel):
@@ -21,7 +21,6 @@ class QuoteQuery(BaseModel):
     @classmethod
     def uppercase_symbol(cls, value: str) -> str:
         """Normalize the ticker to uppercase for cache stability."""
-
         return value.upper()
 
 
@@ -47,6 +46,7 @@ class FundamentalsQuery(BaseModel):
     @field_validator("symbol")
     @classmethod
     def uppercase_symbol(cls, value: str) -> str:
+        """Return *value* uppercased so fundamentals lookups stay consistent."""
         return value.upper()
 
 
@@ -81,6 +81,7 @@ class NewsQuery(BaseModel):
     @field_validator("symbol")
     @classmethod
     def uppercase_symbol(cls, value: str) -> str:
+        """Return *value* uppercased to match the stored news snapshots."""
         return value.upper()
 
 

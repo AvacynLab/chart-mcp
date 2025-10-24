@@ -31,7 +31,6 @@ _DEFAULT_ASSETS: tuple[SeedData, ...] = (
 
 def _seed_assets(connection: sqlite3.Connection, assets: Iterable[SeedData]) -> None:
     """Insert assets using ``INSERT OR IGNORE`` to remain idempotent."""
-
     cursor = connection.cursor()
     for asset in assets:
         cursor.execute(
@@ -45,7 +44,6 @@ def _seed_assets(connection: sqlite3.Connection, assets: Iterable[SeedData]) -> 
 
 def _seed_backtest_strategy(connection: sqlite3.Connection) -> None:
     """Create a canonical SMA crossover strategy for integration tests."""
-
     cursor = connection.cursor()
     cursor.execute(
         """
@@ -63,7 +61,6 @@ def _seed_backtest_strategy(connection: sqlite3.Connection) -> None:
 
 def _seed_backtest_runs(connection: sqlite3.Connection) -> None:
     """Populate a deterministic backtest run aligned with fixtures used in tests."""
-
     cursor = connection.cursor()
     cursor.execute(
         "SELECT id FROM assets WHERE symbol=? AND exchange=?",
@@ -104,7 +101,6 @@ def _seed_backtest_runs(connection: sqlite3.Connection) -> None:
 
 def run_seed(database_path: Path | None = None, *, assets: Iterable[SeedData] | None = None) -> Path:
     """Populate the database with deterministic data and return the path."""
-
     path = run_migrations(database_path)
     with closing(sqlite3.connect(path)) as connection:
         asset_payload = list(_DEFAULT_ASSETS)

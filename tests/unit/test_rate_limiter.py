@@ -17,9 +17,11 @@ class Clock:
         self._history: List[float] = [0.0]
 
     def advance(self, seconds: float) -> None:
+        """Advance the synthetic clock by ``seconds`` to simulate time passing."""
         self._history.append(self._history[-1] + seconds)
 
     def __call__(self) -> float:
+        """Return the current monotonic timestamp for the limiter under test."""
         return self._history[-1]
 
 

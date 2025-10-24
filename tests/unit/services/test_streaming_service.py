@@ -65,8 +65,7 @@ class _DummyLLM(AnalysisLLMService):
 
 
 def _build_streaming_service(error: Exception) -> StreamingService:
-    """Helper constructing a streaming service wired with deterministic doubles."""
-
+    """Construct a streaming service wired with deterministic doubles."""
     provider = _FailingProvider(error)
     indicators = IndicatorService()
     levels = _DummyLevels()
@@ -77,7 +76,6 @@ def _build_streaming_service(error: Exception) -> StreamingService:
 
 async def _collect_events(iterator: AsyncIterator[str]) -> list[str]:
     """Drain an asynchronous iterator into a list of raw SSE payloads."""
-
     events: list[str] = []
     async for chunk in iterator:
         events.append(chunk)
@@ -86,7 +84,6 @@ async def _collect_events(iterator: AsyncIterator[str]) -> list[str]:
 
 def _parse_events(raw_events: Iterable[str]) -> list[tuple[str, dict]]:
     """Extract the event name and NDJSON payload from the SSE stream."""
-
     parsed: list[tuple[str, dict]] = []
     for chunk in raw_events:
         # Heartbeat comments start with ':' and can be ignored for assertions.
@@ -102,7 +99,6 @@ def _parse_events(raw_events: Iterable[str]) -> list[tuple[str, dict]]:
 @pytest.mark.anyio
 async def test_stream_analysis_surfaces_api_errors_without_crashing() -> None:
     """Ensure domain errors result in structured `error` events followed by completion."""
-
     service = _build_streaming_service(BadRequest("Symbol must be provided"))
 
     raw = await asyncio.wait_for(
@@ -125,7 +121,6 @@ async def test_stream_analysis_surfaces_api_errors_without_crashing() -> None:
 @pytest.mark.anyio
 async def test_stream_analysis_handles_unexpected_exceptions_gracefully() -> None:
     """Unexpected exceptions should be logged and surfaced as generic internal errors."""
-
     service = _build_streaming_service(RuntimeError("network down"))
 
     raw = await asyncio.wait_for(
@@ -148,7 +143,6 @@ async def test_stream_analysis_handles_unexpected_exceptions_gracefully() -> Non
 @pytest.mark.anyio
 async def test_stream_analysis_rejects_invalid_limit() -> None:
     """The streaming service should reject unbounded ``limit`` values upfront."""
-
     service = _build_streaming_service(RuntimeError("should not reach provider"))
     iterator = service.stream_analysis("BTCUSD", "1h", [], limit=6001)
 

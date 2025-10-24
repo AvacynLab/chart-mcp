@@ -159,7 +159,6 @@ class PatternsService:
         noisy inputs do not generate spurious alerts.  Only the most recent
         candles (last twenty) are analysed to keep the computation bounded.
         """
-
         opens = frame["o"].to_numpy()
         closes = frame["c"].to_numpy()
         highs = frame.get("h", frame["c"]).to_numpy()
@@ -235,22 +234,22 @@ class PatternsService:
                 and opens[idx] <= closes[prev_idx]
                 and closes[idx] >= opens[prev_idx]
                 and body >= 1.1 * prev_body
+                and self._is_downtrend(closes, idx)
             ):
                 # Bullish engulfing pattern following a downtrend.
-                if self._is_downtrend(closes, idx):
-                    results.append(
-                        PatternResult(
-                            name="bullish_engulfing",
-                            score=0.7,
-                            start_ts=int(timestamps[prev_idx]),
-                            end_ts=int(timestamps[idx]),
-                            points=[
-                                (int(timestamps[prev_idx]), float(opens[prev_idx])),
-                                (int(timestamps[idx]), float(closes[idx])),
-                            ],
-                            confidence=0.6,
-                        )
+                results.append(
+                    PatternResult(
+                        name="bullish_engulfing",
+                        score=0.7,
+                        start_ts=int(timestamps[prev_idx]),
+                        end_ts=int(timestamps[idx]),
+                        points=[
+                            (int(timestamps[prev_idx]), float(opens[prev_idx])),
+                            (int(timestamps[idx]), float(closes[idx])),
+                        ],
+                        confidence=0.6,
                     )
+                )
 
             if (
                 closes[prev_idx] > opens[prev_idx]
@@ -258,28 +257,27 @@ class PatternsService:
                 and opens[idx] >= closes[prev_idx]
                 and closes[idx] <= opens[prev_idx]
                 and body >= 1.1 * prev_body
+                and self._is_uptrend(closes, idx)
             ):
                 # Bearish engulfing pattern following an uptrend.
-                if self._is_uptrend(closes, idx):
-                    results.append(
-                        PatternResult(
-                            name="bearish_engulfing",
-                            score=0.7,
-                            start_ts=int(timestamps[prev_idx]),
-                            end_ts=int(timestamps[idx]),
-                            points=[
-                                (int(timestamps[prev_idx]), float(opens[prev_idx])),
-                                (int(timestamps[idx]), float(closes[idx])),
-                            ],
-                            confidence=0.6,
-                        )
+                results.append(
+                    PatternResult(
+                        name="bearish_engulfing",
+                        score=0.7,
+                        start_ts=int(timestamps[prev_idx]),
+                        end_ts=int(timestamps[idx]),
+                        points=[
+                            (int(timestamps[prev_idx]), float(opens[prev_idx])),
+                            (int(timestamps[idx]), float(closes[idx])),
+                        ],
+                        confidence=0.6,
                     )
+                )
 
         return results
 
     def _is_downtrend(self, closes: np.ndarray, idx: int, lookback: int = 4) -> bool:
         """Return ``True`` when the recent closes slope downward."""
-
         end = idx
         start = max(0, end - lookback - 1)
         window = closes[start:end]
@@ -290,7 +288,6 @@ class PatternsService:
 
     def _is_uptrend(self, closes: np.ndarray, idx: int, lookback: int = 4) -> bool:
         """Return ``True`` when the recent closes slope upward."""
-
         end = idx
         start = max(0, end - lookback - 1)
         window = closes[start:end]

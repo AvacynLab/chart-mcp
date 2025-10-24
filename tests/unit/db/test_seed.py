@@ -10,7 +10,6 @@ from chart_mcp.db import SeedData, run_seed
 
 def test_seed_inserts_expected_assets(tmp_path: Path) -> None:
     """The default seed should populate the canonical asset universe exactly once."""
-
     db_path = tmp_path / "seed.sqlite3"
     run_seed(db_path)
     run_seed(db_path)
@@ -36,7 +35,6 @@ def test_seed_inserts_expected_assets(tmp_path: Path) -> None:
 
 def test_seed_accepts_custom_assets(tmp_path: Path) -> None:
     """Custom assets passed to :func:`run_seed` should be inserted alongside defaults."""
-
     db_path = tmp_path / "custom.sqlite3"
     extra_assets = [SeedData(symbol="ETHUSD", exchange="CRYPTO", name="Ethereum / USD")]
     run_seed(db_path, assets=extra_assets)

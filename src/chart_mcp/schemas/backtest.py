@@ -30,7 +30,6 @@ class SmaCrossParams(BaseModel):
     @model_validator(mode="after")
     def validate_order(self) -> "SmaCrossParams":
         """Ensure that the fast window is strictly lower than the slow window."""
-
         if self.fast_window >= self.slow_window:
             raise ValueError("fastWindow must be strictly less than slowWindow")
         return self
@@ -94,13 +93,11 @@ class BacktestRequest(BaseModel):
     @classmethod
     def uppercase_symbol(cls, value: str) -> str:
         """Normalize the ticker to uppercase to keep cache keys stable."""
-
         return value.upper()
 
     @model_validator(mode="after")
     def validate_range(self) -> "BacktestRequest":
         """Ensure the requested time range is coherent when both bounds are provided."""
-
         if self.start is not None and self.end is not None and self.end <= self.start:
             raise ValueError("end must be greater than start")
         return self

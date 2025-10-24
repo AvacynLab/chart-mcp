@@ -18,7 +18,6 @@ def _coerce_timestamp(value: object) -> int | None:
     caller can decide whether to skip the row. Keeping the coercion logic isolated
     makes the behaviour explicit for the unit tests.
     """
-
     try:
         return int(value)  # type: ignore[arg-type]
     except (TypeError, ValueError):
@@ -33,7 +32,6 @@ def _coerce_float_series(values: Sequence[object]) -> List[float] | None:
     values do not propagate to the response. Returning ``None`` instructs the
     caller to skip the row altogether.
     """
-
     converted: List[float] = []
     for raw in values:
         try:
@@ -54,7 +52,6 @@ def normalize_ohlcv_frame(frame: pd.DataFrame) -> List[OhlcvRow]:
     partial or ``NaN``-tainted data. Each row in the dataframe must follow the
     ``(ts, open, high, low, close, volume)`` convention used across the codebase.
     """
-
     rows: List[OhlcvRow] = []
     columns: Iterable[str] = frame.columns
     expected_columns = {"ts", "o", "h", "l", "c", "v"}

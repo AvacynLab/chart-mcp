@@ -73,7 +73,6 @@ _SCHEMA_STATEMENTS = (
 
 def _ensure_parent_directory(path: Path) -> None:
     """Create the parent directory for the SQLite database if missing."""
-
     path.parent.mkdir(parents=True, exist_ok=True)
 
 
@@ -85,8 +84,8 @@ def run_migrations(database_path: Path | None = None) -> Path:
     database_path:
         Optional override when tests want to operate on a temporary database. By
         default the path is resolved from :func:`chart_mcp.db.engine.get_database_path`.
-    """
 
+    """
     path = database_path or get_database_path()
     _ensure_parent_directory(path)
     with closing(sqlite3.connect(path)) as connection:

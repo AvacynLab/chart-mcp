@@ -27,7 +27,6 @@ def test_exponential_moving_average():
 
 def test_moving_average_invalid_window():
     """Window size must be positive and not exceed the available rows."""
-
     data = pd.DataFrame({"c": [1.0, 2.0, 3.0]})
     with pytest.raises(BadRequest):
         simple_moving_average(data, 0)

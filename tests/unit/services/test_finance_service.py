@@ -5,21 +5,20 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import List
 
+import pandas as pd
 import pytest
 
-import pandas as pd
-
+from chart_mcp.schemas.market import OhlcvRow
 from chart_mcp.services.finance import (
+    PLAYWRIGHT_REFERENCE_TIME,
     FinanceDataService,
     FundamentalsSnapshot,
     NewsArticle,
-    PLAYWRIGHT_REFERENCE_TIME,
+    OverlayRequest,
     QuoteSnapshot,
     ScreenedAsset,
     default_finance_service,
-    OverlayRequest,
 )
-from chart_mcp.schemas.market import OhlcvRow
 from chart_mcp.utils.errors import BadRequest, NotFound
 
 
@@ -96,7 +95,6 @@ def test_screen_rejects_invalid_limit(service: FinanceDataService) -> None:
 
 def test_default_finance_service_respects_injected_time() -> None:
     """Ensure the canned finance fixtures can operate with a frozen clock."""
-
     frozen = datetime(2025, 1, 2, 15, tzinfo=timezone.utc)
     service = default_finance_service(now=frozen)
     snapshot = service.get_quote("BTCUSD")
@@ -108,7 +106,6 @@ def test_default_finance_service_respects_injected_time() -> None:
 
 def test_default_finance_service_uses_reference_constant() -> None:
     """Playwright scenarios rely on a stable fixture timestamp for determinism."""
-
     service = default_finance_service(now=PLAYWRIGHT_REFERENCE_TIME)
     snapshot = service.get_quote("NVDA")
     assert snapshot.updated_at == PLAYWRIGHT_REFERENCE_TIME
@@ -116,7 +113,6 @@ def test_default_finance_service_uses_reference_constant() -> None:
 
 def test_build_chart_artifact_handles_empty_payload(service: FinanceDataService) -> None:
     """The chart helper should gracefully handle providers returning no rows."""
-
     summary = service.build_chart_artifact([], selected_ts=None)
     assert summary.status == "empty"
     assert summary.rows == ()
@@ -127,7 +123,6 @@ def test_build_chart_artifact_handles_empty_payload(service: FinanceDataService)
 
 def test_build_chart_artifact_derives_metrics(service: FinanceDataService) -> None:
     """Ensure derived fields are computed for the selected candle."""
-
     rows: List[OhlcvRow] = [
         OhlcvRow(ts=1, o=10.0, h=11.0, l=9.5, c=10.5, v=100.0),
         OhlcvRow(ts=2, o=10.5, h=12.0, l=10.2, c=11.5, v=150.0),
@@ -161,7 +156,6 @@ def test_build_chart_artifact_derives_metrics(service: FinanceDataService) -> No
 
 def test_build_chart_artifact_details_use_previous_close(service: FinanceDataService) -> None:
     """Every candle detail should reference the preceding close when available."""
-
     rows: List[OhlcvRow] = [
         OhlcvRow(ts=1, o=10.0, h=11.0, l=9.5, c=10.5, v=100.0),
         OhlcvRow(ts=2, o=10.5, h=12.0, l=10.2, c=11.5, v=150.0),
@@ -195,7 +189,6 @@ def test_build_chart_artifact_details_use_previous_close(service: FinanceDataSer
 
 def test_build_chart_artifact_includes_sma_overlay(service: FinanceDataService) -> None:
     """Requesting an SMA overlay should return the rolling averages per candle."""
-
     rows: List[OhlcvRow] = [
         OhlcvRow(ts=1, o=10.0, h=11.0, l=9.5, c=10.5, v=100.0),
         OhlcvRow(ts=2, o=10.5, h=12.0, l=10.2, c=11.5, v=150.0),
@@ -217,7 +210,6 @@ def test_build_chart_artifact_includes_sma_overlay(service: FinanceDataService) 
 
 def test_build_chart_artifact_includes_ema_overlay(service: FinanceDataService) -> None:
     """EMA overlays should mirror the pandas ewm computation used by the UI."""
-
     rows: List[OhlcvRow] = [
         OhlcvRow(ts=1, o=10.0, h=11.0, l=9.5, c=10.5, v=100.0),
         OhlcvRow(ts=2, o=10.5, h=12.0, l=10.2, c=11.5, v=150.0),
@@ -247,7 +239,6 @@ def test_build_chart_artifact_includes_ema_overlay(service: FinanceDataService) 
 
 def test_build_chart_artifact_overlay_validates_window(service: FinanceDataService) -> None:
     """Windows larger than the available data should bubble a :class:`BadRequest`."""
-
     rows: List[OhlcvRow] = [
         OhlcvRow(ts=1, o=10.0, h=11.0, l=9.5, c=10.5, v=100.0),
         OhlcvRow(ts=2, o=10.5, h=12.0, l=10.2, c=11.5, v=150.0),

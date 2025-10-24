@@ -68,7 +68,6 @@ class BacktestEngine:
         slippage_bps: float,
     ) -> BacktestResult:
         """Simulate the configured strategy on the provided OHLCV frame."""
-
         if frame.empty or "c" not in frame:
             return self._empty_result()
 
@@ -109,7 +108,6 @@ class BacktestEngine:
         slippage_bps: float,
     ) -> List[Trade]:
         """Convert entry/exit indices into normalized trade structures."""
-
         trades: List[Trade] = []
         exit_iter = iter(exits)
         current_exit = next(exit_iter, None)
@@ -149,7 +147,6 @@ class BacktestEngine:
     @staticmethod
     def _equity_curve(trades: Iterable[Trade]) -> list[tuple[int, float]]:
         """Compute the cumulative equity curve from sequential trades."""
-
         equity_points: list[tuple[int, float]] = []
         equity = 1.0
         for trade in trades:
@@ -160,7 +157,6 @@ class BacktestEngine:
     @staticmethod
     def _period_seconds(frame: pd.DataFrame) -> int:
         """Duration between first and last candle in seconds."""
-
         if frame.empty:
             return 0
         start_ts = int(frame.iloc[0]["ts"])
@@ -170,7 +166,6 @@ class BacktestEngine:
     @staticmethod
     def _empty_result() -> BacktestResult:
         """Return a neutral result when the simulation cannot run."""
-
         metrics = BacktestMetrics(
             total_return=0.0,
             cagr=0.0,
@@ -190,7 +185,6 @@ class BacktestEngine:
         period_seconds: int,
     ) -> BacktestMetrics:
         """Derive aggregated metrics from the executed trades."""
-
         if not trades:
             return self._empty_result().metrics
 
@@ -224,7 +218,6 @@ class BacktestEngine:
     @staticmethod
     def _max_drawdown(equity_curve: list[tuple[int, float]]) -> float:
         """Compute the maximum drawdown from the equity curve."""
-
         if not equity_curve:
             return 0.0
         peaks = []
@@ -256,7 +249,6 @@ class BacktestService:
         strategy: StrategySpec,
     ) -> BacktestResult:
         """Fetch historical candles and execute the selected backtest."""
-
         if strategy.name != "sma_cross":
             raise BadRequest("Unsupported strategy requested")
 

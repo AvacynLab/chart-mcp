@@ -5,7 +5,7 @@ from __future__ import annotations
 import time
 from collections import defaultdict, deque
 from threading import Lock
-from typing import Callable, Deque, DefaultDict
+from typing import Callable, DefaultDict, Deque
 
 from fastapi import Request
 from fastapi.responses import JSONResponse
@@ -27,7 +27,6 @@ class RateLimiter:
         clock: Clock | None = None,
     ) -> None:
         """Configure the limiter and storage buckets."""
-
         if requests_per_minute <= 0:
             raise ValueError("requests_per_minute must be positive")
         self._limit = requests_per_minute
@@ -39,7 +38,6 @@ class RateLimiter:
 
     def acquire(self, key: str) -> None:
         """Record a call for *key* and raise if the quota would be exceeded."""
-
         if self._bypass:
             return
         now = self._clock()
@@ -73,13 +71,11 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     @staticmethod
     def _client_host_key(request: Request) -> str:
         """Map a request to a stable key derived from its client address."""
-
         client = request.client
         return client.host if client else "global"
 
     async def dispatch(self, request: Request, call_next):  # type: ignore[override]
         """Gate each request through the configured limiter."""
-
         key = self._key_func(request)
         try:
             self._limiter.acquire(key)

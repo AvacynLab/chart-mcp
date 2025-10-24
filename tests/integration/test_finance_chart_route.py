@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import json
+
 import pandas as pd
 import pytest
 
 
 def test_finance_chart_route_returns_summary(client) -> None:
     """The chart endpoint should return derived metadata for available candles."""
-
     response = client.get(
         "/api/v1/finance/chart",
         params={"symbol": "BTCUSD", "timeframe": "1h", "limit": 20},
@@ -47,7 +47,6 @@ def test_finance_chart_route_returns_summary(client) -> None:
 @pytest.mark.usefixtures("ohlcv_frame")
 def test_finance_chart_route_respects_selected_ts(client, ohlcv_frame) -> None:
     """Selecting a candle by timestamp should surface the expected change metrics."""
-
     target_index = 5
     target_row = ohlcv_frame.iloc[target_index]
     previous_close = ohlcv_frame.iloc[target_index - 1]["c"]
@@ -77,7 +76,6 @@ def test_finance_chart_route_respects_selected_ts(client, ohlcv_frame) -> None:
 
 def test_finance_chart_route_handles_empty_dataset(client, monkeypatch) -> None:
     """Providers returning empty frames should yield an empty artefact response."""
-
     provider = client.app.state.provider
     empty_frame = pd.DataFrame(columns=["ts", "o", "h", "l", "c", "v"])
 
@@ -101,7 +99,6 @@ def test_finance_chart_route_handles_empty_dataset(client, monkeypatch) -> None:
 
 def test_finance_chart_route_returns_requested_overlays(client) -> None:
     """Overlay toggles should emit SMA/EMA series ready for the UI chart."""
-
     response = client.get(
         "/api/v1/finance/chart",
         params={
@@ -134,7 +131,6 @@ def test_finance_chart_route_returns_requested_overlays(client) -> None:
 
 def test_finance_chart_route_rejects_duplicate_overlays(client) -> None:
     """Duplicate overlay identifiers should yield a validation error."""
-
     response = client.get(
         "/api/v1/finance/chart",
         params={

@@ -76,6 +76,5 @@ class OhlcvQuery(BaseModel):
     @classmethod
     def uppercase_symbol(cls, value: str) -> str:
         """Return the symbol in uppercase to keep cache keys consistent."""
-
         return value.upper()
 

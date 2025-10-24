@@ -7,7 +7,7 @@ from fastapi.responses import PlainTextResponse
 from fastapi.testclient import TestClient
 
 from chart_mcp.utils.errors import ApiError, TooManyRequests, api_error_handler
-from chart_mcp.utils.ratelimit import RateLimitMiddleware, RateLimiter
+from chart_mcp.utils.ratelimit import RateLimiter, RateLimitMiddleware
 
 
 def build_app(limiter: RateLimiter) -> FastAPI:

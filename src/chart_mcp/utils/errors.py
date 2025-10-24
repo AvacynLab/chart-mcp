@@ -26,7 +26,6 @@ class ApiError(Exception):
         code: str | None = None,
     ) -> None:
         """Capture the human message, optional structured details and override code."""
-
         super().__init__(message)
         self.message = message
         # ``details`` defaults to an empty dict so callers can attach structured
@@ -38,7 +37,6 @@ class ApiError(Exception):
 
     def to_payload(self) -> JSONDict:
         """Return the standard error document used across HTTP handlers."""
-
         return {
             "error": {"code": self.code, "message": self.message},
             "details": self.details,
@@ -117,7 +115,6 @@ def unexpected_exception_handler(_: Request, exc: Exception) -> JSONResponse:
 
 def request_validation_exception_handler(_: Request, exc: Exception) -> JSONResponse:
     """Return a consistent payload for FastAPI validation errors."""
-
     assert isinstance(exc, RequestValidationError)
     payload: JSONDict = {
         "error": {"code": "validation_error", "message": "Request validation failed"},

@@ -18,7 +18,6 @@ from chart_mcp.utils.errors import BadRequest
 
 def _validate_window(window: int, *, name: str) -> int:
     """Ensure that the sliding window parameter is strictly positive."""
-
     if window <= 0:
         raise BadRequest(f"{name} window must be a positive integer")
     return window
@@ -26,7 +25,6 @@ def _validate_window(window: int, *, name: str) -> int:
 
 def _validate_min_length(frame: pd.DataFrame, window: int) -> None:
     """Ensure the caller provides at least ``window`` rows of OHLCV data."""
-
     if len(frame) < window:
         raise BadRequest("Not enough data points for indicator computation")
 

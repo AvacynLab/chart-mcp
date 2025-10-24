@@ -13,8 +13,8 @@ from chart_mcp.schemas.finance import (
     ChartArtifactQuery,
     ChartArtifactResponse,
     ChartCandleDetails,
-    ChartRangeModel,
     ChartOverlayToggle,
+    ChartRangeModel,
     FundamentalsQuery,
     FundamentalsResponse,
     NewsItemModel,
@@ -24,9 +24,9 @@ from chart_mcp.schemas.finance import (
     OverlaySeriesModel,
     QuoteQuery,
     QuoteResponse,
+    ScreenedAssetModel,
     ScreenQuery,
     ScreenResponse,
-    ScreenedAssetModel,
 )
 from chart_mcp.services.backtest import BacktestResult, BacktestService
 from chart_mcp.services.data_providers.base import MarketDataProvider
@@ -47,19 +47,16 @@ router = APIRouter(
 
 def get_provider(request: Request) -> MarketDataProvider:
     """Retrieve the shared market data provider from the application state."""
-
     return cast(MarketDataProvider, request.app.state.provider)
 
 
 def get_backtest_service(request: Request) -> BacktestService:
     """Access the backtest service stored on the FastAPI application."""
-
     return cast(BacktestService, request.app.state.backtest_service)
 
 
 def get_finance_service(request: Request) -> FinanceDataService:
     """Return the cached finance data service."""
-
     return cast(FinanceDataService, request.app.state.finance_service)
 
 
@@ -69,7 +66,6 @@ def get_quote(
     service: Annotated[FinanceDataService, Depends(get_finance_service)],
 ) -> QuoteResponse:
     """Return a price snapshot for the requested symbol."""
-
     snapshot = service.get_quote(query.symbol)
     return QuoteResponse(
         symbol=query.symbol,
@@ -86,7 +82,6 @@ def get_fundamentals(
     service: Annotated[FinanceDataService, Depends(get_finance_service)],
 ) -> FundamentalsResponse:
     """Return a curated set of fundamentals for the symbol."""
-
     fundamentals = service.get_fundamentals(query.symbol)
     return FundamentalsResponse(
         symbol=query.symbol,
@@ -104,7 +99,6 @@ def get_news(
     service: Annotated[FinanceDataService, Depends(get_finance_service)],
 ) -> NewsResponse:
     """Return chronological finance news for the symbol."""
-
     articles = service.get_news(query.symbol, limit=query.limit, offset=query.offset)
     items = [
         NewsItemModel(
@@ -124,7 +118,6 @@ def get_screen(
     service: Annotated[FinanceDataService, Depends(get_finance_service)],
 ) -> ScreenResponse:
     """Return screener results filtered by optional criteria."""
-
     results = service.screen(sector=query.sector, min_score=query.min_score, limit=query.limit)
     serialized = [
         ScreenedAssetModel(
@@ -145,7 +138,6 @@ def run_backtest(
     service: Annotated[BacktestService, Depends(get_backtest_service)],
 ) -> BacktestResponse:
     """Execute a backtest with the provided strategy parameters."""
-
     result = service.run(
         provider,
         symbol=payload.symbol,
@@ -162,7 +154,6 @@ def run_backtest(
 
 def _serialize_backtest(symbol: str, timeframe: str, result: BacktestResult) -> BacktestResponse:
     """Convert the service result into the API response schema."""
-
     metrics_model = MetricsModel(**result.metrics.__dict__)
     trades = [
         TradeModel(
@@ -195,7 +186,6 @@ def get_chart_artifact(
     overlays_payload: Annotated[str | None, Query(alias="overlays")] = None,
 ) -> ChartArtifactResponse:
     """Return a defensive chart artefact payload with derived candle metrics."""
-
     frame = provider.get_ohlcv(
         query.symbol,
         query.timeframe,
@@ -243,7 +233,6 @@ def get_chart_artifact(
 
     def _to_candle_model(snapshot: ChartCandleSnapshot) -> ChartCandleDetails:
         """Convert a domain snapshot into the API schema model."""
-
         return ChartCandleDetails(
             ts=snapshot.ts,
             open=snapshot.open,

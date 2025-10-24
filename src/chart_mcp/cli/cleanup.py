@@ -20,7 +20,6 @@ DEFAULT_TARGETS: tuple[str, ...] = (
 
 def clean_worktree(base: Path, targets: Sequence[str] | None = None) -> list[Path]:
     """Delete ``targets`` located under ``base`` and return the removed paths."""
-
     resolved_base = base.resolve()
     removed: list[Path] = []
     for raw_target in targets or DEFAULT_TARGETS:
@@ -43,7 +42,6 @@ def clean_worktree(base: Path, targets: Sequence[str] | None = None) -> list[Pat
 
 def _build_parser() -> argparse.ArgumentParser:
     """Return the argument parser for the cleanup CLI."""
-
     parser = argparse.ArgumentParser(description="Remove local artefacts before running tests.")
     parser.add_argument(
         "paths",
@@ -61,7 +59,6 @@ def _build_parser() -> argparse.ArgumentParser:
 
 def main(argv: Sequence[str] | None = None) -> int:
     """Entry point for ``python -m chart_mcp.cli.cleanup``."""
-
     parser = _build_parser()
     args = parser.parse_args(argv)
     targets: Iterable[str] = args.paths or DEFAULT_TARGETS

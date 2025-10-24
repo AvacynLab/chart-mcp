@@ -18,7 +18,6 @@ from chart_mcp.schemas.streaming import (
 
 def test_tool_payload_accepts_optional_fields() -> None:
     """Ensure the tool payload validates optional metadata while enforcing bounds."""
-
     payload = ToolStreamPayload(
         type="tool",
         payload={
@@ -36,7 +35,6 @@ def test_tool_payload_accepts_optional_fields() -> None:
 
 def test_stream_event_roundtrip_serialises_payload() -> None:
     """The stream event wrapper keeps event names constrained to allowed values."""
-
     event = StreamEvent(
         event="result_partial",
         data=ResultPartialStreamPayload(
@@ -56,28 +54,24 @@ def test_stream_event_roundtrip_serialises_payload() -> None:
 
 def test_done_payload_rejects_unknown_status() -> None:
     """The terminal payload only supports explicit success/error markers."""
-
     with pytest.raises(ValidationError):
         DoneStreamPayload(type="done", payload={"status": "pending"})
 
 
 def test_error_payload_requires_non_empty_message() -> None:
     """Error payloads should capture both code and message for observability."""
-
     with pytest.raises(ValidationError):
         ErrorStreamPayload(type="error", payload={"code": "boom", "message": ""})
 
 
 def test_token_payload_requires_text() -> None:
     """Token payloads must provide an explicit chunk of text."""
-
     with pytest.raises(ValidationError):
         TokenStreamPayload(type="token", payload={"text": ""})
 
 
 def test_result_final_payload_requires_summary() -> None:
     """Final payloads enforce that a summary is present."""
-
     with pytest.raises(ValidationError):
         ResultFinalStreamPayload(
             type="result_final",

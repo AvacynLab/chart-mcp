@@ -23,7 +23,6 @@ def test_indicator_service_macd():
 
 def test_macd_invalid_parameters():
     """MACD should reject non-positive windows and slow <= fast."""
-
     frame = pd.DataFrame({"c": list(range(30))})
     with pytest.raises(BadRequest):
         macd(frame, fast=0, slow=10, signal=5)

@@ -28,7 +28,6 @@ def require_token(credentials: BearerCredentials) -> None:
 
 def require_regular_user(user_type: RegularUserHeader = None) -> None:
     """Ensure the request originates from a regular (non-guest) session."""
-
     if user_type is None:
         raise Forbidden("Regular session required", code="forbidden:chat")
     if user_type.lower() != "regular":

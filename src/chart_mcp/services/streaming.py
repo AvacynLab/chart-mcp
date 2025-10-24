@@ -7,11 +7,6 @@ from typing import AsyncIterator, Dict, Iterable, List, Mapping, SupportsFloat, 
 
 from loguru import logger
 
-from chart_mcp.services.analysis_llm import AnalysisLLMService
-from chart_mcp.services.data_providers.base import MarketDataProvider
-from chart_mcp.services.indicators import IndicatorService
-from chart_mcp.services.levels import LevelCandidate, LevelsService
-from chart_mcp.services.patterns import PatternResult, PatternsService
 from chart_mcp.schemas.streaming import (
     DoneStreamPayload,
     ErrorStreamPayload,
@@ -20,6 +15,11 @@ from chart_mcp.schemas.streaming import (
     TokenStreamPayload,
     ToolStreamPayload,
 )
+from chart_mcp.services.analysis_llm import AnalysisLLMService
+from chart_mcp.services.data_providers.base import MarketDataProvider
+from chart_mcp.services.indicators import IndicatorService
+from chart_mcp.services.levels import LevelCandidate, LevelsService
+from chart_mcp.services.patterns import PatternResult, PatternsService
 from chart_mcp.utils.errors import ApiError, BadRequest
 from chart_mcp.utils.sse import SseStreamer
 
@@ -61,6 +61,7 @@ class StreamingService:
         limit:
             Number of OHLCV rows requested from the provider. Guarded to keep the
             streaming job bounded and deterministic across environments.
+
         """
         if limit <= 0 or limit > 5000:
             # Guardrail preventing callers from exhausting the provider by asking for
@@ -72,7 +73,6 @@ class StreamingService:
 
         async def _run_pipeline() -> None:
             """Execute the streaming pipeline while guarding against crashes."""
-
             try:
                 await streamer.publish(
                     "tool_start",

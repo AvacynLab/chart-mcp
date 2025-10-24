@@ -15,7 +15,6 @@ from chart_mcp.utils.logging import logging_middleware
 @pytest.mark.anyio
 async def test_logging_middleware_emits_sanitised_record() -> None:
     """The middleware should log bounded context without leaking secrets."""
-
     captured: list[str] = []
     logger.remove()
     sink_id = logger.add(captured.append, serialize=True)

@@ -16,7 +16,6 @@ def get_database_path() -> Path:
     ``POSTGRES_URL`` environment variable is provided with a ``sqlite:///`` URI
     we honour the path. Otherwise we fall back to ``data/chart_mcp.sqlite3``.
     """
-
     raw_url = os.environ.get("POSTGRES_URL")
     if raw_url and raw_url.startswith("sqlite://"):
         _, _, sqlite_path = raw_url.partition("sqlite:///")

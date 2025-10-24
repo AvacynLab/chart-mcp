@@ -13,15 +13,13 @@ from chart_mcp.services.backtest import BacktestService
 @pytest.fixture()
 def patched_provider(test_app, ohlcv_frame: pd.DataFrame):
     """Ensure the test app provider returns a deterministic frame for BTCUSD."""
-
     provider = test_app.state.provider
     provider.frame = ohlcv_frame  # type: ignore[attr-defined]
     return provider
 
 
 def _request_body(**overrides: Any) -> dict[str, Any]:
-    """Base payload used across tests with convenient overrides."""
-
+    """Build the base payload used across tests with convenient overrides."""
     body: dict[str, Any] = {
         "symbol": "BTCUSD",
         "timeframe": "1h",
@@ -41,7 +39,6 @@ def _request_body(**overrides: Any) -> dict[str, Any]:
 
 def test_backtest_returns_metrics_and_trades(client, patched_provider) -> None:  # noqa: ANN001
     """Successful executions should return metrics, equity curve and trades."""
-
     response = client.post("/api/v1/finance/backtest", json=_request_body())
     assert response.status_code == 200
     payload = response.json()
@@ -63,7 +60,6 @@ def test_backtest_returns_metrics_and_trades(client, patched_provider) -> None: 
 
 def test_backtest_validates_strategy_schema(client) -> None:  # noqa: ANN001
     """Invalid strategy names should be rejected at validation time."""
-
     body = _request_body(strategy={"name": "unknown", "params": {}})
     response = client.post("/api/v1/finance/backtest", json=body)
     assert response.status_code == 422
@@ -87,6 +83,5 @@ def test_backtest_returns_bad_request_when_provider_empty(client, test_app, monk
 
 def test_backtest_service_reused_from_app_state(test_app) -> None:
     """Ensure the FastAPI application exposes a singleton backtest service."""
-
     service = test_app.state.backtest_service
     assert isinstance(service, BacktestService)

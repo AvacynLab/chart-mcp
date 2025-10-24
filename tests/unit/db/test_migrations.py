@@ -10,7 +10,6 @@ from chart_mcp.db.migrations import run_migrations
 
 def test_run_migrations_is_idempotent(tmp_path: Path) -> None:
     """Running migrations twice should not raise and should retain schema elements."""
-
     db_path = tmp_path / "chart.sqlite3"
     run_migrations(db_path)
     run_migrations(db_path)

@@ -4,15 +4,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Dict, Iterable, List, Sequence, Literal, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Dict, Iterable, List, Literal, Optional, Sequence
 
 import pandas as pd
 
-from chart_mcp.utils.errors import BadRequest, NotFound
 from chart_mcp.services.indicators import (
     exponential_moving_average,
     simple_moving_average,
 )
+from chart_mcp.utils.errors import BadRequest, NotFound
 
 if TYPE_CHECKING:  # pragma: no cover - used only for type checking imports
     from chart_mcp.schemas.market import OhlcvRow
@@ -147,7 +147,6 @@ class FinanceDataService:
         screened_assets: Sequence[ScreenedAsset] | None = None,
     ) -> None:
         """Store lookup tables used to serve deterministic responses."""
-
         self._quotes = {symbol.upper(): snapshot for symbol, snapshot in (quotes or {}).items()}
         self._fundamentals = {
             symbol.upper(): snapshot for symbol, snapshot in (fundamentals or {}).items()
@@ -158,7 +157,6 @@ class FinanceDataService:
     @staticmethod
     def _normalize_symbol(symbol: str) -> str:
         """Return the canonical symbol identifier used for lookups."""
-
         if not symbol:
             raise BadRequest("Symbol must be provided")
         if len(symbol) < 2 or len(symbol) > 20:
@@ -167,7 +165,6 @@ class FinanceDataService:
 
     def get_quote(self, symbol: str) -> QuoteSnapshot:
         """Return a quote snapshot for *symbol* or raise :class:`NotFound`."""
-
         key = self._normalize_symbol(symbol)
         try:
             return self._quotes[key]
@@ -176,7 +173,6 @@ class FinanceDataService:
 
     def get_fundamentals(self, symbol: str) -> FundamentalsSnapshot:
         """Return fundamental metrics for *symbol* or raise :class:`NotFound`."""
-
         key = self._normalize_symbol(symbol)
         try:
             return self._fundamentals[key]
@@ -185,7 +181,6 @@ class FinanceDataService:
 
     def get_news(self, symbol: str, *, limit: int, offset: int = 0) -> List[NewsArticle]:
         """Return chronological news for *symbol* bounded by ``limit`` and ``offset``."""
-
         if limit <= 0 or limit > 50:
             raise BadRequest("limit must be between 1 and 50")
         if offset < 0:
@@ -206,7 +201,6 @@ class FinanceDataService:
         limit: int = 20,
     ) -> List[ScreenedAsset]:
         """Return screener matches optionally filtered by ``sector`` and ``min_score``."""
-
         if limit <= 0 or limit > 100:
             raise BadRequest("limit must be between 1 and 100")
         if min_score < 0 or min_score > 1:
@@ -248,8 +242,8 @@ class FinanceDataService:
         prices to ensure the front-end never encounters divide-by-zero errors
         when computing percentage deltas. This keeps the React chart component
         resilient when the provider returns sparse or truncated data.
-        """
 
+        """
         if not rows:
             return ChartArtifactSummary(
                 status="empty",
@@ -383,7 +377,6 @@ PLAYWRIGHT_REFERENCE_TIME = datetime(2024, 1, 1, 12, tzinfo=timezone.utc)
 
 def _ensure_timezone(value: datetime | None) -> datetime:
     """Normalise *value* to an aware UTC datetime for deterministic fixtures."""
-
     if value is None:
         return datetime.now(tz=timezone.utc)
     if value.tzinfo is None:
@@ -400,8 +393,8 @@ def default_finance_service(*, now: datetime | None = None) -> FinanceDataServic
         Reference timestamp injected by the caller. Supplying an explicit value
         allows the E2E environment to freeze the clock while leaving the
         production instance free to rely on the real-time clock.
-    """
 
+    """
     reference_time = _ensure_timezone(now)
     quotes = {
         "BTCUSD": QuoteSnapshot(
