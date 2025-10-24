@@ -1,8 +1,10 @@
 """Tests ensuring database migrations remain idempotent."""
-
 from __future__ import annotations
 
+import os
 import sqlite3
+import subprocess
+import sys
 from pathlib import Path
 
 from chart_mcp.db.migrations import run_migrations
@@ -26,3 +28,24 @@ def test_run_migrations_is_idempotent(tmp_path: Path) -> None:
             ("idx_backtest_runs_asset_timeframe_period_start",),
         )
         assert cursor.fetchone(), "Expected index on backtest_runs timeframe uniqueness"
+
+
+def test_module_entrypoint_executes_via_python_m(tmp_path: Path) -> None:
+    """Calling ``python -m chart_mcp.db.migrations`` should succeed without PYTHONPATH hacks."""
+    env = os.environ.copy()
+    database_path = tmp_path / "cli.sqlite3"
+    env["POSTGRES_URL"] = f"sqlite:///{database_path}"
+
+    repo_root = Path(__file__).resolve().parents[3]
+
+    result = subprocess.run(
+        [sys.executable, "-m", "chart_mcp.db.migrations"],
+        check=True,
+        capture_output=True,
+        text=True,
+        cwd=repo_root,
+        env=env,
+    )
+
+    assert database_path.exists(), "CLI invocation should create the SQLite database"
+    assert "Migrations applied" in result.stdout
