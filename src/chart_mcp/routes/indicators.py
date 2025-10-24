@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, Request
 from chart_mcp.routes.auth import require_regular_user, require_token
 from chart_mcp.schemas.indicators import IndicatorRequest, IndicatorResponse, IndicatorValue
 from chart_mcp.services.data_providers.base import MarketDataProvider
+from chart_mcp.services.data_providers.ccxt_provider import normalize_symbol
 from chart_mcp.services.indicators import IndicatorService
 from chart_mcp.utils.timeframes import parse_timeframe
 
@@ -45,6 +46,8 @@ def compute_indicator(
         for ts_value, record in zip(ts_values, records, strict=True)
     ]
     meta: Dict[str, float | str] = {
+        "symbol": normalize_symbol(payload.symbol),
+        "timeframe": payload.timeframe,
         "indicator": payload.indicator,
         **{k: float(v) for k, v in payload.params.items()},
     }

@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, Query, Request
 from chart_mcp.routes.auth import require_regular_user, require_token
 from chart_mcp.schemas.patterns import Pattern, PatternPoint, PatternsResponse
 from chart_mcp.services.data_providers.base import MarketDataProvider
+from chart_mcp.services.data_providers.ccxt_provider import normalize_symbol
 from chart_mcp.services.patterns import PatternResult, PatternsService
 from chart_mcp.utils.timeframes import parse_timeframe
 
@@ -47,4 +48,5 @@ def list_patterns(
         )
         for result in detected
     ]
-    return PatternsResponse(symbol=symbol.upper(), timeframe=timeframe, patterns=patterns)
+    normalized_symbol = normalize_symbol(symbol)
+    return PatternsResponse(symbol=normalized_symbol, timeframe=timeframe, patterns=patterns)

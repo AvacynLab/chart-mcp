@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, Request
 from chart_mcp.routes.auth import require_regular_user, require_token
 from chart_mcp.schemas.market import MarketDataResponse, OhlcvQuery
 from chart_mcp.services.data_providers.base import MarketDataProvider as DataProvider
+from chart_mcp.services.data_providers.ccxt_provider import normalize_symbol
 from chart_mcp.utils.data_adapter import normalize_ohlcv_frame
 from chart_mcp.utils.errors import BadRequest
 from chart_mcp.utils.timeframes import parse_timeframe
@@ -44,8 +45,9 @@ def get_ohlcv(
         end=query.end,
     )
     rows = normalize_ohlcv_frame(frame)
+    normalized_symbol = normalize_symbol(query.symbol)
     return MarketDataResponse(
-        symbol=query.symbol,
+        symbol=normalized_symbol,
         timeframe=query.timeframe,
         source=provider.client.id if hasattr(provider, "client") else "custom",
         rows=rows,

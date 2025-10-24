@@ -9,7 +9,7 @@ def test_get_ohlcv_success(client):
     response = client.get("/api/v1/market/ohlcv", params={"symbol": "BTCUSDT", "timeframe": "1h", "limit": 50})
     assert response.status_code == 200
     data = response.json()
-    assert data["symbol"] == "BTCUSDT"
+    assert data["symbol"] == "BTC/USDT"
     assert len(data["rows"]) == 50
 
 

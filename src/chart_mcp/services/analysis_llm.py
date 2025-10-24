@@ -43,8 +43,19 @@ class AnalysisLLMService:
         if patterns_list:
             pattern_desc = ", ".join(p.name.replace("_", " ") for p in patterns_list[:3])
             parts.append(f"Patterns détectés : {pattern_desc}.")
-        parts.append("Ces éléments décrivent la structure actuelle du marché sans prise de position.")
-        return " ".join(parts)
+        parts.append(
+            "Ces éléments décrivent la structure actuelle du marché sans prise de position."
+        )
+        summary = " ".join(parts)
+        if len(summary) <= 400:
+            return summary
+        # Preserve word boundaries when enforcing the 400 character guardrail to
+        # keep the explanation lisible pour les utilisateurs.
+        truncated = summary[:400]
+        last_space = truncated.rfind(" ")
+        if last_space > 0:
+            truncated = truncated[:last_space]
+        return truncated.rstrip() + "…"
 
 
 __all__ = ["AnalysisLLMService"]

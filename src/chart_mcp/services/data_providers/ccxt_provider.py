@@ -1,4 +1,5 @@
 """CCXT-backed implementation of the market data provider."""
+
 from __future__ import annotations
 
 import time
@@ -9,10 +10,11 @@ import pandas as pd
 
 from chart_mcp.config import settings
 from chart_mcp.services.data_providers.base import MarketDataProvider
-from chart_mcp.utils.errors import UpstreamError
+from chart_mcp.utils.errors import BadRequest, UpstreamError
 from chart_mcp.utils.timeframes import ccxt_timeframe
 
 if TYPE_CHECKING:
+
     class _ExchangeLike(Protocol):
         """Structural type describing the ccxt client used at runtime."""
 
@@ -25,8 +27,29 @@ if TYPE_CHECKING:
             since: Optional[int] = None,
             limit: Optional[int] = None,
             params: Optional[Dict[str, Any]] = None,
-        ) -> list[list[float | int]]:
-            ...
+        ) -> list[list[float | int]]: ...
+
+
+KNOWN_QUOTES: tuple[str, ...] = ("USDT", "USD", "USDC", "BTC", "ETH", "EUR", "GBP")
+"""Accepted quote assets used to detect compact symbol inputs."""
+
+
+def normalize_symbol(symbol: str) -> str:
+    """Return a CCXT-friendly pair formatted as ``BASE/QUOTE``.
+
+    The exchanges accept both ``BTCUSDT`` and ``BTC/USDT``. We trim whitespace,
+    upper-case the value and inject a slash when the suffix matches a known
+    quote currency. Invalid inputs raise :class:`BadRequest` so the HTTP layer
+    can surface a consistent ``400`` payload.
+    """
+    cleaned = symbol.strip().upper()
+    if "/" in cleaned:
+        return cleaned
+    for quote in KNOWN_QUOTES:
+        if cleaned.endswith(quote) and len(cleaned) > len(quote):
+            base = cleaned[: -len(quote)]
+            return f"{base}/{quote}"
+    raise BadRequest("Unsupported symbol format")
 
 
 class CcxtDataProvider(MarketDataProvider):
@@ -56,8 +79,13 @@ class CcxtDataProvider(MarketDataProvider):
         attempts = 0
         while True:
             try:
+                normalized_symbol = normalize_symbol(symbol)
                 raw = self.client.fetch_ohlcv(
-                    symbol.upper(), timeframe_value, since=since, limit=limit, params=params
+                    normalized_symbol,
+                    timeframe_value,
+                    since=since,
+                    limit=limit,
+                    params=params,
                 )
                 break
             except ccxt.RateLimitExceeded as exc:

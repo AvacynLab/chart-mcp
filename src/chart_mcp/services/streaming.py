@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import time
 from typing import AsyncIterator, Dict, Iterable, List, Mapping, SupportsFloat, cast
 
 from loguru import logger
@@ -80,6 +81,19 @@ class StreamingService:
         streamer = SseStreamer()
         await streamer.start()
 
+        async def _publish_metric(step: str, elapsed_seconds: float) -> None:
+            """Emit a metric event capturing the time spent in a pipeline stage."""
+            await streamer.publish(
+                "metric",
+                {
+                    "type": "metric",
+                    "payload": {
+                        "step": step,
+                        "ms": float(elapsed_seconds * 1000),
+                    },
+                },
+            )
+
         async def _run_pipeline() -> None:
             """Execute the streaming pipeline while guarding against crashes."""
             try:
@@ -94,9 +108,11 @@ class StreamingService:
                         ),
                     ).model_dump(),
                 )
+                start_data = time.perf_counter()
                 frame = await asyncio.to_thread(
                     self.provider.get_ohlcv, symbol, timeframe, limit=limit
                 )
+                await _publish_metric("data", time.perf_counter() - start_data)
                 await streamer.publish(
                     "tool_end",
                     ToolStreamPayload(
@@ -110,6 +126,7 @@ class StreamingService:
 
                 indicator_values: Dict[str, Dict[str, float]] = {}
                 # Accumulate the latest indicator values to feed heuristics and streaming payloads.
+                start_indicators = time.perf_counter()
                 for spec in indicators:
                     name = str(spec.get("name") or "unknown")
                     params_raw = spec.get("params") or {}
@@ -117,8 +134,7 @@ class StreamingService:
                         params_raw if isinstance(params_raw, Mapping) else {}
                     )
                     params = {
-                        str(k): float(cast(SupportsFloat, v))
-                        for k, v in params_mapping.items()
+                        str(k): float(cast(SupportsFloat, v)) for k, v in params_mapping.items()
                     }
                     data = await asyncio.to_thread(
                         self.indicator_service.compute, frame, name, params
@@ -139,13 +155,19 @@ class StreamingService:
                             ),
                         ).model_dump(),
                     )
+                await _publish_metric("indicators", time.perf_counter() - start_indicators)
 
+                start_levels = time.perf_counter()
                 levels: List[LevelCandidate] = await asyncio.to_thread(
                     self.levels_service.detect_levels, frame
                 )
+                await _publish_metric("levels", time.perf_counter() - start_levels)
+
+                start_patterns = time.perf_counter()
                 patterns: List[PatternResult] = await asyncio.to_thread(
                     self.patterns_service.detect, frame
                 )
+                await _publish_metric("patterns", time.perf_counter() - start_patterns)
                 await streamer.publish(
                     "result_partial",
                     ResultPartialStreamPayload(
@@ -164,19 +186,19 @@ class StreamingService:
                     ).model_dump(),
                 )
 
+                start_summary = time.perf_counter()
                 summary = await asyncio.to_thread(
                     self.analysis_service.summarize,
                     symbol,
                     timeframe,
                     {
-                        name: float(
-                            cast(SupportsFloat, next(iter(values.values()), 0.0))
-                        )
+                        name: float(cast(SupportsFloat, next(iter(values.values()), 0.0)))
                         for name, values in indicator_values.items()
                     },
                     levels,
                     patterns,
                 )
+                await _publish_metric("summary", time.perf_counter() - start_summary)
                 for sentence in summary.split("."):
                     text = sentence.strip()
                     if text:

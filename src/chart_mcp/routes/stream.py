@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Dict, List, cast
+import asyncio
+from collections.abc import Awaitable, Callable
+from typing import Annotated, AsyncIterator, Dict, List, cast
 
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import StreamingResponse
@@ -61,7 +63,26 @@ async def stream_analysis(
             {"name": "ema", "params": {"window": 50}},
             {"name": "rsi", "params": {"window": 14}},
         ]
-    iterator = streaming_service.stream_analysis(
-        symbol, timeframe, indicator_specs, limit=limit
-    )
-    return StreamingResponse(iterator, media_type="text/event-stream")
+    iterator = streaming_service.stream_analysis(symbol, timeframe, indicator_specs, limit=limit)
+
+    async def _cancellation_guard() -> AsyncIterator[str]:
+        """Yield SSE chunks and ensure graceful shutdown on cancellation."""
+        try:
+            async for chunk in iterator:
+                yield chunk
+        except asyncio.CancelledError:
+            # Explicitly close the generator so the underlying streamer stops the
+            # heartbeat task and avoids dangling background work.
+            closer = getattr(iterator, "aclose", None)
+            if isinstance(closer, Callable):
+                maybe_coro = closer()
+                if isinstance(maybe_coro, Awaitable):
+                    await maybe_coro
+            raise
+
+    headers = {
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
+        "X-Accel-Buffering": "no",
+    }
+    return StreamingResponse(_cancellation_guard(), media_type="text/event-stream", headers=headers)

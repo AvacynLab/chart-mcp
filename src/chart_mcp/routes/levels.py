@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, Query, Request
 from chart_mcp.routes.auth import require_regular_user, require_token
 from chart_mcp.schemas.levels import Level, LevelRange, LevelsResponse
 from chart_mcp.services.data_providers.base import MarketDataProvider
+from chart_mcp.services.data_providers.ccxt_provider import normalize_symbol
 from chart_mcp.services.levels import LevelsService
 from chart_mcp.utils.timeframes import parse_timeframe
 
@@ -29,13 +30,14 @@ def list_levels(
     symbol: str = Query(..., min_length=3, max_length=20),
     timeframe: str = Query(...),
     limit: int = Query(500, ge=50, le=2000),
+    max_levels: int = Query(10, ge=1, le=50, description="Nombre maximum de niveaux renvoyés."),
     services: tuple[MarketDataProvider, LevelsService] = Depends(get_services),
 ) -> LevelsResponse:
     """Compute supports and resistances for a symbol."""
     provider, service = services
     parse_timeframe(timeframe)
     frame = provider.get_ohlcv(symbol, timeframe, limit=limit)
-    candidates = service.detect_levels(frame)
+    candidates = service.detect_levels(frame, max_levels=max_levels)
     levels: List[Level] = [
         Level(
             price=candidate.price,
@@ -45,4 +47,5 @@ def list_levels(
         )
         for candidate in candidates
     ]
-    return LevelsResponse(symbol=symbol.upper(), timeframe=timeframe, levels=levels)
+    normalized_symbol = normalize_symbol(symbol)
+    return LevelsResponse(symbol=normalized_symbol, timeframe=timeframe, levels=levels)

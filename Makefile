@@ -1,4 +1,4 @@
-.PHONY: setup dev lint format typecheck test clean docker-build docker-run
+.PHONY: setup dev lint format format-check lint-fix typecheck typecheck-strict test clean docker-build docker-run
 
 export PYTHONPATH := src
 
@@ -16,7 +16,19 @@ format:
 	black src tests
 	isort src tests
 
+format-check:
+	black --check src tests
+	isort --check-only src tests
+
+lint-fix:
+	ruff --fix .
+	black src tests
+	isort src tests
+
 typecheck:
+	mypy src
+
+typecheck-strict:
 	mypy src
 
 test:

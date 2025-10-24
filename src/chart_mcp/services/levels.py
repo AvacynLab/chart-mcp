@@ -32,9 +32,21 @@ class LevelCandidate:
 class LevelsService:
     """Service computing price levels from OHLCV data."""
 
-    def detect_levels(self, frame: pd.DataFrame) -> List[LevelCandidate]:
-        """Return aggregated support and resistance levels."""
+    def detect_levels(self, frame: pd.DataFrame, *, max_levels: int = 10) -> List[LevelCandidate]:
+        """Return aggregated support and resistance levels ordered by strength.
+
+        Parameters
+        ----------
+        frame:
+            OHLCV dataframe.
+        max_levels:
+            Upper bound on the number of levels returned. Keeping the payload
+            small avoids overwhelming the SSE and REST consumers.
+
+        """
         if frame.empty:
+            return []
+        if max_levels <= 0:
             return []
         closes = frame["c"].astype(float).to_numpy(copy=False)
         timestamps = frame["ts"].astype(int).to_list()
@@ -53,7 +65,9 @@ class LevelsService:
             price = float(closes[index])
             bucket = int(price / tolerance) if tolerance else int(price)
             key = (kind, bucket)
-            candidate = groups.setdefault(key, LevelCandidate(price=price, timestamps=[], kind=kind))
+            candidate = groups.setdefault(
+                key, LevelCandidate(price=price, timestamps=[], kind=kind)
+            )
             candidate.price = (candidate.price * len(candidate.timestamps) + price) / (
                 len(candidate.timestamps) + 1
             )
@@ -64,7 +78,8 @@ class LevelsService:
         for idx in troughs:
             _add(int(idx), "support")
 
-        return sorted(groups.values(), key=lambda c: c.strength, reverse=True)
+        sorted_levels = sorted(groups.values(), key=lambda c: c.strength, reverse=True)
+        return sorted_levels[:max_levels]
 
 
 __all__ = ["LevelsService", "LevelCandidate"]
