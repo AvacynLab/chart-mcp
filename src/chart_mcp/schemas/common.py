@@ -1,13 +1,14 @@
-"""Common pydantic schemas shared across routes and tools."""
+"""Reusable pydantic models shared by several endpoints."""
 
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Dict, Optional
 
 from pydantic import BaseModel, Field, validator
 
 from chart_mcp.utils.timeframes import SUPPORTED_TIMEFRAMES
+from chart_mcp.types import JSONValue
 
 
 class Symbol(BaseModel):
@@ -41,7 +42,9 @@ class DatetimeRange(BaseModel):
     end: Optional[datetime] = None
 
     @validator("end")
-    def validate_order(cls, end: Optional[datetime], values: Dict[str, Any]) -> Optional[datetime]:
+    def validate_order(
+        cls, end: Optional[datetime], values: Dict[str, Optional[datetime]]
+    ) -> Optional[datetime]:
         """Validate that the end timestamp is greater than the start."""
         start = values.get("start")
         if start and end and end <= start:
@@ -54,7 +57,7 @@ class ApiError(BaseModel):
 
     code: str
     message: str
-    details: Dict[str, Any] = Field(default_factory=dict)
+    details: JSONValue = Field(default_factory=dict)
     trace_id: str
 
 

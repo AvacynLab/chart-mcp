@@ -3,17 +3,22 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Annotated, List, SupportsFloat, SupportsInt, cast
+from typing import Annotated, cast
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, Request
 
-from chart_mcp.routes.auth import require_token
-from chart_mcp.schemas.market import MarketDataResponse, OhlcvRow
+from chart_mcp.routes.auth import require_regular_user, require_token
+from chart_mcp.schemas.market import MarketDataResponse, OhlcvQuery
 from chart_mcp.services.data_providers.base import MarketDataProvider as DataProvider
 from chart_mcp.utils.errors import BadRequest
+from chart_mcp.utils.data_adapter import normalize_ohlcv_frame
 from chart_mcp.utils.timeframes import parse_timeframe
 
-router = APIRouter(prefix="/api/v1/market", tags=["market"], dependencies=[Depends(require_token)])
+router = APIRouter(
+    prefix="/api/v1/market",
+    tags=["market"],
+    dependencies=[Depends(require_token), Depends(require_regular_user)],
+)
 
 
 def get_provider(request: Request) -> DataProvider:
@@ -24,34 +29,25 @@ def get_provider(request: Request) -> DataProvider:
 @router.get("/ohlcv", response_model=MarketDataResponse)
 def get_ohlcv(
     provider: Annotated[DataProvider, Depends(get_provider)],
-    symbol: str = Query(..., min_length=3, max_length=20),
-    timeframe: str = Query(...),
-    limit: int = Query(500, ge=10, le=2000),
-    start: int | None = Query(None),
-    end: int | None = Query(None),
+    query: Annotated[OhlcvQuery, Depends()],
 ) -> MarketDataResponse:
-    """Return OHLCV data as JSON payload."""
-    parse_timeframe(timeframe)
-    # Validate timeframe early to provide consistent error responses before hitting the provider.
-    if start and end and end <= start:
+    """Return normalized OHLCV data while enforcing strict query validation."""
+
+    parse_timeframe(query.timeframe)
+    if query.start is not None and query.end is not None and query.end <= query.start:
         raise BadRequest("Parameter 'end' must be greater than 'start'")
-    frame = provider.get_ohlcv(symbol, timeframe, limit=limit, start=start, end=end)
-    rows: List[OhlcvRow] = []
-    for ts, open_, high, low, close, volume in frame.itertuples(index=False, name=None):
-        rows.append(
-            OhlcvRow(
-                ts=int(cast(SupportsInt, ts)),
-                # Populate fields via their short aliases so the Pydantic signature aligns with NDJSON contract.
-                o=float(cast(SupportsFloat, open_)),
-                h=float(cast(SupportsFloat, high)),
-                l=float(cast(SupportsFloat, low)),
-                c=float(cast(SupportsFloat, close)),
-                v=float(cast(SupportsFloat, volume)),
-            )
-        )
+
+    frame = provider.get_ohlcv(
+        query.symbol,
+        query.timeframe,
+        limit=query.limit,
+        start=query.start,
+        end=query.end,
+    )
+    rows = normalize_ohlcv_frame(frame)
     return MarketDataResponse(
-        symbol=symbol,
-        timeframe=timeframe,
+        symbol=query.symbol,
+        timeframe=query.timeframe,
         source=provider.client.id if hasattr(provider, "client") else "custom",
         rows=rows,
         fetched_at=datetime.utcnow(),

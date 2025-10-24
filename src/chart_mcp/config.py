@@ -20,6 +20,19 @@ class Settings(BaseSettings):
     stream_heartbeat_ms: int = Field(5000, alias="STREAM_HEARTBEAT_MS", ge=1000, le=60000)
     log_level: str = Field("INFO", alias="LOG_LEVEL")
     rate_limit_per_minute: int = Field(60, alias="RATE_LIMIT_PER_MINUTE", ge=1)
+    feature_finance: bool = Field(
+        True,
+        alias="FEATURE_FINANCE",
+        description=(
+            "Toggle finance-specific services and routes. This allows the backend to"
+            " expose only core market capabilities when the feature flag is disabled."
+        ),
+    )
+    playwright_mode: bool = Field(
+        False,
+        alias="PLAYWRIGHT",
+        description="Enable relaxed safeguards for deterministic Playwright runs.",
+    )
 
     @validator("allowed_origins", pre=True)
     def _split_origins(cls, value: List[str] | str) -> List[str]:

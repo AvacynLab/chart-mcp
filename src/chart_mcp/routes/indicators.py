@@ -6,13 +6,17 @@ from typing import Dict
 
 from fastapi import APIRouter, Depends, Request
 
-from chart_mcp.routes.auth import require_token
+from chart_mcp.routes.auth import require_regular_user, require_token
 from chart_mcp.schemas.indicators import IndicatorRequest, IndicatorResponse, IndicatorValue
 from chart_mcp.services.data_providers.base import MarketDataProvider
 from chart_mcp.services.indicators import IndicatorService
 from chart_mcp.utils.timeframes import parse_timeframe
 
-router = APIRouter(prefix="/api/v1/indicators", tags=["indicators"], dependencies=[Depends(require_token)])
+router = APIRouter(
+    prefix="/api/v1/indicators",
+    tags=["indicators"],
+    dependencies=[Depends(require_token), Depends(require_regular_user)],
+)
 
 
 def get_services(request: Request) -> tuple[MarketDataProvider, IndicatorService]:

@@ -1,0 +1,40 @@
+{
+  "name": "chart-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Tooling scripts for chart-mcp CI and local workflows",
+  "dependencies": {
+    "zod": "^3.23.8"
+  },
+  "engines": {
+    "node": ">=20.10"
+  },
+  "packageManager": "pnpm@8.15.4",
+  "scripts": {
+    "clean": "python -c \"import runpy, sys; sys.path.insert(0, 'src'); runpy.run_module('chart_mcp.cli.cleanup', run_name='__main__')\"",
+    "build": "python -m compileall src",
+    "test": "pytest",
+    "e2e": "pytest tests/integration",
+    "e2e:ui": "playwright test",
+    "e2e:install": "python -c \"print('Playwright not required for API-first E2E suite')\"",
+    "db:migrate": "python -m chart_mcp.db.migrations",
+    "db:seed": "python -m chart_mcp.db.seed",
+    "test:web": "vitest run"
+  },
+  "devDependencies": {
+    "esbuild": "^0.21.5",
+    "@playwright/test": "1.47.0",
+    "@testing-library/jest-dom": "^6.4.2",
+    "@testing-library/react": "^14.2.1",
+    "@testing-library/user-event": "^14.5.2",
+    "@types/node": "^20.11.30",
+    "@types/react": "^18.2.37",
+    "@types/react-dom": "^18.2.15",
+    "@vitejs/plugin-react": "^4.2.0",
+    "jsdom": "^23.2.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "typescript": "^5.3.3",
+    "vitest": "^1.4.0"
+  }
+}

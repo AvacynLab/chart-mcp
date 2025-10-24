@@ -26,16 +26,18 @@ class PatternsService:
 
     def detect(self, frame: pd.DataFrame) -> List[PatternResult]:
         """Detect chart patterns on the provided OHLCV frame."""
-        if len(frame) < 10:
+        if len(frame) < 5:
             return []
         closes = frame["c"].to_numpy()
         highs = frame.get("h", frame["c"]).to_numpy()
         lows = frame.get("l", frame["c"]).to_numpy()
         timestamps = frame["ts"].astype(int).to_numpy()
         results: List[PatternResult] = []
-        results.extend(self._detect_double_extrema(closes, timestamps))
-        results.extend(self._detect_triangle(highs, lows, timestamps))
+        if len(frame) >= 10:
+            results.extend(self._detect_double_extrema(closes, timestamps))
+            results.extend(self._detect_triangle(highs, lows, timestamps))
         results.extend(self._detect_channel(closes, timestamps))
+        results.extend(self._detect_candlestick_patterns(frame))
         return sorted(results, key=lambda r: r.score, reverse=True)[:5]
 
     def _local_extrema(
@@ -149,6 +151,153 @@ class PatternsService:
                 )
             )
         return results
+
+    def _detect_candlestick_patterns(self, frame: pd.DataFrame) -> List[PatternResult]:
+        """Detect hammer and engulfing candlestick setups.
+
+        The heuristics implemented here favour precision over recall so that
+        noisy inputs do not generate spurious alerts.  Only the most recent
+        candles (last twenty) are analysed to keep the computation bounded.
+        """
+
+        opens = frame["o"].to_numpy()
+        closes = frame["c"].to_numpy()
+        highs = frame.get("h", frame["c"]).to_numpy()
+        lows = frame.get("l", frame["c"]).to_numpy()
+        timestamps = frame["ts"].astype(int).to_numpy()
+
+        if len(opens) < 2:
+            return []
+
+        results: List[PatternResult] = []
+        window_start = max(1, len(opens) - 20)
+
+        for idx in range(window_start, len(opens)):
+            prev_idx = idx - 1
+            if np.isnan(opens[idx]) or np.isnan(closes[idx]):
+                continue
+
+            body = abs(closes[idx] - opens[idx])
+            total_range = max(highs[idx] - lows[idx], 1e-9)
+            lower_shadow = min(opens[idx], closes[idx]) - lows[idx]
+            upper_shadow = highs[idx] - max(opens[idx], closes[idx])
+
+            if body < 1e-6:
+                # Skip doji-like candles that would inflate ratios.
+                continue
+
+            if self._is_downtrend(closes, idx):
+                # Bullish hammer detection.
+                hammer_ratio = lower_shadow / body
+                close_to_high = (highs[idx] - closes[idx]) / total_range
+                if hammer_ratio >= 2.0 and close_to_high <= 0.2:
+                    results.append(
+                        PatternResult(
+                            name="bullish_hammer",
+                            score=0.65,
+                            start_ts=int(timestamps[idx]),
+                            end_ts=int(timestamps[idx]),
+                            points=[
+                                (int(timestamps[idx]), float(lows[idx])),
+                                (int(timestamps[idx]), float(highs[idx])),
+                            ],
+                            confidence=0.55,
+                        )
+                    )
+
+            if self._is_uptrend(closes, idx):
+                # Bearish hammer (hanging man) check using mirrored conditions.
+                hammer_ratio = upper_shadow / body
+                close_to_low = (closes[idx] - lows[idx]) / total_range
+                if hammer_ratio >= 2.0 and close_to_low <= 0.2:
+                    results.append(
+                        PatternResult(
+                            name="bearish_hammer",
+                            score=0.65,
+                            start_ts=int(timestamps[idx]),
+                            end_ts=int(timestamps[idx]),
+                            points=[
+                                (int(timestamps[idx]), float(lows[idx])),
+                                (int(timestamps[idx]), float(highs[idx])),
+                            ],
+                            confidence=0.55,
+                        )
+                    )
+
+            # Engulfing patterns require at least one candle of history.
+            prev_body = abs(closes[prev_idx] - opens[prev_idx])
+            if prev_body < 1e-6:
+                continue
+
+            if (
+                closes[prev_idx] < opens[prev_idx]
+                and closes[idx] > opens[idx]
+                and opens[idx] <= closes[prev_idx]
+                and closes[idx] >= opens[prev_idx]
+                and body >= 1.1 * prev_body
+            ):
+                # Bullish engulfing pattern following a downtrend.
+                if self._is_downtrend(closes, idx):
+                    results.append(
+                        PatternResult(
+                            name="bullish_engulfing",
+                            score=0.7,
+                            start_ts=int(timestamps[prev_idx]),
+                            end_ts=int(timestamps[idx]),
+                            points=[
+                                (int(timestamps[prev_idx]), float(opens[prev_idx])),
+                                (int(timestamps[idx]), float(closes[idx])),
+                            ],
+                            confidence=0.6,
+                        )
+                    )
+
+            if (
+                closes[prev_idx] > opens[prev_idx]
+                and closes[idx] < opens[idx]
+                and opens[idx] >= closes[prev_idx]
+                and closes[idx] <= opens[prev_idx]
+                and body >= 1.1 * prev_body
+            ):
+                # Bearish engulfing pattern following an uptrend.
+                if self._is_uptrend(closes, idx):
+                    results.append(
+                        PatternResult(
+                            name="bearish_engulfing",
+                            score=0.7,
+                            start_ts=int(timestamps[prev_idx]),
+                            end_ts=int(timestamps[idx]),
+                            points=[
+                                (int(timestamps[prev_idx]), float(opens[prev_idx])),
+                                (int(timestamps[idx]), float(closes[idx])),
+                            ],
+                            confidence=0.6,
+                        )
+                    )
+
+        return results
+
+    def _is_downtrend(self, closes: np.ndarray, idx: int, lookback: int = 4) -> bool:
+        """Return ``True`` when the recent closes slope downward."""
+
+        end = idx
+        start = max(0, end - lookback - 1)
+        window = closes[start:end]
+        if len(window) < 3:
+            return False
+        slope = np.polyfit(np.arange(len(window)), window, 1)[0]
+        return bool(slope < 0)
+
+    def _is_uptrend(self, closes: np.ndarray, idx: int, lookback: int = 4) -> bool:
+        """Return ``True`` when the recent closes slope upward."""
+
+        end = idx
+        start = max(0, end - lookback - 1)
+        window = closes[start:end]
+        if len(window) < 3:
+            return False
+        slope = np.polyfit(np.arange(len(window)), window, 1)[0]
+        return bool(slope > 0)
 
 
 __all__ = ["PatternsService", "PatternResult"]

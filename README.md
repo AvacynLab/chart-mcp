@@ -27,6 +27,26 @@ pip install -r requirements.txt
 ### Configuration
 
 Copiez `.env.example` vers `.env` et ajustez les valeurs (token API, exchange, options CORS, etc.).
+Les variables principales sont documentées ci-dessous :
+
+| Clef | Description |
+| --- | --- |
+| `API_TOKEN` | Jeton obligatoire pour authentifier les requêtes HTTP. |
+| `EXCHANGE` | Identifiant de l'exchange source pour les données OHLCV. |
+| `ALLOWED_ORIGINS` | Liste séparée par des virgules des origines autorisées en CORS. |
+| `PLAYWRIGHT` | Active le mode tests déterministe (bypass du rate-limit et fixtures stables). |
+| `FEATURE_FINANCE` | Active les endpoints finance (quotes, news, backtests...). |
+| `OPENAI_API_KEY` / `OPENAI_MODEL_ID` | Identifiants pour un fournisseur OpenAI (facultatif en mode stub). |
+| `MARKET_DATA_API_KEY` | Clé API pour un agrégateur de données marché externe. |
+| `NEWS_API_KEY` | Clé API pour les dépêches financières externes. |
+| `POSTGRES_URL` | Chaîne de connexion PostgreSQL (utilisée pour les futures migrations & seeds). |
+
+> ℹ️ `PLAYWRIGHT=true` est utilisé dans la suite de tests pour geler l'horloge, bypasser le rate limit
+> et fournir des jeux de données entièrement mocks.
+
+Lorsque `FEATURE_FINANCE=false`, le serveur ne monte pas les routes `/api/v1/finance/*` et ignore
+la configuration associée au service de données financières. Cette bascule permet de déployer une
+instance plus légère centrée sur l'OHLCV de base.
 
 ### Lancement du serveur
 
@@ -85,7 +105,28 @@ make lint         # exécuter ruff
 make format       # exécuter black + isort
 make typecheck    # exécuter mypy
 make test         # lancer la suite de tests avec couverture
+make clean        # supprimer .next/, node_modules/ et artefacts Playwright
 ```
+
+### Scripts pnpm (optionnels)
+
+Un fichier `package.json` est fourni pour aligner la checklist produit sur les environnements
+Node/Playwright. Les scripts encapsulent les commandes Python existantes :
+
+```
+pnpm clean        # supprime .next/, node_modules/ et les artefacts Playwright
+pnpm build        # compile les modules Python pour détecter les erreurs de syntaxe
+pnpm test         # lance pytest sur l'ensemble du projet
+pnpm e2e          # exécute les tests d'intégration API (mocks déterministes)
+pnpm e2e:ui       # lance Playwright avec un storage state régulier pré-généré
+pnpm db:migrate   # applique les migrations SQLite idempotentes
+pnpm db:seed      # injecte les fixtures finance cohérentes avec les tests
+```
+
+> ℹ️ `pnpm e2e:install` affiche simplement un rappel. La nouvelle suite
+> `pnpm e2e:ui` repose sur un setup Playwright qui visite `/login`, crée un
+> cookie `sessionType=regular` puis réutilise le storage state pour l'ensemble
+> des scénarios UI.
 
 ## Docker
 
@@ -101,6 +142,10 @@ Un `HEALTHCHECK` interroge `GET /health` pour valider le démarrage.
 - `pytest --cov=src --cov-report=xml`
 - `ruff`, `black`, `isort`
 - `mypy src/`
+
+Les tests d'intégration consomment un `FinanceDataService` déterministe et activent
+`PLAYWRIGHT=true` pour reproduire les conditions E2E (storage state déjà authentifié
+et absence de rate-limit aléatoire).
 
 ## Limitations alpha
 

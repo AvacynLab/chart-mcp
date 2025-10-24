@@ -18,3 +18,7 @@ htmlcov/
 *.log
 *.lock
 uv.lock
+node_modules/
+playwright-report/
+playwright-results/
+tests/.auth/
