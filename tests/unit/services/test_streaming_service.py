@@ -54,6 +54,18 @@ class _FailingProvider(MarketDataProvider):
         raise self._error
 
 
+class _FailingIndicator(IndicatorService):
+    """Indicator stub raising :class:`BadRequest` to simulate invalid params."""
+
+    def compute(  # type: ignore[override]
+        self,
+        frame: pd.DataFrame,
+        indicator: str,
+        params: Mapping[str, float],
+    ) -> pd.DataFrame:
+        raise BadRequest("Indicator parameters invalid")
+
+
 class _DummyLevels(LevelsService):
     """No-op levels detector returning an empty candidate list."""
 
@@ -197,8 +209,118 @@ async def test_stream_analysis_handles_unexpected_exceptions_gracefully() -> Non
 
 
 @pytest.mark.anyio
+async def test_stream_analysis_indicator_errors_surface_as_bad_request() -> None:
+    """Indicator validation issues should propagate as structured error events."""
+
+    frame = pd.DataFrame(
+        {
+            "ts": list(range(1, 8)),
+            "o": [float(v) for v in range(1, 8)],
+            "h": [float(v) + 0.3 for v in range(1, 8)],
+            "l": [float(v) - 0.3 for v in range(1, 8)],
+            "c": [float(v) for v in range(1, 8)],
+            "v": [100 + v for v in range(7)],
+        }
+    )
+    service = StreamingService(
+        _StaticProvider(frame),
+        _FailingIndicator(),
+        _DummyLevels(),
+        _DummyPatterns(),
+        _DummyLLM(),
+    )
+
+    iterator = await service.stream_analysis(
+        "BTCUSDT", "1h", [{"name": "ema", "params": {"window": 21}}], limit=7
+    )
+    raw = await asyncio.wait_for(_collect_events(iterator), timeout=1.0)
+    await iterator.aclose()
+
+    events = _parse_events(raw)
+    error_payload = {
+        "type": "error",
+        "payload": {"code": "bad_request", "message": "Indicator parameters invalid"},
+    }
+
+    assert ("error", error_payload) in events
+    assert any(
+        event == "done" and data.get("payload", {}).get("code") == "bad_request"
+        for event, data in events
+    ), "The stream should close with a done event referencing the error code"
+    assert not any(event == "result_final" for event, _ in events)
+
+
+@pytest.mark.anyio
 async def test_stream_analysis_rejects_invalid_limit() -> None:
     """The streaming service should reject unbounded ``limit`` values upfront."""
     service = _build_streaming_service(RuntimeError("should not reach provider"))
     with pytest.raises(BadRequest, match="limit must be between 1 and 5000"):
         await service.stream_analysis("BTCUSD", "1h", [], limit=6001)
+
+
+@pytest.mark.anyio
+async def test_stream_analysis_emits_metric_events_for_every_stage() -> None:
+    """The SSE stream should expose timing metrics for each pipeline step."""
+
+    frame = pd.DataFrame(
+        {
+            "ts": list(range(1, 41)),
+            "o": [float(v) for v in range(1, 41)],
+            "h": [float(v) + 0.5 for v in range(1, 41)],
+            "l": [float(v) - 0.5 for v in range(1, 41)],
+            "c": [float(v) for v in range(1, 41)],
+            "v": [100 + v for v in range(40)],
+        }
+    )
+    service = StreamingService(
+        _StaticProvider(frame),
+        IndicatorService(),
+        _DummyLevels(),
+        _DummyPatterns(),
+        _DummyLLM(),
+    )
+    specs = [{"name": "ma", "params": {"window": 3}}]
+
+    iterator = await service.stream_analysis("BTCUSDT", "1h", specs, limit=40)
+    raw = await asyncio.wait_for(_collect_events(iterator), timeout=1.0)
+    await iterator.aclose()
+
+    events = _parse_events(raw)
+    metric_events = [data for event, data in events if event == "metric"]
+
+    steps = [metric["payload"]["step"] for metric in metric_events]
+    assert steps == ["data", "indicators", "levels", "patterns", "summary"]
+    assert all(metric["payload"]["ms"] >= 0 for metric in metric_events)
+
+
+@pytest.mark.anyio
+async def test_stream_analysis_normalizes_symbol_in_events() -> None:
+    """Tool events should expose the normalized ``BASE/QUOTE`` symbol."""
+
+    frame = pd.DataFrame(
+        {
+            "ts": list(range(1, 6)),
+            "o": [float(v) for v in range(1, 6)],
+            "h": [float(v) + 0.4 for v in range(1, 6)],
+            "l": [float(v) - 0.4 for v in range(1, 6)],
+            "c": [float(v) for v in range(1, 6)],
+            "v": [100 + v for v in range(5)],
+        }
+    )
+    service = StreamingService(
+        _StaticProvider(frame),
+        IndicatorService(),
+        _DummyLevels(),
+        _DummyPatterns(),
+        _DummyLLM(),
+    )
+
+    iterator = await service.stream_analysis("btcusdt", "1h", [], limit=5)
+    raw_events = await asyncio.wait_for(_collect_events(iterator), timeout=1.0)
+    await iterator.aclose()
+
+    parsed = _parse_events(raw_events)
+    tool_events = [payload for event, payload in parsed if event == "tool_start"]
+    assert tool_events, "Expected at least one tool_start event"
+    tool_payload = tool_events[0]["payload"]
+    assert tool_payload["symbol"] == "BTC/USDT"
