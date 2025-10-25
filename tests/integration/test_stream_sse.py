@@ -4,16 +4,19 @@ from __future__ import annotations
 
 
 def test_stream_analysis(client):
+    """Stream emits events in order from tool_start to result_final to done."""
     params = {"symbol": "BTCUSDT", "timeframe": "1h", "limit": 250}
     with client.stream("GET", "/stream/analysis", params=params) as response:
         assert response.status_code == 200
         body = "".join(response.iter_text())
-    assert "event: tool_start" in body
-    assert "event: result_final" in body
-    assert "event: done" in body
+    start_idx = body.index("event: tool_start")
+    final_idx = body.index("event: result_final")
+    done_idx = body.index("event: done")
+    assert start_idx < final_idx < done_idx
 
 
 def test_stream_analysis_rejects_large_limit(client):
+    """Upper bound guard on the limit parameter returns a bad request error."""
     response = client.get(
         "/stream/analysis",
         params={"symbol": "BTCUSDT", "timeframe": "1h", "limit": 6000},
@@ -25,6 +28,7 @@ def test_stream_analysis_rejects_large_limit(client):
 
 
 def test_stream_analysis_rejects_too_many_indicators(client):
+    """More than ten indicators are rejected to keep SSE payloads bounded."""
     params = {
         "symbol": "BTCUSDT",
         "timeframe": "1h",

@@ -75,7 +75,11 @@ def macd(frame: pd.DataFrame, fast: int = 12, slow: int = 26, signal: int = 9) -
     macd_line = exponential_moving_average(frame, fast) - exponential_moving_average(frame, slow)
     signal_line = macd_line.ewm(span=signal, adjust=False).mean()
     hist = macd_line - signal_line
-    return pd.DataFrame({"macd": macd_line, "signal": signal_line, "hist": hist})
+    result = pd.DataFrame({"macd": macd_line, "signal": signal_line, "hist": hist})
+    warmup = max(slow - 1, signal - 1)
+    if warmup > 0:
+        result.iloc[:warmup] = np.nan
+    return result
 
 
 def bollinger_bands(frame: pd.DataFrame, window: int = 20, stddev: float = 2.0) -> pd.DataFrame:

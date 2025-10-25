@@ -1,4 +1,4 @@
-"""Server-Sent Events helpers used by streaming endpoints."""
+"""Server-Sent Event utilities with heartbeat support."""
 
 from __future__ import annotations
 
@@ -22,14 +22,13 @@ class SseEvent(TypedDict):
 
 
 def format_sse(event: str, payload: JSONValue) -> str:
-    """Format a SSE event using NDJSON payload."""
-    # Serialize the payload using NDJSON-friendly separators to keep the SSE stream compact.
+    """Format an SSE event using NDJSON payloads."""
     payload_ndjson = json.dumps(payload, separators=(",", ":"))
     return f"event: {event}\ndata: {payload_ndjson}\n\n"
 
 
 async def heartbeat_sender(queue: "asyncio.Queue[str]") -> None:
-    """Send heartbeat comments at a configured interval."""
+    """Send heartbeat comments at the configured interval."""
     interval = settings.stream_heartbeat_ms / 1000
     while True:
         await asyncio.sleep(interval)
@@ -44,19 +43,22 @@ class SseStreamer:
         self._heartbeat_task: asyncio.Task[None] | None = None
 
     async def start(self) -> None:
-        """Start background heartbeat task."""
+        """Start the background heartbeat task."""
+        if self._heartbeat_task and not self._heartbeat_task.done():
+            raise RuntimeError("Heartbeat task already running for this streamer")
         self._heartbeat_task = asyncio.create_task(heartbeat_sender(self._queue))
 
     async def stop(self) -> None:
-        """Stop heartbeat task and signal stream termination."""
+        """Stop the heartbeat task and signal stream termination."""
         if self._heartbeat_task:
             self._heartbeat_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await self._heartbeat_task
+            self._heartbeat_task = None
         await self._queue.put(_STOP_SENTINEL)
 
     async def publish(self, event: str, payload: JSONValue) -> None:
-        """Publish a SSE event to the internal queue."""
+        """Publish an SSE event to the internal queue."""
         await self._queue.put(format_sse(event, payload))
 
     async def stream(self) -> AsyncIterator[str]:
@@ -73,3 +75,6 @@ async def iter_events(events: Iterable[SseEvent]) -> AsyncIterator[str]:
     for event in events:
         yield format_sse(event["event"], event["data"])
     yield format_sse("done", {})
+
+
+__all__ = ["SseEvent", "SseStreamer", "format_sse", "heartbeat_sender", "iter_events"]

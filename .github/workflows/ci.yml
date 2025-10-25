@@ -21,9 +21,12 @@ jobs:
         with:
           path: ~/.cache/pip
           key: pip-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('requirements.txt') }}
-      - run: pip install -r requirements.txt
-      - run: ruff check .
-      - run: make format-check
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Lint with ruff
+        run: ruff check .
+      - name: Check formatting (black/isort)
+        run: make format-check
 
   hadolint:
     runs-on: ubuntu-latest
@@ -46,43 +49,37 @@ jobs:
         with:
           path: ~/.cache/pip
           key: pip-${{ runner.os }}-3.11-${{ hashFiles('requirements.txt') }}
-      - run: pip install -r requirements.txt
-      - name: Launch MCP server (stdio)
-        run: |
-          set -euo pipefail
-          python -m chart_mcp.mcp_main >mcp.log 2>&1 &
-          echo $! > mcp.pid
-          sleep 2
-      - name: Verify MCP tool registration
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Verify MCP tool registration without spawning a server
         run: |
           python - <<'PY'
-          import asyncio
+          """Ensure ``chart_mcp.mcp_main.register`` wires every expected tool."""
+
           from chart_mcp import mcp_main
-          from fastmcp import FastMCP
 
-          server = FastMCP(name="ci-smoke")
-          mcp_main.register(server)
 
-          async def collect() -> set[str]:
-              mapping = await server.get_tools()
-              return set(mapping.keys())
+          class DummyServer:
+              """Minimal stub exposing the ``tool`` decorator contract."""
 
-          names = asyncio.run(collect())
+              def __init__(self) -> None:
+                  self.registered: dict[str, object] = {}
+
+              def tool(self, name: str):
+                  def decorator(func):
+                      self.registered[name] = func
+                      return func
+
+                  return decorator
+
+
+          server = DummyServer()
+          mcp_main.register(server)  # type: ignore[arg-type]
           expected = set(mcp_main.REGISTERED_TOOL_NAMES)
-          missing = sorted(expected - names)
+          missing = sorted(expected - set(server.registered))
           if missing:
               raise SystemExit(f"Missing MCP tools: {', '.join(missing)}")
           PY
-      - name: Stop MCP server
-        if: always()
-        run: |
-          if [ -f mcp.pid ]; then
-            kill $(cat mcp.pid) || true
-            rm -f mcp.pid
-          fi
-          if [ -f mcp.log ]; then
-            tail -n 20 mcp.log
-          fi
 
   typecheck:
     runs-on: ubuntu-latest

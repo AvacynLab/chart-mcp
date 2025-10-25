@@ -1,11 +1,26 @@
-"""Stub analysis service generating pedagogical summaries."""
+"""Heuristic analysis summary stub ensuring neutral tone."""
 
 from __future__ import annotations
 
+import re
+from dataclasses import dataclass
 from typing import Dict, Iterable, List
 
 from chart_mcp.services.levels import LevelCandidate
 from chart_mcp.services.patterns import PatternResult
+
+# ``acheter`` and friends must never appear in the generated copy. The substitution
+# keeps the overall structure intelligible while scrubbing any prescriptive wording
+# that might come from user-provided indicator names.
+_FORBIDDEN_PATTERN = re.compile(r"(acheter|vendre|buy|sell)", re.IGNORECASE)
+
+
+@dataclass(frozen=True)
+class AnalysisSummary:
+    """Value object bundling the textual summary and disclaimer."""
+
+    summary: str
+    disclaimer: str
 
 
 class AnalysisLLMService:
@@ -20,8 +35,8 @@ class AnalysisLLMService:
         indicator_highlights: Dict[str, float],
         levels: Iterable[LevelCandidate],
         patterns: Iterable[PatternResult],
-    ) -> str:
-        """Create a deterministic summary string."""
+    ) -> AnalysisSummary:
+        """Create a deterministic summary while enforcing neutrality constraints."""
         parts: List[str] = []
         parts.append(
             f"Analyse de {symbol.upper()} sur l'horizon {timeframe}. Les observations suivantes ressortent :"
@@ -46,16 +61,25 @@ class AnalysisLLMService:
         parts.append(
             "Ces éléments décrivent la structure actuelle du marché sans prise de position."
         )
-        summary = " ".join(parts)
-        if len(summary) <= 400:
-            return summary
-        # Preserve word boundaries when enforcing the 400 character guardrail to
-        # keep the explanation lisible pour les utilisateurs.
-        truncated = summary[:400]
+        summary = self._sanitize(" ".join(parts))
+        if len(summary) > 400:
+            summary = self._truncate(summary)
+        summary = self._sanitize(summary)
+        return AnalysisSummary(summary=summary, disclaimer=self.disclaimer)
+
+    @staticmethod
+    def _sanitize(text: str) -> str:
+        """Strip prescriptive vocabulary from *text*."""
+        return _FORBIDDEN_PATTERN.sub("[neutral]", text)
+
+    @staticmethod
+    def _truncate(text: str) -> str:
+        """Trim *text* to the 400 character budget without cutting words."""
+        truncated = text[:400]
         last_space = truncated.rfind(" ")
         if last_space > 0:
             truncated = truncated[:last_space]
         return truncated.rstrip() + "…"
 
 
-__all__ = ["AnalysisLLMService"]
+__all__ = ["AnalysisLLMService", "AnalysisSummary"]

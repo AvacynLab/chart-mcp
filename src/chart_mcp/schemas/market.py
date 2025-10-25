@@ -1,17 +1,17 @@
-"""Schemas for market data endpoints."""
+"""Schemas dedicated to the market data HTTP endpoints."""
 
 from __future__ import annotations
 
 from datetime import datetime
 from typing import List
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from chart_mcp.schemas.common import DatetimeRange
 
 
 class OhlcvRow(BaseModel):
-    """Single OHLCV entry."""
+    """Single OHLCV entry exposed to API consumers."""
 
     ts: int = Field(..., description="Unix timestamp in seconds")
     open: float = Field(..., alias="o")
@@ -31,7 +31,7 @@ class MarketDataRequest(DatetimeRange):
 
 
 class MarketDataResponse(BaseModel):
-    """Normalized OHLCV payload."""
+    """Normalized OHLCV payload returned by the REST layer."""
 
     symbol: str
     timeframe: str
@@ -39,7 +39,8 @@ class MarketDataResponse(BaseModel):
     rows: List[OhlcvRow]
     fetched_at: datetime = Field(default_factory=datetime.utcnow)
 
-    @validator("symbol")
+    @field_validator("symbol")
+    @classmethod
     def uppercase_symbol(cls, value: str) -> str:
         """Normalize symbol casing for consistent responses."""
         return value.upper()
@@ -74,6 +75,9 @@ class OhlcvQuery(BaseModel):
 
     @field_validator("symbol")
     @classmethod
-    def uppercase_symbol(cls, value: str) -> str:
+    def uppercase_query_symbol(cls, value: str) -> str:
         """Return the symbol in uppercase to keep cache keys consistent."""
         return value.upper()
+
+
+__all__ = ["OhlcvRow", "MarketDataRequest", "MarketDataResponse", "OhlcvQuery"]

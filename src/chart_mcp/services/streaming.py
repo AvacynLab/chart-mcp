@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import time
 from typing import AsyncIterator, Dict, Iterable, List, Mapping, SupportsFloat, cast
 
@@ -186,7 +187,7 @@ class StreamingService:
                 )
 
                 start_summary = time.perf_counter()
-                summary = await asyncio.to_thread(
+                analysis_output = await asyncio.to_thread(
                     self.analysis_service.summarize,
                     symbol,
                     timeframe,
@@ -198,7 +199,8 @@ class StreamingService:
                     patterns,
                 )
                 await _publish_metric("summary", time.perf_counter() - start_summary)
-                for sentence in summary.split("."):
+                summary_text = analysis_output.summary
+                for sentence in summary_text.split("."):
                     text = sentence.strip()
                     if text:
                         await streamer.publish(
@@ -213,7 +215,7 @@ class StreamingService:
                     ResultFinalStreamPayload(
                         type="result_final",
                         payload=ResultFinalDetails(
-                            summary=summary,
+                            summary=summary_text,
                             levels=[
                                 LevelDetail(
                                     price=float(lvl.price),
@@ -287,6 +289,43 @@ class StreamingService:
             finally:
                 await streamer.stop()
 
-        asyncio.create_task(_run_pipeline())
-        async for chunk in streamer.stream():
-            yield chunk
+        pipeline_task = asyncio.create_task(_run_pipeline())
+
+        class _StreamingJob(AsyncIterator[str]):
+            """Async iterator coordinating stream consumption and cleanup."""
+
+            def __init__(self) -> None:
+                self._stream = streamer.stream()
+                self._terminated = False
+
+            def __aiter__(self) -> _StreamingJob:
+                return self
+
+            async def __anext__(self) -> str:
+                try:
+                    return await self._stream.__anext__()
+                except StopAsyncIteration:
+                    self._terminated = True
+                    raise
+
+            async def aclose(self) -> None:
+                if self._terminated:
+                    return
+                self._terminated = True
+                await self._shutdown()
+
+            async def stop(self) -> None:
+                if self._terminated:
+                    return
+                self._terminated = True
+                await self._shutdown()
+
+            async def _shutdown(self) -> None:
+                if not pipeline_task.done():
+                    pipeline_task.cancel()
+                    with contextlib.suppress(asyncio.CancelledError):
+                        await pipeline_task
+                await streamer.stop()
+
+        job = _StreamingJob()
+        return cast(AsyncIterator[str], job)

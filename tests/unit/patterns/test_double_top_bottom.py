@@ -25,7 +25,9 @@ def test_double_top_detection():
     frame = _frame_from_closes(closes)
     service = PatternsService()
     patterns = service.detect(frame)
-    assert any(p.name == "double_top" for p in patterns)
+    tops = [p for p in patterns if p.name == "double_top"]
+    assert tops, "Two peaks should trigger a double top detection"
+    assert all(0.3 <= p.confidence <= 0.8 for p in tops)
 
 
 def test_double_bottom_detection():
@@ -33,4 +35,6 @@ def test_double_bottom_detection():
     frame = _frame_from_closes(closes)
     service = PatternsService()
     patterns = service.detect(frame)
-    assert any(p.name == "double_bottom" for p in patterns)
+    bottoms = [p for p in patterns if p.name == "double_bottom"]
+    assert bottoms, "Two troughs should trigger a double bottom detection"
+    assert all(0.3 <= p.confidence <= 0.8 for p in bottoms)

@@ -68,7 +68,7 @@ Réponse (extrait) :
 
 ```json
 {
-  "symbol": "BTCUSDT",
+  "symbol": "BTC/USDT",
   "timeframe": "1h",
   "source": "binance",
   "rows": [
@@ -77,7 +77,7 @@ Réponse (extrait) :
 }
 ```
 
-> ℹ️ Le provider normalise systématiquement les symboles vers le format `BASE/QUOTE`.
+> ℹ️ Le provider accepte `BTCUSDT` **et** `BTC/USDT`, et normalise systématiquement les symboles vers le format `BASE/QUOTE`.
 
 ### Exemple : calculer un indicateur
 
@@ -108,6 +108,8 @@ Réponse (extrait) :
   ]
 }
 ```
+
+Le même endpoint accepte les symboles déjà normalisés (`BTC/USDT`) ou compacts (`BTCUSDT`).
 
 ### Exemple : supports/résistances
 
@@ -175,13 +177,20 @@ Sortie (troncature) :
 event: tool_start
 data: {"tool":"get_crypto_data","symbol":"BTCUSDT","timeframe":"1h"}
 
-...
+event: result_partial
+data: {"indicators":{"ema":{"ema":35110.2}},"levels":[{"price":34850.0,"kind":"support","strength":0.6}]}
+
+event: metric
+data: {"step":"data","ms":42.1}
 
 event: token
 data: {"text":"Le prix reste au-dessus de l'EMA 50, ce qui suggère une dynamique haussière courte."}
 
+event: result_final
+data: {"summary":"Synthèse pédagogique...","levels":[...]}
+
 event: done
-data: {}
+data: {"status":"success"}
 ```
 
 Le serveur émet des évènements SSE avec les en-têtes suivants :
@@ -193,6 +202,7 @@ X-Accel-Buffering: no
 ```
 
 Chaque message est encodé au format NDJSON et suit la structure `event: <type>`, `data: <payload>`.
+La séquence typique est : `tool_start` → `result_partial` → `metric` (pour chaque étape) → `token` → `result_final` → `done` (avec d'éventuels heartbeats `: ping`).
 
 ## Serveur MCP
 

@@ -182,7 +182,7 @@ def generate_analysis_summary(
     indicators: Iterable[Dict[str, object]] | None = None,
     include_levels: bool = True,
     include_patterns: bool = True,
-) -> str:
+) -> Dict[str, str]:
     """Generate heuristic analysis summary for MCP tool."""
     frame = _get_crypto_frame(symbol, timeframe)
     indicator_specs: Iterable[Dict[str, object]] = indicators or [
@@ -214,7 +214,13 @@ def generate_analysis_summary(
     patterns = patterns_service.detect(frame) if include_patterns else []
     normalized_symbol = normalize_symbol(symbol)
     analysis_service = _get_analysis_service()
-    return analysis_service.summarize(normalized_symbol, timeframe, highlights, levels, patterns)
+    summary_result = analysis_service.summarize(
+        normalized_symbol, timeframe, highlights, levels, patterns
+    )
+    return {
+        "summary": summary_result.summary,
+        "disclaimer": summary_result.disclaimer,
+    }
 
 
 __all__ = [

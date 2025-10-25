@@ -7,6 +7,7 @@ Merci de votre intérêt pour l'alpha de `chart-mcp` !
 1. Créez un environnement virtuel (`python -m venv .venv`).
 2. Activez-le et installez les dépendances : `pip install -r requirements.txt`.
 3. Copiez `.env.example` en `.env` et configurez au minimum `API_TOKEN`. Les autres clefs documentées dans le fichier couvrent l'exchange par défaut, les origines autorisées et le rythme des heartbeats SSE.
+4. Passez en revue toutes les variables disponibles dans `.env.example` (p. ex. `STREAM_HEARTBEAT_MS`, `LLM_MODEL`, `RATE_LIMIT_PER_MINUTE`) afin d'adapter l'environnement à vos besoins locaux avant de lancer les tests.
 
 ## Règles de qualité
 
