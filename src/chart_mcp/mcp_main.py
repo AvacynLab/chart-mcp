@@ -68,6 +68,12 @@ _TOOL_BINDINGS: Dict[str, Callable[..., object]] = {
     "generate_analysis_summary": mcp_server.generate_analysis_summary,
 }
 
+# ``REGISTERED_TOOL_NAMES`` is exported for CI and external consumers that only need
+# to introspect which tools the MCP server exposes without importing the bindings
+# dictionary itself.  Using a tuple keeps the order deterministic while preventing
+# accidental mutation.
+REGISTERED_TOOL_NAMES = tuple(_TOOL_BINDINGS.keys())
+
 
 def register(server: MCPServer) -> None:
     """Attach every chart tool to *server* using stable identifiers."""
@@ -97,4 +103,4 @@ if __name__ == "__main__":
     asyncio.run(main())
 
 
-__all__ = ["register", "main"]
+__all__ = ["register", "main", "REGISTERED_TOOL_NAMES", "MCPServer"]
