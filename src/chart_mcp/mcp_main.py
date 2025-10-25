@@ -1,9 +1,13 @@
-"""Entrypoint exposing chart_mcp tools through a FastMCP server."""
+"""Entrypoint exposing ``chart_mcp`` tools through a FastMCP server."""
 
 from __future__ import annotations
 
 import asyncio
 from typing import Iterable
+
+from loguru import logger
+
+from chart_mcp import mcp_server
 
 try:
     from fastmcp import FastMCP
@@ -11,10 +15,6 @@ except ImportError as exc:  # pragma: no cover - import guard for optional depen
     raise RuntimeError(
         "fastmcp must be installed to start the MCP server."
     ) from exc
-
-from loguru import logger
-
-from chart_mcp import mcp_server
 
 
 SERVER_NAME = "chart-mcp"
@@ -32,7 +32,6 @@ REGISTERED_TOOL_NAMES: Iterable[str] = (
 
 def register(server: FastMCP) -> None:
     """Register all chart MCP tools onto *server* with stable identifiers."""
-
     mcp_server.register_tools(server)
     logger.debug(
         "mcp.register_tools tools={tools}",
@@ -42,7 +41,6 @@ def register(server: FastMCP) -> None:
 
 def build_server() -> FastMCP:
     """Instantiate a FastMCP server primed with chart specific settings."""
-
     server = FastMCP(name=SERVER_NAME, instructions=SERVER_INSTRUCTIONS)
     register(server)
     return server
@@ -50,7 +48,6 @@ def build_server() -> FastMCP:
 
 async def main() -> None:
     """Run the chart MCP server over stdio, logging unexpected failures."""
-
     server = build_server()
     try:
         await server.run_stdio_async(show_banner=False)

@@ -175,7 +175,6 @@ class _ToolRegistrar(Protocol):
 
 def register_tools(registrar: _ToolRegistrar) -> None:
     """Attach all chart MCP tools to *registrar* under stable identifiers."""
-
     registrar.tool("get_crypto_data")(get_crypto_data)
     registrar.tool("compute_indicator")(compute_indicator)
     registrar.tool("identify_support_resistance")(identify_support_resistance)

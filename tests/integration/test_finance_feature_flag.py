@@ -44,7 +44,6 @@ def test_finance_routes_disabled(monkeypatch) -> None:
 
 def test_finance_routes_enabled_smoke(monkeypatch) -> None:
     """Finance flag on should expose read-only routes responding successfully."""
-
     monkeypatch.setenv("API_TOKEN", "testingtoken")
     monkeypatch.setenv("FEATURE_FINANCE", "true")
     monkeypatch.setenv("PLAYWRIGHT", "true")

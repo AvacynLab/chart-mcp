@@ -27,7 +27,6 @@ class _DummyServer:
 
 def test_register_exposes_expected_tools() -> None:
     """The MCP entrypoint should publish all documented tool names."""
-
     server = _DummyServer()
     mcp_main.register(server)  # type: ignore[arg-type]
     registered = set(server.names)
