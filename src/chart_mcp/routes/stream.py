@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import inspect
-from collections.abc import Awaitable
+from collections.abc import AsyncIterator, Awaitable
 from typing import Annotated, Dict, List, cast
 
 from fastapi import APIRouter, Depends, Query, Request

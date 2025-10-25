@@ -25,7 +25,7 @@ class RequestedIndicator(BaseModel):
     @field_validator("name")
     @classmethod
     def normalize_name(cls, value: str) -> str:
-        """Indicators are always referenced using lowercase identifiers."""
+        """Normalise indicator names to lowercase."""
         return value.lower()
 
     @field_validator("params")
@@ -68,7 +68,7 @@ class IndicatorSnapshot(BaseModel):
     @field_validator("name")
     @classmethod
     def lowercase_name(cls, value: str) -> str:
-        """Indicator names are published in lowercase for consistency."""
+        """Publish indicator names in lowercase for consistency."""
         return value.lower()
 
     @field_validator("latest")

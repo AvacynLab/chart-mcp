@@ -182,7 +182,7 @@ def generate_analysis_summary(
     indicators: Iterable[Dict[str, object]] | None = None,
     include_levels: bool = True,
     include_patterns: bool = True,
-) -> str:
+) -> Dict[str, str]:
     """Generate heuristic analysis summary for MCP tool."""
     frame = _get_crypto_frame(symbol, timeframe)
     indicator_specs: Iterable[Dict[str, object]] = indicators or [

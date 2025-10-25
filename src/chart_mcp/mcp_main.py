@@ -31,7 +31,6 @@ class MCPServer:
 
     def __init__(self, name: str | None = None, instructions: str | None = None) -> None:
         """Store the configured FastMCP instance and basic metadata."""
-
         self._inner = FastMCP(name=name, instructions=instructions)
 
     def tool(self, name_or_fn: str | Callable[..., object] | None = None, *, name: str | None = None, **kwargs: object) -> Callable[[Callable[..., object]], object]:
@@ -41,17 +40,14 @@ class MCPServer:
         for unit tests to assert the registered tool names via monkeypatched
         ``FastMCP`` implementations.
         """
-
         return self._inner.tool(name_or_fn, name=name, **kwargs)
 
     async def serve_stdio(self) -> None:
         """Expose the tools over stdio without displaying the FastMCP banner."""
-
         await self._inner.run_stdio_async(show_banner=False)
 
     def __getattr__(self, name: str) -> object:
         """Delegate attribute access to ``FastMCP`` for advanced uses."""
-
         return getattr(self._inner, name)
 
 
@@ -69,7 +65,6 @@ _TOOL_BINDINGS: Dict[str, Callable[..., object]] = {
 
 def register(server: MCPServer) -> None:
     """Attach every chart tool to *server* using stable identifiers."""
-
     for name, func in _TOOL_BINDINGS.items():
         # The decorator returned by ``server.tool`` wires the callable for remote
         # execution. We immediately apply it so the server is ready once ``main``
@@ -80,7 +75,6 @@ def register(server: MCPServer) -> None:
 
 async def main() -> None:
     """Create an MCP server and serve the tools over stdio."""
-
     server = MCPServer(
         name="chart-mcp",
         instructions="Analyse crypto pédagogique. Aucun conseil d'investissement.",

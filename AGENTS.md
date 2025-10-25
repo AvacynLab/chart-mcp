@@ -1,4 +1,4 @@
-2025-10-25T08:45:50Z — 769b62394552a6693cf9b3fa76327a9e862c810b
+2025-10-25T10:15:00Z — 65bd7d5433b9faedc284acf85857e81ddc90879a
 
 # 🎯 Brief à l’agent (objectifs fin d’alpha)
 
@@ -425,3 +425,4 @@ Historique récent:
 - 2025-10-25T09:02:56Z : Couverture des routes d'intégration (401/400) pour indicateurs/niveaux/patterns/analyse, validation de l'ordre SSE `tool_start`→`result_final`→`done`, et ajout des assertions d'erreur normalisées + `pytest tests/integration/test_indicators_routes.py tests/integration/test_levels_routes.py tests/integration/test_patterns_routes.py tests/integration/test_analysis_routes.py tests/integration/test_stream_sse.py`.
 - 2025-10-25T09:29:40Z : Durcissement de la factory FastAPI (origines strictes), gestion de `CancelledError` côté `/stream/analysis`, wrapper `StreamingService` exposant `stop` et test d'annulation dédié + `pytest tests/unit/services/test_streaming_service.py tests/integration/test_stream_sse.py`.
 - 2025-10-25T09:47:12Z : Adaptation de `mcp_main` pour envelopper `fastmcp.FastMCP`, fin des ellipses fonctionnelles, renforcement du stub `fastmcp` pour les tests (capture des enregistrements et des appels stdio) et ajout d'un test vérifiant `show_banner=False` + `pytest tests/unit/mcp/test_server_runtime.py`.
+- 2025-10-25T10:15:00Z : Résolution des échecs `ruff`/`mypy` (imports stubs, docstrings impératives, annotation `Dict[str, str]` pour `generate_analysis_summary`, import `AsyncIterator`), nettoyage des tests (`stop` direct) et exécution de `ruff check .`, `mypy src`, `pytest tests/unit/services/test_streaming_service.py tests/unit/services/test_ccxt_provider.py tests/unit/mcp/test_server_runtime.py`.

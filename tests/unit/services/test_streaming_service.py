@@ -120,7 +120,6 @@ def _parse_events(raw_events: Iterable[str]) -> list[tuple[str, dict]]:
 @pytest.mark.anyio
 async def test_stream_analysis_iterator_exposes_stop_hook() -> None:
     """The asynchronous iterator should surface a ``stop`` coroutine for cleanup."""
-
     frame = pd.DataFrame(
         {
             "ts": [1, 2, 3, 4, 5],
@@ -145,7 +144,7 @@ async def test_stream_analysis_iterator_exposes_stop_hook() -> None:
     assert first_chunk.startswith("event:")
 
     assert hasattr(iterator, "stop")
-    stopper = getattr(iterator, "stop")
+    stopper = iterator.stop  # type: ignore[attr-defined]
     assert callable(stopper)
 
     await iterator.aclose()

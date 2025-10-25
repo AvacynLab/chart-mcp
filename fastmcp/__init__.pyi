@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import Any, Callable, Protocol
 
-
 class _FunctionTool(Protocol):
     """Minimal protocol capturing the callable behaviour of MCP tools."""
 

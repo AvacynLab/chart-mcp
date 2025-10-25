@@ -10,7 +10,6 @@ import types
 
 def _install_fastmcp_stub() -> None:
     """Inject a deterministic ``fastmcp`` replacement tailored for the tests."""
-
     sys.modules.pop("fastmcp", None)
 
     stub_module = types.ModuleType("fastmcp")
@@ -26,7 +25,6 @@ def _install_fastmcp_stub() -> None:
             self, name_or_fn=None, *, name=None, **_: object
         ):
             """Return a decorator adding the resolved name to ``decorated``."""
-
             resolved = name_or_fn if isinstance(name_or_fn, str) else name
             if resolved is None:
                 raise AssertionError("Tool name must be provided in tests")
@@ -41,7 +39,6 @@ def _install_fastmcp_stub() -> None:
             self, show_banner: bool = True, log_level: str | None = None
         ) -> None:
             """Capture invocation metadata instead of opening real pipes."""
-
             self.run_calls.append({"show_banner": show_banner, "log_level": log_level})
 
     # Provide both ``FastMCP`` (used at runtime) and ``MCPServer`` (legacy import)
@@ -53,7 +50,6 @@ def _install_fastmcp_stub() -> None:
 
 def test_tools_registered() -> None:
     """The register() helper should attach every public tool identifier."""
-
     _install_fastmcp_stub()
     module = importlib.reload(importlib.import_module("chart_mcp.mcp_main"))
 
@@ -65,7 +61,6 @@ def test_tools_registered() -> None:
 
         def tool(self, name):  # type: ignore[no-untyped-def]
             """Record the tool name and return a passthrough decorator."""
-
             def decorator(fn):  # type: ignore[no-untyped-def]
                 self.names.append(name)
                 return fn
@@ -87,7 +82,6 @@ def test_tools_registered() -> None:
 
 def test_mcp_server_adapter_invokes_fastmcp() -> None:
     """The thin adapter should forward calls to the FastMCP stub."""
-
     _install_fastmcp_stub()
     module = importlib.reload(importlib.import_module("chart_mcp.mcp_main"))
     server = module.MCPServer(name="demo", instructions="desc")

@@ -28,7 +28,6 @@ class DummyClient:
 
 def test_ccxt_provider_normalization_and_shape(monkeypatch):
     """Compact symbols should be normalised and timestamps converted to seconds."""
-
     provider = CcxtDataProvider("binance")
     client = DummyClient()
     provider.client = client
@@ -50,7 +49,6 @@ def test_ccxt_provider_normalization_and_shape(monkeypatch):
 
 def test_ccxt_provider_honours_end_parameter(monkeypatch):
     """Rows strictly greater than the optional ``end`` parameter are filtered out."""
-
     provider = CcxtDataProvider("binance")
     client = DummyClient()
     provider.client = client
@@ -62,7 +60,6 @@ def test_ccxt_provider_honours_end_parameter(monkeypatch):
 
 def test_ccxt_provider_empty(monkeypatch):
     """An empty upstream payload should surface a dedicated ``UpstreamError``."""
-
     class EmptyClient(DummyClient):
         def fetch_ohlcv(self, *args, **kwargs):
             return []
