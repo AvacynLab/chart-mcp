@@ -211,7 +211,6 @@ async def test_stream_analysis_handles_unexpected_exceptions_gracefully() -> Non
 @pytest.mark.anyio
 async def test_stream_analysis_indicator_errors_surface_as_bad_request() -> None:
     """Indicator validation issues should propagate as structured error events."""
-
     frame = pd.DataFrame(
         {
             "ts": list(range(1, 8)),
@@ -261,7 +260,6 @@ async def test_stream_analysis_rejects_invalid_limit() -> None:
 @pytest.mark.anyio
 async def test_stream_analysis_emits_metric_events_for_every_stage() -> None:
     """The SSE stream should expose timing metrics for each pipeline step."""
-
     frame = pd.DataFrame(
         {
             "ts": list(range(1, 41)),
@@ -296,7 +294,6 @@ async def test_stream_analysis_emits_metric_events_for_every_stage() -> None:
 @pytest.mark.anyio
 async def test_stream_analysis_normalizes_symbol_in_events() -> None:
     """Tool events should expose the normalized ``BASE/QUOTE`` symbol."""
-
     frame = pd.DataFrame(
         {
             "ts": list(range(1, 6)),

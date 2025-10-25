@@ -404,3 +404,4 @@ Historique récent:
 - 2025-10-25T12:18:21Z : Ajout d'un test unitaire garantissant l'émission des métriques `metric` à chaque étape du pipeline SSE.
 - 2025-10-25T12:45:07Z : Uniformisation des symboles dans le flux SSE (`BTC/USDT`) et ajout d'un test async vérifiant l'événement `tool_start` normalisé.
 - 2025-10-25T13:20:00Z : Documentation SSE alignée sur la normalisation `BASE/QUOTE` et test unitaire couvrant la propagation des erreurs d'indicateur dans le pipeline streaming.
+- 2025-10-25T13:48:35Z : Correction des avertissements Ruff D202 en supprimant les lignes vides après docstrings dans les tests streaming ; vérifications `ruff` et `pytest` effectuées.
