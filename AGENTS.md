@@ -1,4 +1,4 @@
-2025-10-25T05:01:13Z — ce24f6c19a6b425412229dbbe814b0552bbfee83
+2025-10-25T05:12:43Z — 51a01a12c9df91961edf0f397d43cf912d4d2e15
 
 # 🎯 Brief à l’agent (mise à jour)
 
@@ -270,3 +270,4 @@ Historique récent:
 - 2025-10-25T04:17:56Z : Ajout du serveur MCP FastMCP (entrypoint stdio + job CI), émission `metric` typée côté SSE, extension README/Makefile et tests (unitaires & finance flag) validés via pytest ciblé.
 - 2025-10-25T04:29:27Z : Vérification locale FastMCP (import + API stdio), exécution des tests ciblés (`pytest tests/unit/mcp/test_server_runtime.py tests/integration/test_stream_headers.py tests/integration/test_finance_feature_flag.py`) et rafraîchissement de ce journal.
 - 2025-10-25T05:01:13Z : Correction ruff (`I001`, `D202`, `D204`) sur l'entrée MCP + tests ciblés (`pytest tests/unit/mcp/test_server_runtime.py tests/integration/test_finance_feature_flag.py`) pour confirmer l'absence de régressions.
+- 2025-10-25T05:12:43Z : Ajout d'un stub `fastmcp` pour mypy, élargissement du protocole d'enregistrement afin d'accepter `FastMCP`, formatage `black` sur les modules MCP et validation `mypy`, `make format-check`, `pytest tests/unit/mcp/test_server_runtime.py`, `ruff check` ciblé.

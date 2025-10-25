@@ -2,7 +2,18 @@
 
 from __future__ import annotations
 
-from typing import Callable, Dict, Iterable, List, Mapping, Optional, Protocol, SupportsFloat, cast
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Iterable,
+    List,
+    Mapping,
+    Optional,
+    Protocol,
+    SupportsFloat,
+    cast,
+)
 
 import pandas as pd
 
@@ -169,7 +180,13 @@ __all__ = [
 class _ToolRegistrar(Protocol):
     """Typing contract for MCP servers capable of registering tools."""
 
-    def tool(self, name: str) -> Callable[[Callable[..., object]], Callable[..., object]]:
+    def tool(
+        self,
+        name_or_fn: Callable[..., Any] | str | None = None,
+        *,
+        name: str | None = None,
+        **kwargs: Any,
+    ) -> Callable[[Callable[..., Any]], Any]:
         """Return a decorator registering *name* against the provided callable."""
 
 

@@ -12,15 +12,11 @@ from chart_mcp import mcp_server
 try:
     from fastmcp import FastMCP
 except ImportError as exc:  # pragma: no cover - import guard for optional dependency
-    raise RuntimeError(
-        "fastmcp must be installed to start the MCP server."
-    ) from exc
+    raise RuntimeError("fastmcp must be installed to start the MCP server.") from exc
 
 
 SERVER_NAME = "chart-mcp"
-SERVER_INSTRUCTIONS = (
-    "Analyse crypto pédagogique uniquement. Aucun conseil d'investissement."
-)
+SERVER_INSTRUCTIONS = "Analyse crypto pédagogique uniquement. Aucun conseil d'investissement."
 REGISTERED_TOOL_NAMES: Iterable[str] = (
     "get_crypto_data",
     "compute_indicator",
