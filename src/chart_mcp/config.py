@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import List
+from typing import Any, List, cast
 
 from pydantic import Field, validator
 from pydantic_settings import BaseSettings
@@ -55,4 +55,16 @@ def get_settings() -> Settings:
     return Settings()  # type: ignore[call-arg]
 
 
-settings = get_settings()
+class _SettingsProxy:
+    """Proxy deferring ``Settings`` instantiation until attributes are accessed."""
+
+    __slots__ = ()
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(get_settings(), name)
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        raise AttributeError("Settings proxy is read-only; use environment variables instead")
+
+
+settings = cast(Settings, _SettingsProxy())
