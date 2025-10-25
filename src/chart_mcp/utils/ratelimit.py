@@ -99,9 +99,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         try:
             remaining = self._limiter.acquire(key)
         except TooManyRequests as exc:
-            response = JSONResponse(status_code=exc.status_code, content=exc.to_payload())
-            response.headers["X-RateLimit-Remaining"] = "0"
-            return response
+            throttled = JSONResponse(status_code=exc.status_code, content=exc.to_payload())
+            throttled.headers["X-RateLimit-Remaining"] = "0"
+            return throttled
         response = await call_next(request)
         response.headers.setdefault("X-RateLimit-Remaining", str(remaining))
         return response

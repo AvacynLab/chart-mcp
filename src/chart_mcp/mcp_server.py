@@ -80,7 +80,7 @@ def compute_indicator(
     for ts_value, payload in zip(timestamps, cleaned.to_dict(orient="records"), strict=True):
         record: Dict[str, float | int] = {"ts": int(ts_value)}
         for key, value in payload.items():
-            record[key] = float(cast(SupportsFloat, value))
+            record[str(key)] = float(cast(SupportsFloat, value))
         result.append(record)
     return result
 

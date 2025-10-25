@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Awaitable, Callable
+import inspect
+from collections.abc import Awaitable
 from typing import Annotated, AsyncIterator, Dict, List, cast
 
 from fastapi import APIRouter, Depends, Query, Request
@@ -74,10 +75,13 @@ async def stream_analysis(
             # Explicitly close the generator so the underlying streamer stops the
             # heartbeat task and avoids dangling background work.
             closer = getattr(iterator, "aclose", None)
-            if isinstance(closer, Callable):
+            if callable(closer):
                 maybe_coro = closer()
-                if isinstance(maybe_coro, Awaitable):
-                    await maybe_coro
+                if inspect.isawaitable(maybe_coro):
+                    # ``cast`` communicates to the type-checker that the awaitable
+                    # conforms to the protocol even though ``isawaitable`` only
+                    # returns a ``bool`` at runtime.
+                    await cast(Awaitable[object], maybe_coro)
             raise
 
     headers = {
