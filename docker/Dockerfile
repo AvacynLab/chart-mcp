@@ -40,17 +40,19 @@ USER chartmcp
 
 EXPOSE 8000
 
+# Use an inline Python health probe to verify the FastAPI service remains responsive.
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 CMD \
   python - <<'PY' || exit 1
-import sys, http.client
+    import sys
+    import http.client
 
-try:
-    connection = http.client.HTTPConnection("localhost", 8000, timeout=3)
-    connection.request("GET", "/health")
-    response = connection.getresponse()
-    sys.exit(0 if response.status == 200 else 1)
-except Exception:
-    sys.exit(1)
+    try:
+        connection = http.client.HTTPConnection("localhost", 8000, timeout=3)
+        connection.request("GET", "/health")
+        response = connection.getresponse()
+        sys.exit(0 if response.status == 200 else 1)
+    except Exception:
+        sys.exit(1)
 PY
 
 CMD ["uvicorn", "chart_mcp.app:app", "--host", "0.0.0.0", "--port", "8000"]
