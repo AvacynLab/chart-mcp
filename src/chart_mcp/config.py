@@ -64,7 +64,15 @@ class _SettingsProxy:
         return getattr(get_settings(), name)
 
     def __setattr__(self, name: str, value: Any) -> None:
-        raise AttributeError("Settings proxy is read-only; use environment variables instead")
+        """Allow tests to monkeypatch settings without forcing global rewrites."""
+
+        # ``monkeypatch.setattr`` relies on being able to assign attributes directly on
+        # the proxy returned from the configuration module.  By forwarding the
+        # assignment to the lazily-instantiated ``Settings`` object we keep imports
+        # lightweight (the proxy itself remains empty) while still supporting test
+        # overrides such as tweaking ``stream_heartbeat_ms`` for deterministic SSE
+        # assertions.
+        setattr(get_settings(), name, value)
 
 
 settings = cast(Settings, _SettingsProxy())
