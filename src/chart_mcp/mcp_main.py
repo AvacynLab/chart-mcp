@@ -12,10 +12,10 @@ from chart_mcp import mcp_server
 try:
     # ``fastmcp`` ships the runtime we rely on to expose MCP tools over stdio.
     from fastmcp import FastMCP
-except ImportError as exc:  # pragma: no cover - ensures a helpful failure when optional dep is missing
-    raise RuntimeError(
-        "fastmcp must be installed to launch the chart-mcp MCP server"
-    ) from exc
+except (
+    ImportError
+) as exc:  # pragma: no cover - ensures a helpful failure when optional dep is missing
+    raise RuntimeError("fastmcp must be installed to launch the chart-mcp MCP server") from exc
 
 
 class MCPServer:
@@ -33,7 +33,13 @@ class MCPServer:
         """Store the configured FastMCP instance and basic metadata."""
         self._inner = FastMCP(name=name, instructions=instructions)
 
-    def tool(self, name_or_fn: str | Callable[..., object] | None = None, *, name: str | None = None, **kwargs: object) -> Callable[[Callable[..., object]], object]:
+    def tool(
+        self,
+        name_or_fn: str | Callable[..., object] | None = None,
+        *,
+        name: str | None = None,
+        **kwargs: object,
+    ) -> Callable[[Callable[..., object]], object]:
         """Proxy tool registration to the underlying FastMCP instance.
 
         The wrapper keeps the same decorator-based interface while making it easy

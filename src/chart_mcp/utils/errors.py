@@ -128,7 +128,9 @@ def request_validation_exception_handler(_: Request, exc: Exception) -> JSONResp
             return [_serialize(item) for item in value]
         return value
 
-    formatted_errors = [{str(key): _serialize(value) for key, value in error.items()} for error in raw_errors]
+    formatted_errors = [
+        {str(key): _serialize(value) for key, value in error.items()} for error in raw_errors
+    ]
     details: list[object] = [cast(object, error) for error in formatted_errors]
     payload: JSONDict = {
         "error": {"code": "validation_error", "message": "Request validation failed"},
