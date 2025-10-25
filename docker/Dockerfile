@@ -6,16 +6,15 @@ ENV POETRY_VIRTUALENVS_CREATE=false \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
-# Debian trixie currently ships build-essential 12.10; pin to the latest tested release.
-ARG BUILD_ESSENTIAL_VERSION="12.10"
 ARG PIP_VERSION="24.2"
 
 WORKDIR /app
 
-# Pin the compiler toolchain to guarantee reproducible wheels for numpy/scipy.
+# Install the default compiler toolchain for building wheels.
+# hadolint ignore=DL3008
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-        build-essential="${BUILD_ESSENTIAL_VERSION}" \
+        build-essential \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt pyproject.toml ./
