@@ -255,4 +255,3 @@ __all__ = [
     "OverlaySeriesModel",
     "OverlayPointModel",
 ]
-

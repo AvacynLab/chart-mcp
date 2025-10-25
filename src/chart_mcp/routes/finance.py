@@ -171,10 +171,7 @@ def _serialize_backtest(symbol: str, timeframe: str, result: BacktestResult) -> 
         )
         for trade in result.trades
     ]
-    equity_curve = [
-        EquityPoint(ts=ts, equity=equity)
-        for ts, equity in result.equity_curve
-    ]
+    equity_curve = [EquityPoint(ts=ts, equity=equity) for ts, equity in result.equity_curve]
     return BacktestResponse(
         symbol=symbol,
         timeframe=timeframe,
@@ -265,10 +262,7 @@ def get_chart_artifact(
             id=overlay.identifier,
             type=overlay.kind,
             window=overlay.window,
-            points=[
-                OverlayPointModel(ts=point.ts, value=point.value)
-                for point in overlay.points
-            ],
+            points=[OverlayPointModel(ts=point.ts, value=point.value) for point in overlay.points],
         )
         for overlay in summary.overlays
     ]

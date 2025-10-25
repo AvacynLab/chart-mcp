@@ -99,7 +99,9 @@ def _seed_backtest_runs(connection: sqlite3.Connection) -> None:
     )
 
 
-def run_seed(database_path: Path | None = None, *, assets: Iterable[SeedData] | None = None) -> Path:
+def run_seed(
+    database_path: Path | None = None, *, assets: Iterable[SeedData] | None = None
+) -> Path:
     """Populate the database with deterministic data and return the path."""
     path = run_migrations(database_path)
     with closing(sqlite3.connect(path)) as connection:
