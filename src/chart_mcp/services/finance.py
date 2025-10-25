@@ -501,4 +501,3 @@ __all__ = [
     "OverlaySeriesSnapshot",
     "OverlayPointSnapshot",
 ]
-

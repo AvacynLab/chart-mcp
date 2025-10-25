@@ -38,9 +38,7 @@ class SmaCrossParams(BaseModel):
 class StrategySpec(BaseModel):
     """Discriminated strategy specification for backtests."""
 
-    name: Literal["sma_cross"] = Field(
-        ..., description="Currently supported strategy identifier."
-    )
+    name: Literal["sma_cross"] = Field(..., description="Currently supported strategy identifier.")
     params: SmaCrossParams = Field(..., description="Strategy parameter payload.")
 
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)

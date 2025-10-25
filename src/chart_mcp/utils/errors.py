@@ -118,8 +118,7 @@ def request_validation_exception_handler(_: Request, exc: Exception) -> JSONResp
     assert isinstance(exc, RequestValidationError)
     raw_errors = exc.errors()
     formatted_errors = [
-        {str(key): cast(object, value) for key, value in error.items()}
-        for error in raw_errors
+        {str(key): cast(object, value) for key, value in error.items()} for error in raw_errors
     ]
     details: list[object] = [cast(object, error) for error in formatted_errors]
     payload: JSONDict = {

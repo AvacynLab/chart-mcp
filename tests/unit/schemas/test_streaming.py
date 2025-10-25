@@ -9,7 +9,6 @@ from chart_mcp.schemas.streaming import (
     DoneStreamPayload,
     ErrorStreamPayload,
     ResultFinalStreamPayload,
-    ResultPartialStreamPayload,
     StreamEvent,
     TokenStreamPayload,
     ToolStreamPayload,
@@ -36,20 +35,17 @@ def test_tool_payload_accepts_optional_fields() -> None:
 def test_stream_event_roundtrip_serialises_payload() -> None:
     """The stream event wrapper keeps event names constrained to allowed values."""
     event = StreamEvent(
-        event="result_partial",
-        data=ResultPartialStreamPayload(
-            type="result_partial",
-            payload={
-                "indicators": {"rsi": {"value": 55.5}},
-                "levels": [
-                    {"price": 123.4, "kind": "support", "strength": 0.5},
-                ],
-            },
-        ),
+        type="result_partial",
+        payload={
+            "indicators": {"rsi": {"value": 55.5}},
+            "levels": [
+                {"price": 123.4, "kind": "support", "strength": 0.5},
+            ],
+        },
     )
 
-    assert event.event == "result_partial"
-    assert event.data.payload.levels[0].kind == "support"
+    assert event.type == "result_partial"
+    assert event.payload["levels"][0]["kind"] == "support"
 
 
 def test_done_payload_rejects_unknown_status() -> None:

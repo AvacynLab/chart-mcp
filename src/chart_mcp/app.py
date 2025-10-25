@@ -8,6 +8,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.responses import ORJSONResponse
 
 from chart_mcp.config import get_settings
 from chart_mcp.routes import (
@@ -43,7 +44,14 @@ def create_app() -> FastAPI:
     """Instantiate FastAPI application with configured routes and services."""
     configure_logging()
     settings = get_settings()
-    app = FastAPI(title="chart-mcp", version="0.1.0")
+    # Rely on ``ORJSONResponse`` for the default responses to keep JSON
+    # serialization fast while maintaining feature parity with the standard
+    # encoder used previously.
+    app = FastAPI(
+        title="chart-mcp",
+        version="0.1.0",
+        default_response_class=ORJSONResponse,
+    )
     allowed_origins = settings.allowed_origins or ["*"]
     app.add_middleware(
         CORSMiddleware,

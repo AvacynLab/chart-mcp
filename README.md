@@ -59,6 +59,9 @@ uvicorn chart_mcp.app:app --host 0.0.0.0 --port 8000 --reload
 ```bash
 curl -H "Authorization: Bearer $API_TOKEN" \
   "http://localhost:8000/api/v1/market/ohlcv?symbol=BTCUSDT&timeframe=1h&limit=500"
+
+curl -H "Authorization: Bearer $API_TOKEN" \
+  "http://localhost:8000/api/v1/market/ohlcv?symbol=BTC/USDT&timeframe=1h&limit=500"
 ```
 
 Réponse (extrait) :
@@ -70,6 +73,91 @@ Réponse (extrait) :
   "source": "binance",
   "rows": [
     {"ts": 1730000000, "o": 35000.1, "h": 35200.0, "l": 34980.5, "c": 35110.0, "v": 123.45}
+  ]
+}
+```
+
+> ℹ️ Le provider normalise systématiquement les symboles vers le format `BASE/QUOTE`.
+
+### Exemple : calculer un indicateur
+
+```bash
+curl -H "Authorization: Bearer $API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -X POST "http://localhost:8000/api/v1/indicators/compute" \
+  -d '{
+        "symbol": "BTCUSDT",
+        "timeframe": "1h",
+        "indicator": {
+          "name": "ema",
+          "params": {"window": 21}
+        },
+        "limit": 200
+      }'
+```
+
+Réponse (extrait) :
+
+```json
+{
+  "symbol": "BTC/USDT",
+  "timeframe": "1h",
+  "indicator": "ema",
+  "rows": [
+    {"ts": 1730000000, "value": 35080.42}
+  ]
+}
+```
+
+### Exemple : supports/résistances
+
+```bash
+curl -H "Authorization: Bearer $API_TOKEN" \
+  "http://localhost:8000/api/v1/levels?symbol=BTCUSDT&timeframe=4h&limit=500&max=5"
+```
+
+Réponse (extrait) :
+
+```json
+{
+  "symbol": "BTC/USDT",
+  "timeframe": "4h",
+  "levels": [
+    {
+      "price": 34850.0,
+      "strength": 0.6,
+      "kind": "support",
+      "ts_range": {"start_ts": 1729990000, "end_ts": 1730000000}
+    }
+  ]
+}
+```
+
+### Exemple : détection de figures chartistes
+
+```bash
+curl -H "Authorization: Bearer $API_TOKEN" \
+  "http://localhost:8000/api/v1/patterns?symbol=BTC/USDT&timeframe=1h&limit=500"
+```
+
+Réponse (extrait) :
+
+```json
+{
+  "symbol": "BTC/USDT",
+  "timeframe": "1h",
+  "patterns": [
+    {
+      "name": "channel",
+      "score": 0.7,
+      "confidence": 0.52,
+      "start_ts": 1729985000,
+      "end_ts": 1730000000,
+      "points": [
+        [1729985000, 34750.0],
+        [1730000000, 35010.0]
+      ]
+    }
   ]
 }
 ```
@@ -95,6 +183,16 @@ data: {"text":"Le prix reste au-dessus de l'EMA 50, ce qui suggère une dynamiqu
 event: done
 data: {}
 ```
+
+Le serveur émet des évènements SSE avec les en-têtes suivants :
+
+```text
+Cache-Control: no-cache
+Connection: keep-alive
+X-Accel-Buffering: no
+```
+
+Chaque message est encodé au format NDJSON et suit la structure `event: <type>`, `data: <payload>`.
 
 ### Scripts utiles
 
@@ -149,9 +247,9 @@ et absence de rate-limit aléatoire).
 
 ## Limitations alpha
 
-- Données crypto uniquement
-- Synthèse IA basée sur une heuristique, non prescriptive
-- Indicateurs et patterns basiques
+- Données crypto uniquement (pas de support actions ou forex pour le moment).
+- Synthèse IA basée sur une heuristique pédagogique, jamais prescriptive.
+- Détection de patterns basique (channeaux, triangles, chandeliers simples).
 
 ## Licence
 

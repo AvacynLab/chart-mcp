@@ -8,7 +8,7 @@ The schema is intentionally aligned with the SSE payloads emitted by the
 
 from __future__ import annotations
 
-from typing import Annotated, Dict, List, Literal, Tuple, Union
+from typing import Annotated, Any, Dict, List, Literal, Tuple, Union
 
 from pydantic import BaseModel, Field
 
@@ -139,21 +139,24 @@ StreamPayload = Annotated[
 """Discriminated union used by SSE payloads to guarantee typed artefacts."""
 
 
-class StreamEvent(BaseModel):
-    """Full SSE event including the HTTP event name and typed payload."""
+EventType = Literal[
+    "tool_start",
+    "tool_end",
+    "tool_log",
+    "token",
+    "result_partial",
+    "result_final",
+    "metric",
+    "error",
+    "done",
+]
 
-    event: Literal[
-        "tool_start",
-        "tool_end",
-        "tool_log",
-        "metric",
-        "token",
-        "result_partial",
-        "result_final",
-        "error",
-        "done",
-    ]
-    data: StreamPayload
+
+class StreamEvent(BaseModel):
+    """Structured SSE event carrying the type and an arbitrary payload."""
+
+    type: EventType
+    payload: Dict[str, Any] = Field(default_factory=dict)
 
 
 __all__ = [
@@ -164,5 +167,6 @@ __all__ = [
     "ErrorStreamPayload",
     "DoneStreamPayload",
     "StreamPayload",
+    "EventType",
     "StreamEvent",
 ]

@@ -49,9 +49,13 @@ class PatternsService:
                 indices.append(i)
         return indices
 
-    def _detect_double_extrema(self, closes: np.ndarray, timestamps: np.ndarray) -> List[PatternResult]:
+    def _detect_double_extrema(
+        self, closes: np.ndarray, timestamps: np.ndarray
+    ) -> List[PatternResult]:
         results: List[PatternResult] = []
-        peaks = self._local_extrema(closes, lambda left, center, right: center >= left and center >= right)
+        peaks = self._local_extrema(
+            closes, lambda left, center, right: center >= left and center >= right
+        )
         troughs = self._local_extrema(
             closes, lambda left, center, right: center <= left and center <= right
         )
@@ -134,12 +138,18 @@ class PatternsService:
         trend = slope * x + intercept
         residuals = closes - trend
         width = float(np.ptp(residuals))
-        if width <= max(1e-6, np.mean(closes) * 0.02):
+        tolerance = max(1e-6, np.mean(closes) * 0.02)
+        if width <= tolerance:
             points = [
                 (int(timestamps[0]), float(trend[0])),
                 (int(timestamps[-1]), float(trend[-1])),
             ]
             score = max(0.4, 1.0 - width / (np.mean(closes) * 0.02))
+            rmse = float(np.sqrt(np.mean(np.square(residuals))))
+            # Convert the deviation into a bounded ratio so that a perfect fit keeps
+            # the confidence near 0.8 whereas noisy channels fall back toward 0.3.
+            ratio = min(1.0, rmse / tolerance)
+            confidence = max(0.3, min(0.8, 0.8 - 0.5 * ratio))
             results.append(
                 PatternResult(
                     name="channel",
@@ -147,7 +157,7 @@ class PatternsService:
                     start_ts=int(timestamps[0]),
                     end_ts=int(timestamps[-1]),
                     points=points,
-                    confidence=0.5,
+                    confidence=confidence,
                 )
             )
         return results

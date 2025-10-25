@@ -7,7 +7,7 @@ from typing import Dict, Iterable, List, Mapping, Optional, SupportsFloat, cast
 import pandas as pd
 
 from chart_mcp.services.analysis_llm import AnalysisLLMService
-from chart_mcp.services.data_providers.ccxt_provider import CcxtDataProvider
+from chart_mcp.services.data_providers.ccxt_provider import CcxtDataProvider, normalize_symbol
 from chart_mcp.services.indicators import IndicatorService
 from chart_mcp.services.levels import LevelsService
 from chart_mcp.services.patterns import PatternsService
@@ -19,7 +19,7 @@ _patterns_service = PatternsService()
 _analysis_service = AnalysisLLMService()
 
 
-def get_crypto_data(
+def _get_crypto_frame(
     symbol: str,
     timeframe: str,
     *,
@@ -27,40 +27,94 @@ def get_crypto_data(
     start: Optional[int] = None,
     end: Optional[int] = None,
 ) -> pd.DataFrame:
-    """Return OHLCV data for MCP consumption."""
+    """Return the raw OHLCV dataframe for internal tool consumption."""
     return _provider.get_ohlcv(symbol, timeframe, limit=limit, start=start, end=end)
 
 
+def _serialize_ohlcv(frame: pd.DataFrame) -> List[Dict[str, float | int]]:
+    """Convert an OHLCV dataframe into JSON-serialisable dictionaries."""
+    records: List[Dict[str, float | int]] = []
+    for row in frame.to_dict(orient="records"):
+        records.append(
+            {
+                "ts": int(row["ts"]),
+                "o": float(row["o"]),
+                "h": float(row["h"]),
+                "l": float(row["l"]),
+                "c": float(row["c"]),
+                "v": float(row["v"]),
+            }
+        )
+    return records
+
+
+def get_crypto_data(
+    symbol: str,
+    timeframe: str,
+    *,
+    limit: int = 500,
+    start: Optional[int] = None,
+    end: Optional[int] = None,
+) -> List[Dict[str, float | int]]:
+    """Expose OHLCV rows as JSON records for MCP tools."""
+    frame = _get_crypto_frame(symbol, timeframe, limit=limit, start=start, end=end)
+    return _serialize_ohlcv(frame)
+
+
 def compute_indicator(
-    symbol: str, timeframe: str, indicator: str, params: Optional[Dict[str, float]] = None
-) -> pd.DataFrame:
-    """Compute indicator using shared indicator service."""
-    frame = get_crypto_data(symbol, timeframe)
-    return _indicator_service.compute(frame, indicator, params or {})
+    symbol: str,
+    timeframe: str,
+    indicator: str,
+    params: Optional[Dict[str, float]] = None,
+    *,
+    limit: int = 500,
+) -> List[Dict[str, float | int]]:
+    """Compute indicator values and emit JSON-serialisable rows."""
+    frame = _get_crypto_frame(symbol, timeframe, limit=limit)
+    indicator_frame = _indicator_service.compute(frame, indicator, params or {})
+    cleaned = indicator_frame.dropna()
+    if cleaned.empty:
+        return []
+    timestamps = frame.loc[cleaned.index, "ts"].astype(int).tolist()
+    result: List[Dict[str, float | int]] = []
+    for ts_value, payload in zip(timestamps, cleaned.to_dict(orient="records"), strict=True):
+        record: Dict[str, float | int] = {"ts": int(ts_value)}
+        for key, value in payload.items():
+            record[str(key)] = float(cast(SupportsFloat, value))
+        result.append(record)
+    return result
 
 
 def identify_support_resistance(symbol: str, timeframe: str) -> List[Dict[str, object]]:
     """Detect support/resistance levels for MCP tool."""
-    frame = get_crypto_data(symbol, timeframe)
+    frame = _get_crypto_frame(symbol, timeframe)
     levels = _levels_service.detect_levels(frame)
     return [
-        {"price": lvl.price, "kind": lvl.kind, "strength": lvl.strength, "ts_range": lvl.ts_range}
+        {
+            "price": float(lvl.price),
+            "kind": lvl.kind,
+            "strength": float(lvl.strength),
+            "ts_range": {
+                "start_ts": int(lvl.ts_range[0]),
+                "end_ts": int(lvl.ts_range[1]),
+            },
+        }
         for lvl in levels
     ]
 
 
 def detect_chart_patterns(symbol: str, timeframe: str) -> List[Dict[str, object]]:
     """Detect chart patterns for MCP tool."""
-    frame = get_crypto_data(symbol, timeframe)
+    frame = _get_crypto_frame(symbol, timeframe)
     patterns = _patterns_service.detect(frame)
     return [
         {
             "name": pat.name,
-            "score": pat.score,
-            "confidence": pat.confidence,
-            "start_ts": pat.start_ts,
-            "end_ts": pat.end_ts,
-            "points": pat.points,
+            "score": float(pat.score),
+            "confidence": float(pat.confidence),
+            "start_ts": int(pat.start_ts),
+            "end_ts": int(pat.end_ts),
+            "points": [{"ts": int(ts), "price": float(price)} for ts, price in pat.points],
         }
         for pat in patterns
     ]
@@ -74,7 +128,7 @@ def generate_analysis_summary(
     include_patterns: bool = True,
 ) -> str:
     """Generate heuristic analysis summary for MCP tool."""
-    frame = get_crypto_data(symbol, timeframe)
+    frame = _get_crypto_frame(symbol, timeframe)
     indicator_specs: Iterable[Dict[str, object]] = indicators or [
         # Provide sensible defaults to guarantee coverage for summary heuristics.
         {"name": "ema", "params": {"window": 50}},
@@ -87,8 +141,7 @@ def generate_analysis_summary(
         name = str(name_obj) if name_obj is not None else "unknown"
         params_mapping: Mapping[str, object] = params_raw if isinstance(params_raw, Mapping) else {}
         params = {
-            str(key): float(cast(SupportsFloat, value))
-            for key, value in params_mapping.items()
+            str(key): float(cast(SupportsFloat, value)) for key, value in params_mapping.items()
         }
         data = _indicator_service.compute(frame, name, params)
         cleaned = data.dropna()
@@ -100,7 +153,8 @@ def generate_analysis_summary(
         highlights[name] = first_value
     levels = _levels_service.detect_levels(frame) if include_levels else []
     patterns = _patterns_service.detect(frame) if include_patterns else []
-    return _analysis_service.summarize(symbol, timeframe, highlights, levels, patterns)
+    normalized_symbol = normalize_symbol(symbol)
+    return _analysis_service.summarize(normalized_symbol, timeframe, highlights, levels, patterns)
 
 
 __all__ = [

@@ -43,5 +43,7 @@ class AnalysisResponse(BaseModel):
     levels: Optional[List[Level]] = None
     patterns: Optional[List[Pattern]] = None
     summary: str
-    disclaimer: str = Field("Analyse à vocation informative uniquement, pas de conseil d'investissement.")
+    disclaimer: str = Field(
+        "Analyse à vocation informative uniquement, pas de conseil d'investissement."
+    )
     limits: List[str] = Field(default_factory=list)

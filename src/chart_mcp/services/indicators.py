@@ -95,7 +95,9 @@ def bollinger_bands(frame: pd.DataFrame, window: int = 20, stddev: float = 2.0) 
 class IndicatorService:
     """Service responsible for computing indicators on OHLCV data."""
 
-    def compute(self, frame: pd.DataFrame, indicator: str, params: Dict[str, float]) -> pd.DataFrame:
+    def compute(
+        self, frame: pd.DataFrame, indicator: str, params: Dict[str, float]
+    ) -> pd.DataFrame:
         """Dispatch indicator computation based on the provided name."""
         indicator = indicator.lower()
         if indicator == "ma":

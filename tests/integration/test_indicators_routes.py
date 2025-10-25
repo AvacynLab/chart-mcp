@@ -8,5 +8,7 @@ def test_compute_indicator(client):
     response = client.post("/api/v1/indicators/compute", json=payload)
     assert response.status_code == 200
     data = response.json()
+    assert data["meta"]["symbol"] == "BTC/USDT"
+    assert data["meta"]["timeframe"] == "1h"
     assert data["meta"]["indicator"] == "ema"
     assert len(data["series"]) > 0
