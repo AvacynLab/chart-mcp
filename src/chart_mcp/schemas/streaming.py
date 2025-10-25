@@ -97,6 +97,20 @@ class ResultFinalStreamPayload(BaseModel):
     payload: ResultFinalDetails
 
 
+class MetricDetails(BaseModel):
+    """Timing information captured at the end of a pipeline step."""
+
+    step: str = Field(..., min_length=1)
+    ms: float = Field(..., ge=0.0)
+
+
+class MetricStreamPayload(BaseModel):
+    """Envelope carrying timing metrics for pipeline diagnostics."""
+
+    type: Literal["metric"]
+    payload: MetricDetails
+
+
 class ErrorDetails(BaseModel):
     """Describe a failure surfaced to the SSE consumer."""
 
@@ -131,6 +145,7 @@ StreamPayload = Annotated[
         TokenStreamPayload,
         ResultPartialStreamPayload,
         ResultFinalStreamPayload,
+        MetricStreamPayload,
         ErrorStreamPayload,
         DoneStreamPayload,
     ],
@@ -164,9 +179,11 @@ __all__ = [
     "TokenStreamPayload",
     "ResultPartialStreamPayload",
     "ResultFinalStreamPayload",
+    "MetricStreamPayload",
     "ErrorStreamPayload",
     "DoneStreamPayload",
     "StreamPayload",
     "EventType",
     "StreamEvent",
+    "MetricDetails",
 ]

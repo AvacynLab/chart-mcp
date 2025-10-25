@@ -26,4 +26,5 @@ def test_stream_analysis_headers_and_events(client, monkeypatch):
         payload = "\n".join(response.iter_lines())
 
     assert "event: token" in payload or "event: result_partial" in payload
+    assert "event: metric" in payload
     assert ": ping" in payload

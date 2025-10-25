@@ -2,7 +2,18 @@
 
 from __future__ import annotations
 
-from typing import Dict, Iterable, List, Mapping, Optional, SupportsFloat, cast
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Iterable,
+    List,
+    Mapping,
+    Optional,
+    Protocol,
+    SupportsFloat,
+    cast,
+)
 
 import pandas as pd
 
@@ -12,11 +23,52 @@ from chart_mcp.services.indicators import IndicatorService
 from chart_mcp.services.levels import LevelsService
 from chart_mcp.services.patterns import PatternsService
 
-_provider = CcxtDataProvider()
-_indicator_service = IndicatorService()
-_levels_service = LevelsService()
-_patterns_service = PatternsService()
-_analysis_service = AnalysisLLMService()
+# Module-level caches keep lazy behaviour while remaining monkeypatch friendly for tests.
+_provider: CcxtDataProvider | None = None
+_indicator_service: IndicatorService | None = None
+_levels_service: LevelsService | None = None
+_patterns_service: PatternsService | None = None
+_analysis_service: AnalysisLLMService | None = None
+
+
+def _get_provider() -> CcxtDataProvider:
+    """Instantiate the market data provider lazily to avoid import-time side effects."""
+    global _provider
+    if _provider is None:
+        _provider = CcxtDataProvider()
+    return _provider
+
+
+def _get_indicator_service() -> IndicatorService:
+    """Return a cached indicator service instance."""
+    global _indicator_service
+    if _indicator_service is None:
+        _indicator_service = IndicatorService()
+    return _indicator_service
+
+
+def _get_levels_service() -> LevelsService:
+    """Return a cached support/resistance detection service."""
+    global _levels_service
+    if _levels_service is None:
+        _levels_service = LevelsService()
+    return _levels_service
+
+
+def _get_patterns_service() -> PatternsService:
+    """Return a cached chart pattern detection service."""
+    global _patterns_service
+    if _patterns_service is None:
+        _patterns_service = PatternsService()
+    return _patterns_service
+
+
+def _get_analysis_service() -> AnalysisLLMService:
+    """Return a cached analysis summarisation service."""
+    global _analysis_service
+    if _analysis_service is None:
+        _analysis_service = AnalysisLLMService()
+    return _analysis_service
 
 
 def _get_crypto_frame(
@@ -28,7 +80,8 @@ def _get_crypto_frame(
     end: Optional[int] = None,
 ) -> pd.DataFrame:
     """Return the raw OHLCV dataframe for internal tool consumption."""
-    return _provider.get_ohlcv(symbol, timeframe, limit=limit, start=start, end=end)
+    provider = _get_provider()
+    return provider.get_ohlcv(symbol, timeframe, limit=limit, start=start, end=end)
 
 
 def _serialize_ohlcv(frame: pd.DataFrame) -> List[Dict[str, float | int]]:
@@ -71,7 +124,8 @@ def compute_indicator(
 ) -> List[Dict[str, float | int]]:
     """Compute indicator values and emit JSON-serialisable rows."""
     frame = _get_crypto_frame(symbol, timeframe, limit=limit)
-    indicator_frame = _indicator_service.compute(frame, indicator, params or {})
+    indicator_service = _get_indicator_service()
+    indicator_frame = indicator_service.compute(frame, indicator, params or {})
     cleaned = indicator_frame.dropna()
     if cleaned.empty:
         return []
@@ -88,7 +142,8 @@ def compute_indicator(
 def identify_support_resistance(symbol: str, timeframe: str) -> List[Dict[str, object]]:
     """Detect support/resistance levels for MCP tool."""
     frame = _get_crypto_frame(symbol, timeframe)
-    levels = _levels_service.detect_levels(frame)
+    levels_service = _get_levels_service()
+    levels = levels_service.detect_levels(frame)
     return [
         {
             "price": float(lvl.price),
@@ -106,7 +161,8 @@ def identify_support_resistance(symbol: str, timeframe: str) -> List[Dict[str, o
 def detect_chart_patterns(symbol: str, timeframe: str) -> List[Dict[str, object]]:
     """Detect chart patterns for MCP tool."""
     frame = _get_crypto_frame(symbol, timeframe)
-    patterns = _patterns_service.detect(frame)
+    patterns_service = _get_patterns_service()
+    patterns = patterns_service.detect(frame)
     return [
         {
             "name": pat.name,
@@ -143,7 +199,8 @@ def generate_analysis_summary(
         params = {
             str(key): float(cast(SupportsFloat, value)) for key, value in params_mapping.items()
         }
-        data = _indicator_service.compute(frame, name, params)
+        indicator_service = _get_indicator_service()
+        data = indicator_service.compute(frame, name, params)
         cleaned = data.dropna()
         if cleaned.empty:
             continue
@@ -151,10 +208,13 @@ def generate_analysis_summary(
         first_value_raw = next(iter(latest.values), 0.0)
         first_value = float(cast(SupportsFloat, first_value_raw))
         highlights[name] = first_value
-    levels = _levels_service.detect_levels(frame) if include_levels else []
-    patterns = _patterns_service.detect(frame) if include_patterns else []
+    levels_service = _get_levels_service()
+    patterns_service = _get_patterns_service()
+    levels = levels_service.detect_levels(frame) if include_levels else []
+    patterns = patterns_service.detect(frame) if include_patterns else []
     normalized_symbol = normalize_symbol(symbol)
-    return _analysis_service.summarize(normalized_symbol, timeframe, highlights, levels, patterns)
+    analysis_service = _get_analysis_service()
+    return analysis_service.summarize(normalized_symbol, timeframe, highlights, levels, patterns)
 
 
 __all__ = [
@@ -164,3 +224,28 @@ __all__ = [
     "detect_chart_patterns",
     "generate_analysis_summary",
 ]
+
+
+class _ToolRegistrar(Protocol):
+    """Typing contract for MCP servers capable of registering tools."""
+
+    def tool(
+        self,
+        name_or_fn: Callable[..., Any] | str | None = None,
+        *,
+        name: str | None = None,
+        **kwargs: Any,
+    ) -> Callable[[Callable[..., Any]], Any]:
+        """Return a decorator registering *name* against the provided callable."""
+
+
+def register_tools(registrar: _ToolRegistrar) -> None:
+    """Attach all chart MCP tools to *registrar* under stable identifiers."""
+    registrar.tool("get_crypto_data")(get_crypto_data)
+    registrar.tool("compute_indicator")(compute_indicator)
+    registrar.tool("identify_support_resistance")(identify_support_resistance)
+    registrar.tool("detect_chart_patterns")(detect_chart_patterns)
+    registrar.tool("generate_analysis_summary")(generate_analysis_summary)
+
+
+__all__.append("register_tools")

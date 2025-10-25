@@ -36,10 +36,10 @@ Les variables principales sont documentées ci-dessous :
 | `ALLOWED_ORIGINS` | Liste séparée par des virgules des origines autorisées en CORS. |
 | `PLAYWRIGHT` | Active le mode tests déterministe (bypass du rate-limit et fixtures stables). |
 | `FEATURE_FINANCE` | Active les endpoints finance (quotes, news, backtests...). |
-| `OPENAI_API_KEY` / `OPENAI_MODEL_ID` | Identifiants pour un fournisseur OpenAI (facultatif en mode stub). |
-| `MARKET_DATA_API_KEY` | Clé API pour un agrégateur de données marché externe. |
-| `NEWS_API_KEY` | Clé API pour les dépêches financières externes. |
-| `POSTGRES_URL` | Chaîne de connexion PostgreSQL (utilisée pour les futures migrations & seeds). |
+| `OPENAI_API_KEY` / `OPENAI_MODEL_ID` | Identifiants pour un fournisseur OpenAI *(optionnel / futur)*. |
+| `MARKET_DATA_API_KEY` | Clé API pour un agrégateur de données marché externe *(optionnel)*. |
+| `NEWS_API_KEY` | Clé API pour les dépêches financières externes *(optionnel)*. |
+| `POSTGRES_URL` | Chaîne de connexion PostgreSQL *(futur, réservée aux migrations complètes)*. |
 
 > ℹ️ `PLAYWRIGHT=true` est utilisé dans la suite de tests pour geler l'horloge, bypasser le rate limit
 > et fournir des jeux de données entièrement mocks.
@@ -193,6 +193,51 @@ X-Accel-Buffering: no
 ```
 
 Chaque message est encodé au format NDJSON et suit la structure `event: <type>`, `data: <payload>`.
+
+## Serveur MCP
+
+Le projet embarque désormais un serveur Model Context Protocol complet :
+
+- **Installation** : `pip install -r requirements.txt` installe `fastmcp` et ses dépendances.
+- **Lancement** : `make mcp-run` démarre le serveur en mode stdio (idéal pour un runner MCP ou un client CLI).
+- **Authentification** : aucune authentification spécifique n'est requise sur la couche MCP (elle est gérée côté client/runner si nécessaire).
+
+### Outils exposés
+
+| Tool | Entrées principales | Sortie |
+| --- | --- | --- |
+| `get_crypto_data` | `symbol`, `timeframe`, `limit`, bornes temporelles optionnelles | Liste d'OHLCV sérialisés `{ts,o,h,l,c,v}` |
+| `compute_indicator` | `symbol`, `timeframe`, `indicator` (`name` + `params`), `limit` | Liste `{ts, ...valeurs indicateur...}` sans `NaN` |
+| `identify_support_resistance` | `symbol`, `timeframe` | Liste de niveaux `{price, kind, strength, ts_range}` |
+| `detect_chart_patterns` | `symbol`, `timeframe` | Liste de patterns `{name, score, confidence, points}` |
+| `generate_analysis_summary` | `symbol`, `timeframe`, indicateurs optionnels | Chaîne courte résumant tendances, niveaux et patterns |
+
+### Exemple d'appel (client Python `fastmcp`)
+
+```bash
+python - <<'PY'
+import asyncio
+from fastmcp.client import Client, StdioTransport
+
+
+async def main() -> None:
+    client = Client(transport=StdioTransport(cmd=["python", "-m", "chart_mcp.mcp_main"]))
+    await client.start()
+    try:
+        result = await client.call_tool(
+            "get_crypto_data",
+            {"symbol": "BTCUSDT", "timeframe": "1h", "limit": 5},
+        )
+        print(result.data or result.content)
+    finally:
+        await client.close()
+
+
+asyncio.run(main())
+PY
+```
+
+Le client reçoit un dictionnaire JSON directement sérialisable (aucun objet Pandas n'est exposé).
 
 ### Scripts utiles
 
