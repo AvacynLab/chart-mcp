@@ -34,6 +34,56 @@ jobs:
         with:
           dockerfile: docker/Dockerfile
 
+  mcp-smoke:
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip-${{ runner.os }}-3.11-${{ hashFiles('requirements.txt') }}
+      - run: pip install -r requirements.txt
+      - name: Launch MCP server (stdio)
+        run: |
+          set -euo pipefail
+          python -m chart_mcp.mcp_main >mcp.log 2>&1 &
+          echo $! > mcp.pid
+          sleep 2
+      - name: Verify MCP tool registration
+        run: |
+          python - <<'PY'
+          import asyncio
+          from chart_mcp import mcp_main
+          from fastmcp import FastMCP
+
+          server = FastMCP(name="ci-smoke")
+          mcp_main.register(server)
+
+          async def collect() -> set[str]:
+              mapping = await server.get_tools()
+              return set(mapping.keys())
+
+          names = asyncio.run(collect())
+          expected = set(mcp_main.REGISTERED_TOOL_NAMES)
+          missing = sorted(expected - names)
+          if missing:
+              raise SystemExit(f"Missing MCP tools: {', '.join(missing)}")
+          PY
+      - name: Stop MCP server
+        if: always()
+        run: |
+          if [ -f mcp.pid ]; then
+            kill $(cat mcp.pid) || true
+            rm -f mcp.pid
+          fi
+          if [ -f mcp.log ]; then
+            tail -n 20 mcp.log
+          fi
+
   typecheck:
     runs-on: ubuntu-latest
     steps:

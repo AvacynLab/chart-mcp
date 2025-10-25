@@ -14,6 +14,7 @@ orjson
 ujson
 sse-starlette
 loguru
+fastmcp==2.12.5
 mypy
 ruff
 black

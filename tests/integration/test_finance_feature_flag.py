@@ -27,7 +27,9 @@ def test_finance_routes_disabled(monkeypatch) -> None:
     importlib.reload(app_module)
     app = app_module.create_app()
     with TestClient(app) as client:
-        client.headers.update({"Authorization": "Bearer testingtoken"})
+        client.headers.update(
+            {"Authorization": "Bearer testingtoken", "X-User-Type": "regular"}
+        )
         response = client.get("/api/v1/finance/quote", params={"symbol": "BTCUSD"})
         assert response.status_code == 404
 
@@ -36,6 +38,34 @@ def test_finance_routes_disabled(monkeypatch) -> None:
     # module with the feature flag toggled back on so the module-level ``app``
     # instance matches the default behaviour expected by the rest of the suite.
     monkeypatch.setenv("FEATURE_FINANCE", "true")
+    get_settings.cache_clear()
+    importlib.reload(app_module)
+
+
+def test_finance_routes_enabled_smoke(monkeypatch) -> None:
+    """Finance flag on should expose read-only routes responding successfully."""
+
+    monkeypatch.setenv("API_TOKEN", "testingtoken")
+    monkeypatch.setenv("FEATURE_FINANCE", "true")
+    monkeypatch.setenv("PLAYWRIGHT", "true")
+    get_settings.cache_clear()
+    importlib.reload(app_module)
+    app = app_module.create_app()
+    with TestClient(app) as client:
+        client.headers.update(
+            {
+                "Authorization": "Bearer testingtoken",
+                "X-User-Type": "regular",
+            }
+        )
+        response = client.get(
+            "/api/v1/finance/quote", params={"symbol": "BTCUSD"}
+        )
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["symbol"] == "BTCUSD"
+        assert "price" in payload and "currency" in payload
+        assert "updatedAt" in payload and payload["updatedAt"]
     get_settings.cache_clear()
     importlib.reload(app_module)
 

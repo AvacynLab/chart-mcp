@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Dict, Iterable, List, Mapping, Optional, SupportsFloat, cast
+from typing import Callable, Dict, Iterable, List, Mapping, Optional, Protocol, SupportsFloat, cast
 
 import pandas as pd
 
@@ -164,3 +164,23 @@ __all__ = [
     "detect_chart_patterns",
     "generate_analysis_summary",
 ]
+
+
+class _ToolRegistrar(Protocol):
+    """Typing contract for MCP servers capable of registering tools."""
+
+    def tool(self, name: str) -> Callable[[Callable[..., object]], Callable[..., object]]:
+        """Return a decorator registering *name* against the provided callable."""
+
+
+def register_tools(registrar: _ToolRegistrar) -> None:
+    """Attach all chart MCP tools to *registrar* under stable identifiers."""
+
+    registrar.tool("get_crypto_data")(get_crypto_data)
+    registrar.tool("compute_indicator")(compute_indicator)
+    registrar.tool("identify_support_resistance")(identify_support_resistance)
+    registrar.tool("detect_chart_patterns")(detect_chart_patterns)
+    registrar.tool("generate_analysis_summary")(generate_analysis_summary)
+
+
+__all__.append("register_tools")

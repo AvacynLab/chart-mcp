@@ -15,6 +15,8 @@ from chart_mcp.schemas.streaming import (
     ErrorStreamPayload,
     LevelDetail,
     LevelPreview,
+    MetricDetails,
+    MetricStreamPayload,
     PatternDetail,
     ResultFinalDetails,
     ResultFinalStreamPayload,
@@ -85,13 +87,10 @@ class StreamingService:
             """Emit a metric event capturing the time spent in a pipeline stage."""
             await streamer.publish(
                 "metric",
-                {
-                    "type": "metric",
-                    "payload": {
-                        "step": step,
-                        "ms": float(elapsed_seconds * 1000),
-                    },
-                },
+                MetricStreamPayload(
+                    type="metric",
+                    payload=MetricDetails(step=step, ms=float(elapsed_seconds * 1000)),
+                ).model_dump(),
             )
 
         async def _run_pipeline() -> None:
