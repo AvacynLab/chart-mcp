@@ -52,7 +52,9 @@ def create_app() -> FastAPI:
         version="0.1.0",
         default_response_class=ORJSONResponse,
     )
-    allowed_origins = settings.allowed_origins or ["*"]
+    # Respect the exact origin list configured by operators so production deployments
+    # never default to permissive wildcard CORS headers.
+    allowed_origins = settings.allowed_origins
     app.add_middleware(
         CORSMiddleware,
         allow_origins=allowed_origins,

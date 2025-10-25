@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
-from typing import Dict
-
 from fastapi import APIRouter, Depends, Request
 
 from chart_mcp.routes.auth import require_regular_user, require_token
-from chart_mcp.schemas.indicators import IndicatorRequest, IndicatorResponse, IndicatorValue
+from chart_mcp.schemas.indicators import (
+    IndicatorMeta,
+    IndicatorRequest,
+    IndicatorResponse,
+    IndicatorValue,
+)
 from chart_mcp.services.data_providers.base import MarketDataProvider
 from chart_mcp.services.data_providers.ccxt_provider import normalize_symbol
 from chart_mcp.services.indicators import IndicatorService
@@ -45,10 +48,11 @@ def compute_indicator(
         )
         for ts_value, record in zip(ts_values, records, strict=True)
     ]
-    meta: Dict[str, float | str] = {
-        "symbol": normalize_symbol(payload.symbol),
-        "timeframe": payload.timeframe,
-        "indicator": payload.indicator,
-        **{k: float(v) for k, v in payload.params.items()},
-    }
+    normalized_symbol = normalize_symbol(payload.symbol)
+    meta = IndicatorMeta(
+        symbol=normalized_symbol,
+        timeframe=payload.timeframe,
+        indicator=payload.indicator,
+        params={k: float(v) for k, v in payload.params.items()},
+    )
     return IndicatorResponse(series=series, meta=meta)

@@ -2,15 +2,16 @@ from __future__ import annotations
 
 from typing import Any, Callable, Protocol
 
+
 class _FunctionTool(Protocol):
-    """Minimal protocol capturing the callable behaviour of FastMCP tools."""
+    """Minimal protocol capturing the callable behaviour of MCP tools."""
 
     def __call__(self, *args: Any, **kwargs: Any) -> Any:
         ...
 
 
-class FastMCP:
-    """Type stub used during static analysis when ``fastmcp`` runtime package is absent."""
+class MCPServer:
+    """Type stub mirroring the interface used by :mod:`chart_mcp.mcp_main`."""
 
     def __init__(self, name: str | None = None, instructions: str | None = None) -> None:
         ...
@@ -23,6 +24,14 @@ class FastMCP:
         **kwargs: Any,
     ) -> Callable[[Callable[..., Any]], Any]:
         ...
+
+    async def serve_stdio(self) -> None:
+        ...
+
+
+# Backwards compatibility: some callers still import ``FastMCP`` during tests.
+class FastMCP(MCPServer):
+    """Alias maintained so legacy imports keep functioning."""
 
     async def run_stdio_async(self, *, show_banner: bool = ...) -> None:
         ...

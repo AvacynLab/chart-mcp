@@ -21,4 +21,6 @@ def test_channel_detection():
     )
     service = PatternsService()
     patterns = service.detect(frame)
-    assert any(p.name == "channel" for p in patterns)
+    channel = [p for p in patterns if p.name == "channel"]
+    assert channel, "Expected the synthetic trend to be identified as a channel"
+    assert all(0.3 <= p.confidence <= 0.8 for p in channel)

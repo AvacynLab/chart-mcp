@@ -23,4 +23,6 @@ def test_triangle_detection():
     )
     service = PatternsService()
     patterns = service.detect(frame)
-    assert any(p.name == "triangle" for p in patterns)
+    triangles = [p for p in patterns if p.name == "triangle"]
+    assert triangles, "Converging highs/lows should trigger a triangle detection"
+    assert all(0.3 <= p.confidence <= 0.8 for p in triangles)

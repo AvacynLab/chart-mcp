@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import inspect
 from collections.abc import Awaitable
-from typing import Annotated, AsyncIterator, Dict, List, cast
+from typing import Annotated, Dict, List, cast
 
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import StreamingResponse
@@ -64,7 +64,9 @@ async def stream_analysis(
             {"name": "ema", "params": {"window": 50}},
             {"name": "rsi", "params": {"window": 14}},
         ]
-    iterator = streaming_service.stream_analysis(symbol, timeframe, indicator_specs, limit=limit)
+    iterator = await streaming_service.stream_analysis(
+        symbol, timeframe, indicator_specs, limit=limit
+    )
 
     async def _cancellation_guard() -> AsyncIterator[str]:
         """Yield SSE chunks and ensure graceful shutdown on cancellation."""
@@ -82,6 +84,11 @@ async def stream_analysis(
                     # conforms to the protocol even though ``isawaitable`` only
                     # returns a ``bool`` at runtime.
                     await cast(Awaitable[object], maybe_coro)
+            stopper = getattr(iterator, "stop", None)
+            if callable(stopper):
+                stop_result = stopper()
+                if inspect.isawaitable(stop_result):
+                    await cast(Awaitable[object], stop_result)
             raise
 
     headers = {

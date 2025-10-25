@@ -17,6 +17,7 @@ from chart_mcp.schemas.levels import Level, LevelRange
 from chart_mcp.schemas.patterns import Pattern, PatternPoint
 from chart_mcp.services.analysis_llm import AnalysisLLMService
 from chart_mcp.services.data_providers.base import MarketDataProvider
+from chart_mcp.services.data_providers.ccxt_provider import normalize_symbol
 from chart_mcp.services.indicators import IndicatorService
 from chart_mcp.services.levels import LevelsService
 from chart_mcp.services.patterns import PatternsService
@@ -108,8 +109,9 @@ def summary(
         if payload.include_patterns
         else None
     )
-    summary_text = analysis_service.summarize(
-        payload.symbol,
+    normalized_symbol = normalize_symbol(payload.symbol)
+    summary_result = analysis_service.summarize(
+        normalized_symbol,
         payload.timeframe,
         indicator_highlights,
         levels,
@@ -120,12 +122,12 @@ def summary(
         "Pas de recommandation implicite",
     ]
     return AnalysisResponse(
-        symbol=payload.symbol.upper(),
+        symbol=normalized_symbol,
         timeframe=payload.timeframe,
         indicators=indicator_snapshots,
         levels=level_models,
         patterns=pattern_models,
-        summary=summary_text,
-        disclaimer="Analyse à vocation informative uniquement, pas de conseil d'investissement.",
+        summary=summary_result.summary,
+        disclaimer=summary_result.disclaimer,
         limits=limits,
     )

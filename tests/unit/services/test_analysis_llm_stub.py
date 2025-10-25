@@ -15,17 +15,20 @@ def test_summary_contains_disclaimer_elements():
             name="triangle", score=0.7, start_ts=1, end_ts=5, points=[(1, 100.0)], confidence=0.6
         )
     ]
-    summary = service.summarize("BTCUSDT", "1h", {"rsi": 55.0}, levels, patterns)
+    result = service.summarize("BTCUSDT", "1h", {"rsi": 55.0}, levels, patterns)
+    summary = result.summary
     assert "BTCUSDT" in summary
     assert "support" in summary
     assert "triangle" in summary
     assert "acheter" not in summary.lower()
+    assert result.disclaimer == service.disclaimer
 
 
 def test_summary_truncated_below_limit_and_neutral():
     service = AnalysisLLMService()
     long_indicators = {f"ema_{idx}": float(idx) for idx in range(50)}
-    summary = service.summarize("ETHUSDT", "15m", long_indicators, [], [])
+    result = service.summarize("ETHUSDT", "15m", long_indicators, [], [])
+    summary = result.summary
     assert len(summary) <= 400
     lowered = summary.lower()
     for forbidden in {"acheter", "vendre", "buy", "sell"}:

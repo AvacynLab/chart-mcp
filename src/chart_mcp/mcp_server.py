@@ -214,7 +214,13 @@ def generate_analysis_summary(
     patterns = patterns_service.detect(frame) if include_patterns else []
     normalized_symbol = normalize_symbol(symbol)
     analysis_service = _get_analysis_service()
-    return analysis_service.summarize(normalized_symbol, timeframe, highlights, levels, patterns)
+    summary_result = analysis_service.summarize(
+        normalized_symbol, timeframe, highlights, levels, patterns
+    )
+    return {
+        "summary": summary_result.summary,
+        "disclaimer": summary_result.disclaimer,
+    }
 
 
 __all__ = [

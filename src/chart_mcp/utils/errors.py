@@ -117,9 +117,18 @@ def request_validation_exception_handler(_: Request, exc: Exception) -> JSONResp
     """Return a consistent payload for FastAPI validation errors."""
     assert isinstance(exc, RequestValidationError)
     raw_errors = exc.errors()
-    formatted_errors = [
-        {str(key): cast(object, value) for key, value in error.items()} for error in raw_errors
-    ]
+
+    def _serialize(value: object) -> object:
+        """Convert non-serializable values such as exceptions to strings."""
+        if isinstance(value, Exception):
+            return str(value)
+        if isinstance(value, dict):
+            return {str(k): _serialize(v) for k, v in value.items()}
+        if isinstance(value, list):
+            return [_serialize(item) for item in value]
+        return value
+
+    formatted_errors = [{str(key): _serialize(value) for key, value in error.items()} for error in raw_errors]
     details: list[object] = [cast(object, error) for error in formatted_errors]
     payload: JSONDict = {
         "error": {"code": "validation_error", "message": "Request validation failed"},
@@ -127,3 +136,18 @@ def request_validation_exception_handler(_: Request, exc: Exception) -> JSONResp
         "trace_id": get_trace_id(),
     }
     return JSONResponse(status_code=422, content=payload)
+
+
+__all__ = [
+    "ApiError",
+    "BadRequest",
+    "Unauthorized",
+    "Forbidden",
+    "UpstreamError",
+    "TooManyRequests",
+    "NotFound",
+    "api_error_handler",
+    "http_exception_handler",
+    "unexpected_exception_handler",
+    "request_validation_exception_handler",
+]
