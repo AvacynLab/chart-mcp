@@ -272,3 +272,4 @@ Historique récent:
 - 2025-10-25T05:01:13Z : Correction ruff (`I001`, `D202`, `D204`) sur l'entrée MCP + tests ciblés (`pytest tests/unit/mcp/test_server_runtime.py tests/integration/test_finance_feature_flag.py`) pour confirmer l'absence de régressions.
 - 2025-10-25T05:12:43Z : Ajout d'un stub `fastmcp` pour mypy, élargissement du protocole d'enregistrement afin d'accepter `FastMCP`, formatage `black` sur les modules MCP et validation `mypy`, `make format-check`, `pytest tests/unit/mcp/test_server_runtime.py`, `ruff check` ciblé.
 - 2025-10-25T05:24:31Z : Tri des imports dans le stub `fastmcp/__init__.pyi` via `ruff --fix`, exécution de `pytest tests/unit/mcp/test_server_runtime.py` et `ruff check .` pour confirmer l'alignement lint/typage.
+- 2025-10-25T06:56:29Z : Suppression du saut de ligne après la docstring `_SettingsProxy.__setattr__`, validation `ruff check .` et `pytest tests/unit/mcp/test_tools.py`.

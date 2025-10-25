@@ -65,7 +65,6 @@ class _SettingsProxy:
 
     def __setattr__(self, name: str, value: Any) -> None:
         """Allow tests to monkeypatch settings without forcing global rewrites."""
-
         # ``monkeypatch.setattr`` relies on being able to assign attributes directly on
         # the proxy returned from the configuration module.  By forwarding the
         # assignment to the lazily-instantiated ``Settings`` object we keep imports
