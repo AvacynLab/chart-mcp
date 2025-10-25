@@ -21,6 +21,7 @@ from chart_mcp.services.data_providers.ccxt_provider import normalize_symbol
 from chart_mcp.services.indicators import IndicatorService
 from chart_mcp.services.levels import LevelsService
 from chart_mcp.services.patterns import PatternsService
+from chart_mcp.utils.errors import BadRequest
 from chart_mcp.utils.timeframes import parse_timeframe
 
 ServicesTuple = Tuple[
@@ -60,6 +61,11 @@ def summary(
     provider, indicator_service, levels_service, patterns_service, analysis_service = services
     parse_timeframe(payload.timeframe)
     frame = provider.get_ohlcv(payload.symbol, payload.timeframe, limit=500)
+    if len(frame) < 400:
+        # The downstream indicator computations (e.g. Bollinger 200) require a
+        # sizeable history window. Enforce a consistent floor so API responses
+        # remain predictable across providers with limited market data.
+        raise BadRequest("Analysis requires at least 400 OHLCV rows")
     if payload.indicators:
         requested: List[RequestedIndicator] = payload.indicators
     else:

@@ -175,7 +175,7 @@ Sortie (troncature) :
 
 ```
 event: tool_start
-data: {"tool":"get_crypto_data","symbol":"BTCUSDT","timeframe":"1h"}
+data: {"tool":"get_crypto_data","symbol":"BTC/USDT","timeframe":"1h"}
 
 event: result_partial
 data: {"indicators":{"ema":{"ema":35110.2}},"levels":[{"price":34850.0,"kind":"support","strength":0.6}]}
@@ -203,6 +203,8 @@ X-Accel-Buffering: no
 
 Chaque message est encodé au format NDJSON et suit la structure `event: <type>`, `data: <payload>`.
 La séquence typique est : `tool_start` → `result_partial` → `metric` (pour chaque étape) → `token` → `result_final` → `done` (avec d'éventuels heartbeats `: ping`).
+
+> ℹ️ Le flux normalise toujours le symbole au format `BASE/QUOTE` (`BTC/USDT`, `ETH/EUR`, etc.) afin d'être cohérent avec les autres surfaces de l'API.
 
 ## Serveur MCP
 

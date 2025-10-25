@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import pandas as pd
 from fastapi.testclient import TestClient
+
+from chart_mcp.services.data_providers.base import MarketDataProvider
 
 
 def test_analysis_summary(client):
@@ -51,3 +54,45 @@ def test_analysis_summary_rejects_invalid_timeframe(client):
     error = response.json()["error"]
     assert error["code"] == "bad_request"
     assert "timeframe" in error["message"].lower()
+
+
+def test_analysis_summary_requires_minimum_history(client, monkeypatch):
+    """Analysis endpoint should reject providers returning short histories."""
+
+    class TinyProvider(MarketDataProvider):
+        def __init__(self) -> None:
+            base = 1_700_000_000
+            self.frame = pd.DataFrame(
+                {
+                    "ts": list(range(base, base + 100)),
+                    "o": [100.0 + i * 0.01 for i in range(100)],
+                    "h": [101.0 + i * 0.01 for i in range(100)],
+                    "l": [99.0 + i * 0.01 for i in range(100)],
+                    "c": [100.5 + i * 0.01 for i in range(100)],
+                    "v": [50.0 + i for i in range(100)],
+                }
+            )
+            self.client = type("Client", (), {"id": "tiny"})()
+
+        def get_ohlcv(self, *_, **__) -> pd.DataFrame:  # type: ignore[override]
+            return self.frame.copy()
+
+    provider = TinyProvider()
+    monkeypatch.setattr(client.app.state, "provider", provider)
+    monkeypatch.setattr(client.app.state.streaming_service, "provider", provider)
+
+    response = client.post(
+        "/api/v1/analysis/summary",
+        json={
+            "symbol": "BTCUSDT",
+            "timeframe": "1h",
+            "indicators": [],
+            "include_levels": False,
+            "include_patterns": False,
+        },
+    )
+
+    assert response.status_code == 400
+    payload = response.json()
+    assert payload["error"]["code"] == "bad_request"
+    assert "400" in payload["error"]["message"]
