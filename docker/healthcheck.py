@@ -14,6 +14,8 @@ from contextlib import suppress
 
 def main() -> int:
     """Return zero when the API health endpoint responds with HTTP 200."""
+    # Defer connection creation so the cleanup logic can close it safely when
+    # the request or response handling fails midway through the probe.
     connection: http.client.HTTPConnection | None = None
     try:
         connection = http.client.HTTPConnection("localhost", 8000, timeout=3)
