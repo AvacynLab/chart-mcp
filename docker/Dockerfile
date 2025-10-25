@@ -6,7 +6,8 @@ ENV POETRY_VIRTUALENVS_CREATE=false \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
-ARG BUILD_ESSENTIAL_VERSION="12.9"
+# Debian trixie currently ships build-essential 12.10; pin to the latest tested release.
+ARG BUILD_ESSENTIAL_VERSION="12.10"
 ARG PIP_VERSION="24.2"
 
 WORKDIR /app
