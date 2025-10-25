@@ -23,40 +23,52 @@ from chart_mcp.services.indicators import IndicatorService
 from chart_mcp.services.levels import LevelsService
 from chart_mcp.services.patterns import PatternsService
 
+# Module-level caches keep lazy behaviour while remaining monkeypatch friendly for tests.
+_provider: CcxtDataProvider | None = None
+_indicator_service: IndicatorService | None = None
+_levels_service: LevelsService | None = None
+_patterns_service: PatternsService | None = None
+_analysis_service: AnalysisLLMService | None = None
+
 
 def _get_provider() -> CcxtDataProvider:
     """Instantiate the market data provider lazily to avoid import-time side effects."""
-    if not hasattr(_get_provider, "_instance"):
-        _get_provider._instance = CcxtDataProvider()  # type: ignore[attr-defined]
-    return cast(CcxtDataProvider, _get_provider._instance)  # type: ignore[attr-defined]
+    global _provider
+    if _provider is None:
+        _provider = CcxtDataProvider()
+    return _provider
 
 
 def _get_indicator_service() -> IndicatorService:
     """Return a cached indicator service instance."""
-    if not hasattr(_get_indicator_service, "_instance"):
-        _get_indicator_service._instance = IndicatorService()  # type: ignore[attr-defined]
-    return cast(IndicatorService, _get_indicator_service._instance)  # type: ignore[attr-defined]
+    global _indicator_service
+    if _indicator_service is None:
+        _indicator_service = IndicatorService()
+    return _indicator_service
 
 
 def _get_levels_service() -> LevelsService:
     """Return a cached support/resistance detection service."""
-    if not hasattr(_get_levels_service, "_instance"):
-        _get_levels_service._instance = LevelsService()  # type: ignore[attr-defined]
-    return cast(LevelsService, _get_levels_service._instance)  # type: ignore[attr-defined]
+    global _levels_service
+    if _levels_service is None:
+        _levels_service = LevelsService()
+    return _levels_service
 
 
 def _get_patterns_service() -> PatternsService:
     """Return a cached chart pattern detection service."""
-    if not hasattr(_get_patterns_service, "_instance"):
-        _get_patterns_service._instance = PatternsService()  # type: ignore[attr-defined]
-    return cast(PatternsService, _get_patterns_service._instance)  # type: ignore[attr-defined]
+    global _patterns_service
+    if _patterns_service is None:
+        _patterns_service = PatternsService()
+    return _patterns_service
 
 
 def _get_analysis_service() -> AnalysisLLMService:
     """Return a cached analysis summarisation service."""
-    if not hasattr(_get_analysis_service, "_instance"):
-        _get_analysis_service._instance = AnalysisLLMService()  # type: ignore[attr-defined]
-    return cast(AnalysisLLMService, _get_analysis_service._instance)  # type: ignore[attr-defined]
+    global _analysis_service
+    if _analysis_service is None:
+        _analysis_service = AnalysisLLMService()
+    return _analysis_service
 
 
 def _get_crypto_frame(
