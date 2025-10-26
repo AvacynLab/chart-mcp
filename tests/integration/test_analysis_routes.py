@@ -26,6 +26,33 @@ def test_analysis_summary(client):
     assert data["disclaimer"]
 
 
+def test_analysis_summary_normalizes_symbol(client, monkeypatch):
+    """Analysis endpoint normalises symbols before calling the provider."""
+    provider = client.app.state.provider
+    captured: dict[str, str] = {}
+
+    original = provider.get_ohlcv
+
+    def capture(symbol: str, timeframe: str, *, limit: int, start=None, end=None):  # type: ignore[override]
+        captured["symbol"] = symbol
+        return original(symbol, timeframe, limit=limit, start=start, end=end)
+
+    monkeypatch.setattr(provider, "get_ohlcv", capture)
+
+    payload = {
+        "symbol": "ethusdt",
+        "timeframe": "1h",
+        "indicators": [],
+        "include_levels": False,
+        "include_patterns": False,
+    }
+    response = client.post("/api/v1/analysis/summary", json=payload)
+    assert response.status_code == 200
+    body = response.json()
+    assert captured["symbol"] == "ETH/USDT"
+    assert body["symbol"] == "ETH/USDT"
+
+
 def test_analysis_summary_requires_authorization(test_app):
     """Bearer token is mandatory for accessing the summary endpoint."""
     payload = {

@@ -15,7 +15,7 @@ class QuoteQuery(BaseModel):
 
     symbol: str = Field(..., min_length=2, max_length=20, description="Ticker to retrieve")
 
-    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True, populate_by_name=True)
 
     @field_validator("symbol")
     @classmethod
@@ -41,7 +41,7 @@ class FundamentalsQuery(BaseModel):
 
     symbol: str = Field(..., min_length=2, max_length=20)
 
-    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True, populate_by_name=True)
 
     @field_validator("symbol")
     @classmethod
@@ -76,7 +76,7 @@ class NewsQuery(BaseModel):
     )
     offset: int = Field(0, ge=0)
 
-    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True, populate_by_name=True)
 
     @field_validator("symbol")
     @classmethod
@@ -101,6 +101,8 @@ class NewsResponse(BaseModel):
 
     symbol: str
     items: list[NewsItemModel]
+
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class ScreenQuery(BaseModel):
@@ -139,6 +141,8 @@ class ScreenResponse(BaseModel):
     """Response body returned by the screener endpoint."""
 
     results: list[ScreenedAssetModel]
+
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class ChartArtifactQuery(OhlcvQuery):
@@ -209,6 +213,8 @@ class ChartArtifactResponse(BaseModel):
     details: list[ChartCandleDetails]
     overlays: list["OverlaySeriesModel"]
 
+    model_config = ConfigDict(populate_by_name=True)
+
 
 class ChartOverlayToggle(BaseModel):
     """Overlay descriptor accepted by the chart artefact query."""
@@ -217,7 +223,7 @@ class ChartOverlayToggle(BaseModel):
     type: Literal["sma", "ema"]
     window: int = Field(..., ge=2, le=500, description="Window length for the overlay")
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
 
 class OverlayPointModel(BaseModel):
@@ -225,6 +231,8 @@ class OverlayPointModel(BaseModel):
 
     ts: int
     value: float | None
+
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class OverlaySeriesModel(BaseModel):
@@ -234,6 +242,8 @@ class OverlaySeriesModel(BaseModel):
     type: Literal["sma", "ema"]
     window: int
     points: list[OverlayPointModel]
+
+    model_config = ConfigDict(populate_by_name=True)
 
 
 __all__ = [

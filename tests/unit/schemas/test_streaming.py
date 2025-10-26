@@ -9,6 +9,7 @@ from chart_mcp.schemas.streaming import (
     DoneStreamPayload,
     ErrorStreamPayload,
     ResultFinalStreamPayload,
+    ResultPartialStreamPayload,
     StreamEvent,
     TokenStreamPayload,
     ToolStreamPayload,
@@ -72,4 +73,34 @@ def test_result_final_payload_requires_summary() -> None:
         ResultFinalStreamPayload(
             type="result_final",
             payload={"summary": "", "levels": [], "patterns": []},
+        )
+
+
+def test_result_partial_rejects_unknown_step_status() -> None:
+    """Progress steps only accept the predefined status vocabulary."""
+    with pytest.raises(ValidationError):
+        ResultPartialStreamPayload(
+            type="result_partial",
+            payload={
+                "levels": [],
+                "steps": [{"name": "summary", "status": "unknown"}],
+            },
+        )
+
+
+def test_progress_step_rejects_out_of_range_progress() -> None:
+    """Progress ratios must remain within the [0, 1] interval."""
+    with pytest.raises(ValidationError):
+        ResultPartialStreamPayload(
+            type="result_partial",
+            payload={
+                "levels": [],
+                "steps": [
+                    {
+                        "name": "summary",
+                        "status": "pending",
+                        "progress": 1.5,
+                    }
+                ],
+            },
         )

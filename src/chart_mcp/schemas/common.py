@@ -1,22 +1,30 @@
-"""Reusable pydantic models shared by several endpoints."""
+"""Shared schemas and helpers used across multiple API modules."""
 
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Dict, Optional
+from typing import NewType
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
 
 from chart_mcp.types import JSONValue
 from chart_mcp.utils.timeframes import SUPPORTED_TIMEFRAMES
+
+# Explicit nominal type used whenever a normalized ``BASE/QUOTE`` symbol is
+# required.  Using ``NewType`` keeps static typing precise while remaining a
+# simple ``str`` at runtime.
+SymbolNormalized = NewType("SymbolNormalized", str)
 
 
 class Symbol(BaseModel):
     """Symbol representation ensuring uppercase formatting."""
 
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
     value: str = Field(..., min_length=3, max_length=20)
 
-    @validator("value")
+    @field_validator("value")
+    @classmethod
     def uppercase(cls, value: str) -> str:
         """Return the symbol uppercased to enforce canonical form."""
         return value.upper()
@@ -25,28 +33,32 @@ class Symbol(BaseModel):
 class Timeframe(BaseModel):
     """Timeframe representation ensuring supported values."""
 
-    value: str = Field(..., pattern="^[0-9]+[mhdw]$")
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
-    @validator("value")
+    value: str = Field(..., min_length=2, max_length=6)
+
+    @field_validator("value")
+    @classmethod
     def validate_supported(cls, value: str) -> str:
         """Ensure the timeframe belongs to the supported set."""
         if value not in SUPPORTED_TIMEFRAMES:
-            raise ValueError("unsupported timeframe")
+            raise ValueError(f"unsupported timeframe '{value}'")
         return value
 
 
 class DatetimeRange(BaseModel):
     """Datetime range used for OHLCV requests."""
 
-    start: Optional[datetime] = None
-    end: Optional[datetime] = None
+    model_config = ConfigDict(extra="forbid")
 
-    @validator("end")
-    def validate_order(
-        cls, end: Optional[datetime], values: Dict[str, Optional[datetime]]
-    ) -> Optional[datetime]:
+    start: datetime | None = None
+    end: datetime | None = None
+
+    @field_validator("end")
+    @classmethod
+    def validate_order(cls, end: datetime | None, info: ValidationInfo) -> datetime | None:
         """Validate that the end timestamp is greater than the start."""
-        start = values.get("start")
+        start = info.data.get("start") if info else None
         if start and end and end <= start:
             raise ValueError("end must be greater than start")
         return end
@@ -54,6 +66,8 @@ class DatetimeRange(BaseModel):
 
 class ApiError(BaseModel):
     """Schema used by error handlers for JSON responses."""
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
     code: str
     message: str
@@ -64,5 +78,17 @@ class ApiError(BaseModel):
 class Paged(BaseModel):
     """Metadata describing pagination context."""
 
+    model_config = ConfigDict(extra="forbid")
+
     limit: int
     remaining: int
+
+
+__all__ = [
+    "SymbolNormalized",
+    "Symbol",
+    "Timeframe",
+    "DatetimeRange",
+    "ApiError",
+    "Paged",
+]

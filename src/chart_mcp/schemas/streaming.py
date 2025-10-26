@@ -1,89 +1,133 @@
-"""Schemas describing streaming event payloads.
+"""Schemas describing the Server-Sent Events payloads.
 
-These models provide a discriminated union keyed by the ``type`` field so
-that streaming artefacts can be validated without resorting to ``Any``.
-The schema is intentionally aligned with the SSE payloads emitted by the
-``StreamingService`` to keep unit tests and runtime logging consistent.
+These models are consumed both by the FastAPI streaming route and by the test
+suite.  They enforce non-empty textual tokens, non-negative metrics and expose
+typed envelopes so frontend and MCP clients receive predictable structures.
 """
 
 from __future__ import annotations
 
 from typing import Annotated, Any, Dict, List, Literal, Tuple, Union
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+EventType = Literal[
+    "tool",
+    "token",
+    "result_partial",
+    "result_final",
+    "metric",
+    "error",
+    "done",
+]
+
+
+ProgressStepStatus = Literal["pending", "in_progress", "completed", "skipped"]
+
+
+class ProgressStep(BaseModel):
+    """Describe the status of a logical pipeline stage for UI progress bars."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(..., min_length=1)
+    status: ProgressStepStatus
+    progress: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Fractional completion in [0, 1] for finer-grained loaders.",
+    )
 
 
 class ToolEventDetails(BaseModel):
-    """Describe progress information for long running tooling steps."""
+    """Describe a tool invocation happening within the streaming pipeline."""
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
     tool: str = Field(..., min_length=1)
-    symbol: str | None = Field(default=None, min_length=1)
-    timeframe: str | None = Field(default=None, min_length=1)
-    rows: int | None = Field(default=None, ge=0)
     name: str | None = Field(default=None, min_length=1)
     latest: Dict[str, float] | None = None
+    symbol: str | None = Field(default=None, min_length=3, max_length=20)
+    timeframe: str | None = Field(default=None, min_length=1)
+    rows: int | None = Field(default=None, ge=0)
 
 
 class ToolStreamPayload(BaseModel):
-    """Envelope emitted during tool start/end notifications."""
+    """Envelope emitted when a MCP/REST tool starts or finishes."""
 
     type: Literal["tool"]
     payload: ToolEventDetails
 
 
 class TokenPayload(BaseModel):
-    """Text fragment emitted when the LLM streams a sentence."""
+    """Text fragment streamed by the LLM."""
+
+    model_config = ConfigDict(extra="forbid")
 
     text: str = Field(..., min_length=1)
 
 
 class TokenStreamPayload(BaseModel):
-    """Envelope carrying incremental LLM output."""
+    """Envelope wrapping incremental textual tokens."""
 
     type: Literal["token"]
     payload: TokenPayload
 
 
 class LevelPreview(BaseModel):
-    """Compact representation of a detected support/resistance level."""
+    """Compact snapshot of a detected level for partial updates."""
 
-    price: float
+    model_config = ConfigDict(extra="forbid")
+
     kind: str = Field(..., min_length=1)
     strength: float = Field(..., ge=0.0)
+    price: float | None = None
 
 
 class ResultPartialDetails(BaseModel):
-    """Intermediate artefact produced once heuristics complete."""
+    """Intermediate artefact produced before the final summary."""
 
-    indicators: Dict[str, Dict[str, float]] = Field(default_factory=dict)
+    model_config = ConfigDict(extra="forbid")
+
     levels: List[LevelPreview] = Field(default_factory=list)
+    progress: float | None = Field(default=None, ge=0.0, le=1.0)
+    indicators: Dict[str, Dict[str, float]] | None = None
+    steps: List[ProgressStep] = Field(default_factory=list)
 
 
 class ResultPartialStreamPayload(BaseModel):
-    """Envelope used for partial aggregation responses."""
+    """Envelope used to publish progress and partial artefacts."""
 
     type: Literal["result_partial"]
     payload: ResultPartialDetails
 
 
 class LevelDetail(LevelPreview):
-    """Extended level information exposed in the final summary."""
+    """Full description of a level used in final payloads."""
 
     ts_range: Tuple[int, int]
 
+    model_config = ConfigDict(extra="forbid")
+
 
 class PatternDetail(BaseModel):
-    """Final artefact describing a detected chart pattern."""
+    """Describe a detected chart pattern with scoring metadata."""
+
+    model_config = ConfigDict(extra="forbid")
 
     name: str = Field(..., min_length=1)
-    score: float
-    confidence: float = Field(..., ge=0.0)
+    score: float = Field(..., ge=0.0)
     start_ts: int
     end_ts: int
+    points: List[Tuple[int, float]] = Field(default_factory=list)
+    confidence: float = Field(..., ge=0.0)
 
 
 class ResultFinalDetails(BaseModel):
-    """Terminal payload containing the full AI generated summary."""
+    """Terminal payload containing the pedagogical AI summary."""
+
+    model_config = ConfigDict(extra="forbid")
 
     summary: str = Field(..., min_length=1)
     levels: List[LevelDetail] = Field(default_factory=list)
@@ -91,52 +135,67 @@ class ResultFinalDetails(BaseModel):
 
 
 class ResultFinalStreamPayload(BaseModel):
-    """Envelope emitted once the pipeline completes successfully."""
+    """Envelope emitted when the pipeline reaches completion."""
 
     type: Literal["result_final"]
     payload: ResultFinalDetails
 
 
 class MetricDetails(BaseModel):
-    """Timing information captured at the end of a pipeline step."""
+    """Timing metric describing how long a pipeline step took."""
+
+    model_config = ConfigDict(extra="forbid")
 
     step: str = Field(..., min_length=1)
     ms: float = Field(..., ge=0.0)
 
 
 class MetricStreamPayload(BaseModel):
-    """Envelope carrying timing metrics for pipeline diagnostics."""
+    """Envelope used to transport latency measurements."""
 
     type: Literal["metric"]
     payload: MetricDetails
 
 
 class ErrorDetails(BaseModel):
-    """Describe a failure surfaced to the SSE consumer."""
+    """Structured representation of an error surfaced during streaming."""
+
+    model_config = ConfigDict(extra="forbid")
 
     code: str = Field(..., min_length=1)
     message: str = Field(..., min_length=1)
 
 
 class ErrorStreamPayload(BaseModel):
-    """Envelope standardising error reporting in the stream."""
+    """Envelope wrapping an error payload."""
 
     type: Literal["error"]
     payload: ErrorDetails
 
 
 class DoneDetails(BaseModel):
-    """Signal the terminal status of the streaming pipeline."""
+    """Terminal marker emitted at the end of the SSE session."""
 
-    status: Literal["success", "error"]
+    model_config = ConfigDict(extra="forbid")
+
+    ok: bool = Field(default=True)
     code: str | None = Field(default=None, min_length=1)
 
 
 class DoneStreamPayload(BaseModel):
-    """Envelope ensuring terminal events share a consistent shape."""
+    """Envelope signalling the completion of a stream."""
 
     type: Literal["done"]
-    payload: DoneDetails
+    payload: DoneDetails | Dict[str, Any] = Field(default_factory=DoneDetails)
+
+    @model_validator(mode="before")
+    @classmethod
+    def coerce_payload(cls, values: Dict[str, Any]) -> Dict[str, Any]:
+        """Ensure dictionaries are validated against :class:`DoneDetails`."""
+        payload = values.get("payload")
+        if isinstance(payload, dict):
+            values["payload"] = DoneDetails(**payload)
+        return values
 
 
 StreamPayload = Annotated[
@@ -151,39 +210,38 @@ StreamPayload = Annotated[
     ],
     Field(discriminator="type"),
 ]
-"""Discriminated union used by SSE payloads to guarantee typed artefacts."""
-
-
-EventType = Literal[
-    "tool_start",
-    "tool_end",
-    "tool_log",
-    "token",
-    "result_partial",
-    "result_final",
-    "metric",
-    "error",
-    "done",
-]
 
 
 class StreamEvent(BaseModel):
-    """Structured SSE event carrying the type and an arbitrary payload."""
+    """Wrapper representing a full SSE event used by the tests."""
+
+    model_config = ConfigDict(extra="forbid")
 
     type: EventType
-    payload: Dict[str, Any] = Field(default_factory=dict)
+    payload: Dict[str, Any] | StreamPayload
 
 
 __all__ = [
+    "EventType",
+    "ToolEventDetails",
     "ToolStreamPayload",
+    "TokenPayload",
     "TokenStreamPayload",
+    "LevelPreview",
+    "ProgressStep",
+    "ResultPartialDetails",
     "ResultPartialStreamPayload",
+    "LevelDetail",
+    "PatternDetail",
+    "ResultFinalDetails",
     "ResultFinalStreamPayload",
+    "MetricDetails",
     "MetricStreamPayload",
+    "ErrorDetails",
     "ErrorStreamPayload",
+    "DoneDetails",
     "DoneStreamPayload",
     "StreamPayload",
-    "EventType",
     "StreamEvent",
-    "MetricDetails",
+    "ProgressStepStatus",
 ]

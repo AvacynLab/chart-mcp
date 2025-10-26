@@ -6,6 +6,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from chart_mcp.utils.timeframes import parse_timeframe
+
 
 class SmaCrossParams(BaseModel):
     """Parameters used by the simple moving-average crossover strategy."""
@@ -41,7 +43,7 @@ class StrategySpec(BaseModel):
     name: Literal["sma_cross"] = Field(..., description="Currently supported strategy identifier.")
     params: SmaCrossParams = Field(..., description="Strategy parameter payload.")
 
-    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True, populate_by_name=True)
 
 
 class BacktestRequest(BaseModel):
@@ -93,6 +95,13 @@ class BacktestRequest(BaseModel):
         """Normalize the ticker to uppercase to keep cache keys stable."""
         return value.upper()
 
+    @field_validator("timeframe")
+    @classmethod
+    def validate_timeframe(cls, value: str) -> str:
+        """Validate timeframe strings via the shared helper."""
+        parse_timeframe(value)
+        return value
+
     @model_validator(mode="after")
     def validate_range(self) -> "BacktestRequest":
         """Ensure the requested time range is coherent when both bounds are provided."""
@@ -120,6 +129,8 @@ class EquityPoint(BaseModel):
     ts: int
     equity: float
 
+    model_config = ConfigDict(populate_by_name=True)
+
 
 class TradeModel(BaseModel):
     """Serialized trade capturing entry/exit details."""
@@ -143,3 +154,16 @@ class BacktestResponse(BaseModel):
     trades: list[TradeModel]
 
     model_config = ConfigDict(populate_by_name=True)
+
+    @field_validator("symbol")
+    @classmethod
+    def uppercase_symbol(cls, value: str) -> str:
+        """Expose uppercase symbols in responses."""
+        return value.upper()
+
+    @field_validator("timeframe")
+    @classmethod
+    def normalize_timeframe(cls, value: str) -> str:
+        """Ensure timeframe is validated and returned unchanged."""
+        parse_timeframe(value)
+        return value

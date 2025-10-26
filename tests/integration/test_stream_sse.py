@@ -33,10 +33,57 @@ def test_stream_analysis_rejects_too_many_indicators(client):
         "symbol": "BTCUSDT",
         "timeframe": "1h",
         "limit": 250,
-        "indicators": [f"ema{i}" for i in range(12)],
+        "indicators": ",".join(f"ema{i}" for i in range(12)),
     }
     response = client.get("/stream/analysis", params=params)
     payload = response.json()
     assert response.status_code == 400
     assert payload["error"]["code"] == "bad_request"
     assert "indicators" in payload["error"]["message"].lower()
+
+
+def test_stream_analysis_deduplicates_indicator_specs(client, monkeypatch):
+    """Duplicate indicator specs are collapsed before invoking the service."""
+    streaming_service = client.app.state.streaming_service
+    captured: dict[str, object] = {}
+
+    async def fake_stream_analysis(
+        symbol: str,
+        timeframe: str,
+        indicator_specs,
+        **kwargs,
+    ):
+        captured["symbol"] = symbol
+        captured["indicators"] = indicator_specs
+        captured["max_levels"] = kwargs.get("max_levels")
+
+        async def generator():
+            yield "data: heartbeat\n\n"
+
+        return generator()
+
+    monkeypatch.setattr(streaming_service, "stream_analysis", fake_stream_analysis)
+
+    params = {
+        "symbol": "BTCUSDT",
+        "timeframe": "1h",
+        "indicators": (
+            "ema:21, EMA:21 , ema : window = 21 , "
+            "rsi:14, RSI:14 , "
+            "macd:fast=12;slow=26;signal=9, MACD:FAST=12;SLOW=26;SIGNAL=9"
+        ),
+        "max": 7,
+    }
+
+    with client.stream("GET", "/stream/analysis", params=params) as response:
+        assert response.status_code == 200
+        # Drain the response to ensure the async generator runs to completion.
+        list(response.iter_text())
+
+    expected = [
+        {"name": "ema", "params": {"window": 21.0}},
+        {"name": "rsi", "params": {"window": 14.0}},
+        {"name": "macd", "params": {"fast": 12.0, "slow": 26.0, "signal": 9.0}},
+    ]
+    assert captured["indicators"] == expected
+    assert captured["max_levels"] == 7
