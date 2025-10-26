@@ -41,12 +41,7 @@ USER chartmcp
 EXPOSE 8000
 
 # Inline the health probe so it mirrors the runtime expectations checked in CI and avoids
-# desynchronisation between Docker and application health endpoints.
-HEALTHCHECK --interval=30s --timeout=5s --retries=3 CMD \
-  python -c "import http.client, sys;\
-conn = http.client.HTTPConnection('localhost', 8000, timeout=3);\
-conn.request('GET', '/health');\
-resp = conn.getresponse();\
-sys.exit(0 if resp.status == 200 else 1)"
+# desynchronisation between Docker et application health endpoints.
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 CMD ["python", "-c", "import sys,http.client\\nconn=http.client.HTTPConnection('localhost', 8000, timeout=3)\\ntry:\\n    conn.request('GET', '/health')\\n    response = conn.getresponse()\\n    sys.exit(0 if response.status == 200 else 1)\\nexcept Exception:\\n    sys.exit(1)\\nfinally:\\n    conn.close()"]
 
 CMD ["uvicorn", "chart_mcp.app:app", "--host", "0.0.0.0", "--port", "8000"]

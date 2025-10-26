@@ -30,6 +30,7 @@ from chart_mcp.schemas.streaming import (
 )
 from chart_mcp.services.analysis_llm import AnalysisLLMService
 from chart_mcp.services.data_providers.base import MarketDataProvider
+from chart_mcp.services.data_providers.ccxt_provider import normalize_symbol
 from chart_mcp.services.indicators import IndicatorService
 from chart_mcp.services.levels import LevelCandidate, LevelsService
 from chart_mcp.services.patterns import PatternResult, PatternsService
@@ -81,6 +82,10 @@ class StreamingService:
             # an unreasonable amount of historical data. The upper bound mirrors the
             # finance REST routes to keep behaviour consistent across surfaces.
             raise BadRequest("limit must be between 1 and 5000 for streaming analysis")
+        normalized_symbol = normalize_symbol(symbol)
+        # Normalizing the symbol keeps SSE payloads aligned with the REST
+        # responses (`BTC/USDT`) and allows downstream services to reuse cached
+        # results across surfaces.
         streamer = SseStreamer()
         await streamer.start()
 
@@ -103,14 +108,14 @@ class StreamingService:
                         type="tool",
                         payload=ToolEventDetails(
                             tool="get_crypto_data",
-                            symbol=symbol,
+                            symbol=normalized_symbol,
                             timeframe=timeframe,
                         ),
                     ).model_dump(),
                 )
                 start_data = time.perf_counter()
                 frame = await asyncio.to_thread(
-                    self.provider.get_ohlcv, symbol, timeframe, limit=limit
+                    self.provider.get_ohlcv, normalized_symbol, timeframe, limit=limit
                 )
                 await _publish_metric("data", time.perf_counter() - start_data)
                 await streamer.publish(
@@ -189,7 +194,7 @@ class StreamingService:
                 start_summary = time.perf_counter()
                 analysis_output = await asyncio.to_thread(
                     self.analysis_service.summarize,
-                    symbol,
+                    normalized_symbol,
                     timeframe,
                     {
                         name: float(cast(SupportsFloat, next(iter(values.values()), 0.0)))

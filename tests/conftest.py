@@ -65,7 +65,9 @@ class FakeProvider(MarketDataProvider):
 def ohlcv_frame() -> pd.DataFrame:
     rng = np.random.default_rng(42)
     base_ts = int(datetime(2024, 1, 1).timestamp())
-    timestamps = np.arange(base_ts, base_ts + 3600 * 200, 3600)
+    # Provide a generous history so endpoints requiring long lookbacks (>=400
+    # candles) succeed during integration tests.
+    timestamps = np.arange(base_ts, base_ts + 3600 * 600, 3600)
     prices = 100 + np.sin(np.linspace(0, 6 * np.pi, len(timestamps))) * 5
     frame = pd.DataFrame(
         {
