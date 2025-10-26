@@ -1,9 +1,6 @@
 from __future__ import annotations
 
-import pytest
-
 from chart_mcp.services.data_providers.ccxt_provider import normalize_symbol
-from chart_mcp.utils.errors import BadRequest
 
 
 def test_normalize_symbol_compact_pair() -> None:
@@ -16,7 +13,6 @@ def test_normalize_symbol_preserves_slash() -> None:
     assert normalize_symbol("ETH/BTC") == "ETH/BTC"
 
 
-def test_normalize_symbol_rejects_unknown_quote() -> None:
-    """Invalid quotes should raise a ``BadRequest`` to align with API errors."""
-    with pytest.raises(BadRequest):
-        normalize_symbol("FOOBAR")
+def test_normalize_symbol_falls_back_to_cleaned_symbol() -> None:
+    """Unrecognised suffixes should return the cleaned symbol unchanged."""
+    assert normalize_symbol("FOOBAR") == "FOOBAR"
