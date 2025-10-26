@@ -14,8 +14,8 @@
     "clean": "python -m chart_mcp.cli.cleanup",
     "build": "python -m compileall src",
     "test": "pytest -q",
-    "lint": "ruff . && black --check src tests && isort --check-only src tests && mypy src",
-    "lint:fix": "ruff --fix . && black src tests && isort src tests"
+    "lint": "ruff check . && black --check src tests && isort --check-only src tests && mypy src",
+    "lint:fix": "ruff check --fix . && black src tests && isort src tests"
   },
   "devDependencies": {
     "esbuild": "^0.21.5",

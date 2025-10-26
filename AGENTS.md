@@ -293,8 +293,8 @@
       "clean": "python -m chart_mcp.cli.cleanup",
       "build": "python -m compileall src",
       "test": "pytest -q",
-      "lint": "ruff . && black --check src tests && isort --check-only src tests && mypy src",
-      "lint:fix": "ruff --fix . && black src tests && isort src tests"
+      "lint": "ruff check . && black --check src tests && isort --check-only src tests && mypy src",
+      "lint:fix": "ruff check --fix . && black src tests && isort src tests"
     }
   }
   ```
@@ -386,7 +386,7 @@ from chart_mcp import mcp_server as tools
 3. **Nettoyer** `docker/healthcheck.py`.
 4. **Terminer** `mcp_server.py` (retours JSON) et **CI** (`ci.yml` complet + job mcp-smoke).
 5. **Compléter** le **front minimal** (artefacts/fallbacks) pour éteindre les tests front sensibles.
-6. **Exécuter** : `ruff .` → `black --check`/`isort` → `mypy src` → `pytest -q` → build Docker.
+6. **Exécuter** : `ruff check .` → `black --check`/`isort` → `mypy src` → `pytest -q` → build Docker.
 7. Itérer jusqu’à **tout vert** (cov ≥ 80 %).
 
 ---
@@ -402,3 +402,4 @@ si tu suis cette liste **point par point** (et seulement celle-ci), on verrouill
 - 2025-10-26T06:30:26+00:00 — gpt-5-codex : CI mise à jour (lint/type/test/docker/mcp-smoke) et QA locale (`ruff`, `black --check`, `isort --check-only`, `mypy`, `pytest --cov`).
 - 2025-10-26T06:39:56+00:00 — gpt-5-codex : Durci `utils.errors` (imports/JSON handlers) + ajouté tests unitaires dédiés, ajusté isort (`known_third_party`) et confirmé front/harness conformes ; QA locale `ruff`/`black --check`/`isort --check-only`/`mypy`/`pytest --cov`.
 - 2025-10-26T06:47:13+00:00 — gpt-5-codex : Exposé la source CCXT dans les réponses levels/patterns (`source`), aligné le paramètre `max` et étendu les tests d'intégration ; QA complète `ruff`/`black --check`/`isort --check-only`/`mypy`/`pytest --cov`.
+- 2025-10-26T07:02:00+00:00 — gpt-5-codex : Harmonisé les invocations Ruff (`ruff check`) dans le workflow CI, le Makefile et `package.json` pour éviter l'échec "unrecognized subcommand".
