@@ -44,14 +44,14 @@ EXPOSE 8000
 # desynchronisation between Docker et application health endpoints.
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 CMD \
   python - <<'PY' || exit 1
-import sys, http.client
-try:
-    c = http.client.HTTPConnection("localhost", 8000, timeout=3)
-    c.request("GET", "/health")
-    r = c.getresponse()
-    sys.exit(0 if r.status == 200 else 1)
-except Exception:
-    sys.exit(1)
-PY
+  import sys, http.client
+  try:
+      c = http.client.HTTPConnection("localhost", 8000, timeout=3)
+      c.request("GET", "/health")
+      r = c.getresponse()
+      sys.exit(0 if r.status == 200 else 1)
+  except Exception:
+      sys.exit(1)
+  PY
 
 CMD ["uvicorn", "chart_mcp.app:app", "--host", "0.0.0.0", "--port", "8000"]
