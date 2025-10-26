@@ -24,9 +24,12 @@ RUN python -m pip install --no-cache-dir --upgrade "pip==${PIP_VERSION}" \
 
 FROM python:3.11-slim AS runtime
 
+# Ensure the application package living under ``/app/src`` stays importable without
+# installing it in editable mode inside the container.
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PATH="/install/bin:$PATH"
+    PATH="/install/bin:$PATH" \
+    PYTHONPATH="/app/src"
 
 WORKDIR /app
 
