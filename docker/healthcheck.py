@@ -17,8 +17,13 @@ from contextlib import suppress
 _HOST = "localhost"
 _PORT = 8000
 _TIMEOUT_SECONDS = 3
-_RETRY_ATTEMPTS = 5
-_RETRY_DELAY_SECONDS = 0.5
+# Allow the application a generous boot window: in CI the container is given
+# five seconds to start before this probe runs, yet we occasionally observed
+# additional latency while Uvicorn finished warming up.  Ten attempts with a
+# one-second interval mirrors the behaviour of the previous single-shot probe
+# while still benefiting from retry semantics when the very first request fails.
+_RETRY_ATTEMPTS = 10
+_RETRY_DELAY_SECONDS = 1.0
 
 
 def _create_connection() -> http.client.HTTPConnection:
@@ -47,10 +52,10 @@ def _probe_once() -> bool:
 def main() -> int:
     """Return ``0`` when the probe succeeds and ``1`` otherwise.
 
-    The loop keeps the overall wait below three seconds while providing
-    enough time for the API process to finish booting.  Each iteration
-    closes its connection explicitly so repeated probes do not exhaust the
-    server socket backlog.
+    The loop keeps probing for up to roughly ten seconds, matching the
+    tolerance that GitHub Actions previously provided by sleeping before a
+    single-shot request.  Each iteration closes its connection explicitly so
+    repeated probes do not exhaust the server socket backlog.
     """
     for attempt in range(1, _RETRY_ATTEMPTS + 1):
         if _probe_once():
