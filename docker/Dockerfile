@@ -44,23 +44,23 @@ EXPOSE 8000
 # desynchronisation between Docker et application health endpoints.
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 CMD \
     python - <<'PY' || exit 1
-import sys, http.client
+    import sys, http.client
 
 
-def main() -> None:
-    """Exit with ``0`` when the FastAPI health endpoint answers ``200``."""
+    def main() -> None:
+        """Exit with ``0`` when the FastAPI health endpoint answers ``200``."""
 
-    try:
-        connection = http.client.HTTPConnection("localhost", 8000, timeout=3)
-        connection.request("GET", "/health")
-        response = connection.getresponse()
-        raise SystemExit(0 if response.status == 200 else 1)
-    except Exception:
-        raise SystemExit(1)
+        try:
+            connection = http.client.HTTPConnection("localhost", 8000, timeout=3)
+            connection.request("GET", "/health")
+            response = connection.getresponse()
+            raise SystemExit(0 if response.status == 200 else 1)
+        except Exception:
+            raise SystemExit(1)
 
 
-if __name__ == "__main__":
-    main()
+    if __name__ == "__main__":
+        main()
 PY
 
 CMD ["uvicorn", "chart_mcp.app:app", "--host", "0.0.0.0", "--port", "8000"]
