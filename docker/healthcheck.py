@@ -19,10 +19,11 @@ _PORT = 8000
 _TIMEOUT_SECONDS = 3
 # Allow the application a generous boot window: in CI the container is given
 # five seconds to start before this probe runs, yet we occasionally observed
-# additional latency while Uvicorn finished warming up.  Ten attempts with a
-# one-second interval mirrors the behaviour of the previous single-shot probe
-# while still benefiting from retry semantics when the very first request fails.
-_RETRY_ATTEMPTS = 10
+# additional latency while Uvicorn finished warming up.  Thirty attempts with a
+# one-second interval extend the tolerance to roughly half a minute which
+# matches the historical behaviour of the Dockerfile-based healthcheck while
+# still benefiting from retry semantics when the very first request fails.
+_RETRY_ATTEMPTS = 30
 _RETRY_DELAY_SECONDS = 1.0
 
 
@@ -52,8 +53,8 @@ def _probe_once() -> bool:
 def main() -> int:
     """Return ``0`` when the probe succeeds and ``1`` otherwise.
 
-    The loop keeps probing for up to roughly ten seconds, matching the
-    tolerance that GitHub Actions previously provided by sleeping before a
+    The loop keeps probing for just over half a minute, matching the
+    tolerance that GitHub Actions historically provided by sleeping before a
     single-shot request.  Each iteration closes its connection explicitly so
     repeated probes do not exhaust the server socket backlog.
     """
@@ -62,6 +63,14 @@ def main() -> int:
             return 0
         if attempt < _RETRY_ATTEMPTS:
             time.sleep(_RETRY_DELAY_SECONDS)
+    # Surface a non-zero exit status once all retries have been exhausted.  The
+    # explicit ``print`` offers useful context in CI logs without being overly
+    # chatty during successful runs.
+    print(
+        "healthcheck failed: unable to reach http://%s:%s/health after %d attempts"
+        % (_HOST, _PORT, _RETRY_ATTEMPTS),
+        file=sys.stderr,
+    )
     return 1
 
 
