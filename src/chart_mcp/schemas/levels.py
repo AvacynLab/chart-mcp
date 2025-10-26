@@ -1,54 +1,43 @@
-"""Schemas representing support/resistance levels returned by the API."""
+"""Schemas for support and resistance routes."""
 
 from __future__ import annotations
 
-from typing import List, Tuple
+from typing import List
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict
+from typing_extensions import Literal
 
 
-class Level(BaseModel):
-    """Support or resistance level description."""
+class LevelRange(BaseModel):
+    """Timestamp range delimiting where a level was detected."""
 
     model_config = ConfigDict(extra="forbid")
 
-    kind: str = Field(..., min_length=1, description="Level type (support/resistance)")
-    price: float = Field(..., description="Representative price of the level")
-    strength: float = Field(..., ge=0.0, le=1.0, description="Confidence score within [0,1]")
-    ts_range: Tuple[int, int] = Field(
-        ..., description="Tuple describing the inclusive time range of the level"
-    )
+    start_ts: int
+    end_ts: int
 
-    @field_validator("ts_range")
-    @classmethod
-    def ensure_ordered_range(cls, value: Tuple[int, int]) -> Tuple[int, int]:
-        """Ensure the range boundaries are chronologically ordered."""
-        start, end = value
-        if end < start:
-            raise ValueError("end timestamp must be greater than or equal to start timestamp")
-        return value
+
+class Level(BaseModel):
+    """Support/resistance level representation."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    price: float
+    strength: float
+    kind: Literal["support", "resistance"]
+    ts_range: LevelRange
 
 
 class LevelsResponse(BaseModel):
-    """Collection of detected levels."""
+    """Response payload returned by the levels route."""
 
-    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+    model_config = ConfigDict(extra="forbid")
 
     symbol: str
     timeframe: str
+    source: str
+    """Exchange identifier from which candles were fetched."""
     levels: List[Level]
 
-    @field_validator("symbol")
-    @classmethod
-    def uppercase_symbol(cls, value: str) -> str:
-        """Return uppercase symbols so responses remain consistent."""
-        return value.upper()
 
-    @field_validator("timeframe")
-    @classmethod
-    def normalize_timeframe(cls, value: str) -> str:
-        """Strip whitespace and keep the timeframe lowercase (``1h``)."""
-        return value.strip().lower()
-
-
-__all__ = ["Level", "LevelsResponse"]
+__all__ = ["LevelRange", "Level", "LevelsResponse"]

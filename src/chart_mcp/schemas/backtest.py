@@ -89,13 +89,13 @@ class BacktestRequest(BaseModel):
 
     model_config = ConfigDict(populate_by_name=True, extra="forbid", str_strip_whitespace=True)
 
-    @field_validator("symbol")
+    @field_validator("symbol", mode="before")
     @classmethod
     def uppercase_symbol(cls, value: str) -> str:
         """Normalize the ticker to uppercase to keep cache keys stable."""
         return value.upper()
 
-    @field_validator("timeframe")
+    @field_validator("timeframe", mode="before")
     @classmethod
     def validate_timeframe(cls, value: str) -> str:
         """Validate timeframe strings via the shared helper."""
@@ -155,7 +155,7 @@ class BacktestResponse(BaseModel):
 
     model_config = ConfigDict(populate_by_name=True)
 
-    @field_validator("symbol")
+    @field_validator("symbol", mode="before")
     @classmethod
     def uppercase_symbol(cls, value: str) -> str:
         """Expose uppercase symbols in responses."""

@@ -178,7 +178,7 @@ class DoneDetails(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    ok: bool = Field(default=True)
+    status: Literal["ok", "error"] = Field(default="ok")
     code: str | None = Field(default=None, min_length=1)
 
 

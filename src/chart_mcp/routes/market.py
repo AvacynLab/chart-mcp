@@ -34,15 +34,17 @@ def get_ohlcv(
 ) -> MarketDataResponse:
     """Return normalized OHLCV data while enforcing strict query validation."""
     parse_timeframe(query.timeframe)
-    if query.start is not None and query.end is not None and query.end <= query.start:
+    start = query.resolved_start()
+    end = query.resolved_end()
+    if start is not None and end is not None and end <= start:
         raise BadRequest("Parameter 'end' must be greater than 'start'")
 
     frame = provider.get_ohlcv(
         query.symbol,
         query.timeframe,
         limit=query.limit,
-        start=query.start,
-        end=query.end,
+        start=start,
+        end=end,
     )
     rows = normalize_ohlcv_frame(frame)
     normalized_symbol = normalize_symbol(query.symbol)

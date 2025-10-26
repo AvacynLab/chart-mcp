@@ -47,4 +47,12 @@ def list_patterns(
         )
         for result in detected
     ]
-    return PatternsResponse(symbol=normalized_symbol, timeframe=timeframe, patterns=patterns)
+    # Comme pour les niveaux, expose l'exchange CCXT utilisé pour la détection.
+    raw_source = getattr(getattr(provider, "client", None), "id", None)
+    source = str(raw_source) if raw_source else "custom"
+    return PatternsResponse(
+        symbol=normalized_symbol,
+        timeframe=timeframe,
+        source=source,
+        patterns=patterns,
+    )
