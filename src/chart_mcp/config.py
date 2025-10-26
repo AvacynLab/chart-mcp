@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import List
+from typing import List, cast
 
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -43,6 +43,23 @@ class Settings(BaseSettings):
         """Accept comma-separated strings for convenience."""
         if isinstance(value, str):
             return [origin.strip() for origin in value.split(",") if origin.strip()]
+        return value
+
+    @field_validator("api_token", mode="before")
+    @classmethod
+    def ensure_token_has_value(cls, value: str | None) -> str:
+        """Fallback to the default token when an empty string is provided.
+
+        GitHub Actions often forwards environment variables with ``-e NAME=$NAME``.
+        When ``$NAME`` is undefined Docker passes an empty string, which Pydantic
+        interprets as an explicit value and therefore triggers a validation error
+        against the ``min_length`` constraint. This validator normalises such
+        cases back to the default development token so the container stays
+        bootable while still allowing operators to override it with a real secret.
+        """
+        default_token = cast(str, cls.model_fields["api_token"].default)
+        if value is None or value == "":
+            return default_token
         return value
 
 
