@@ -14,6 +14,7 @@ def test_patterns_route(client):
     assert response.status_code == 200
     data = response.json()
     assert data["symbol"] == "BTC/USDT"
+    assert data["source"] == "stub"
     assert isinstance(data["patterns"], list)
 
 

@@ -24,7 +24,7 @@ format-check:
 	isort --check-only src tests
 
 lint-fix:
-	ruff --fix .
+        ruff check --fix .
 	black src tests
 	isort src tests
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Annotated, Dict, List, Tuple, cast
 
 from fastapi import APIRouter, Depends, Request
+from typing_extensions import Literal
 
 from chart_mcp.routes.auth import require_regular_user, require_token
 from chart_mcp.schemas.analysis import (
@@ -13,7 +14,7 @@ from chart_mcp.schemas.analysis import (
     IndicatorSnapshot,
     RequestedIndicator,
 )
-from chart_mcp.schemas.levels import Level
+from chart_mcp.schemas.levels import Level, LevelRange
 from chart_mcp.schemas.patterns import Pattern, PatternPoint
 from chart_mcp.services.analysis_llm import AnalysisLLMService
 from chart_mcp.services.data_providers.base import MarketDataProvider
@@ -92,10 +93,13 @@ def summary(
     level_models = (
         [
             Level(
-                kind=lvl.kind,
+                kind=cast(Literal["support", "resistance"], lvl.kind),
                 price=float(lvl.price),
                 strength=float(lvl.strength),
-                ts_range=(int(lvl.ts_range[0]), int(lvl.ts_range[1])),
+                ts_range=LevelRange(
+                    start_ts=int(lvl.ts_range[0]),
+                    end_ts=int(lvl.ts_range[1]),
+                ),
             )
             for lvl in levels
         ]

@@ -22,6 +22,7 @@ profile = "black"
 line_length = 100
 force_single_line = false
 known_first_party = ["chart_mcp"]
+known_third_party = ["fastmcp"]
 combine_as_imports = true
 
 [tool.ruff]

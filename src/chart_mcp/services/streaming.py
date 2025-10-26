@@ -367,7 +367,7 @@ class StreamingService:
                     "done",
                     DoneStreamPayload(
                         type="done",
-                        payload=DoneDetails(ok=True),
+                        payload=DoneDetails(status="ok"),
                     ).model_dump(),
                 )
             except ApiError as exc:
@@ -388,7 +388,7 @@ class StreamingService:
                     "done",
                     DoneStreamPayload(
                         type="done",
-                        payload=DoneDetails(ok=False, code=exc.code),
+                        payload=DoneDetails(status="error", code=exc.code),
                     ).model_dump(),
                 )
             except Exception:
@@ -408,7 +408,7 @@ class StreamingService:
                     "done",
                     DoneStreamPayload(
                         type="done",
-                        payload=DoneDetails(ok=False, code="internal_error"),
+                        payload=DoneDetails(status="error", code="internal_error"),
                     ).model_dump(),
                 )
             finally:

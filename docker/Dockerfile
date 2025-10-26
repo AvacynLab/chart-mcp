@@ -24,9 +24,13 @@ RUN python -m pip install --no-cache-dir --upgrade "pip==${PIP_VERSION}" \
 
 FROM python:3.11-slim AS runtime
 
+# Ensure the runtime Python process can import both third-party dependencies copied
+# from the builder layer (installed under ``/install``) and the project sources living
+# in ``/app/src`` without requiring an additional editable installation step.
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PATH="/install/bin:$PATH"
+    PATH="/install/bin:$PATH" \
+    PYTHONPATH="/install/lib/python3.11/site-packages:/app/src"
 
 WORKDIR /app
 

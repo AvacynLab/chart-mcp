@@ -1,230 +1,333 @@
-2025-10-26T02:36:54+00:00 — 3e12e74009e3280e9f4d9f9742028116895ff222
+2025-10-26T06:30:26+00:00 — bf1ab3f73ccd5ace1efed4509bdfeedcfac81bf8
 
-# 🎯 Brief (objectif alpha)
+# 🎯 Brief (objectif alpha — révision finale)
 
-* **Périmètre** : crypto-only, API FastAPI sécurisée + **SSE** stable, tools **MCP** exposés via serveur réel (stdio), indicateurs (MA/EMA/RSI/MACD/BB), niveaux S/R, patterns (double top/bottom, triangle, canal), résumé IA **pédagogique** (jamais prescriptif).
-* **État** : services d’analyse OK dans l’ensemble ; **beaucoup de “…”** subsistent (schemas, 2–3 routes, provider CCXT – ok mais à valider, entrypoints MCP/stream OK mais **schéma streaming vide**, front & tests TS contiennent des `...`).
+* **Périmètre** : crypto-only. API FastAPI sécurisée, **SSE** stable (headers + heartbeat), **MCP serveur réel** (stdio), indicateurs (MA/EMA/RSI/MACD/BB), **levels** S/R, **patterns** (double top/bottom, triangle, canal), résumé IA **informatif** (jamais prescriptif).
+* **Constats précis sur cette archive** :
+
+  * **MCP** : **pas d’entrypoint serveur** (fichier `mcp_main.py` manquant) ; `mcp_server.py` encore partiellement “stub”.
+  * **SSE** : route `stream` quasi OK, **headers SSE présents** ✅ ; pipeline metrics déjà émis ✅ ; heartbeat présent ✅.
+  * **Schemas** : `schemas/*` contiennent encore des parties incomplètes (notamment **streaming**, **market**, **indicators**, **levels**, **patterns**, **finance**, **backtest**, **common**).
+  * **Routes** : `levels.py` et `patterns.py` **incomplètes** (préfixe/tags/déps/params à finir).
+  * **Config** : `config.py` tronqué (validators Pydantic v2 à finaliser), mais `settings = get_settings()` est déjà exposé.
+  * **Provider CCXT** : `normalize_symbol` présent ✅ ; `get_ohlcv` (retries/tri/UTC secondes) correct ✅.
+  * **Docker** : `docker/Dockerfile` **OK** (healthcheck script externe) ; **`docker/healthcheck.py`** à nettoyer (retirer l’ellipse et initialiser `connection`).
+  * **CI** : workflow YAML coupé ; finir les jobs (lint/format/type/test/build + smoke MCP).
+  * **Front** : plusieurs fichiers TS/TSX encore partiels (mais attention : les `...` de **spread** `...devices`, `...current` **ne sont pas** des TODO — ne pas toucher).
 * **Cible** :
 
-  1. **Supprimer tous les `...`** (implémentations réelles),
-  2. **Compléter les schémas Pydantic** (notamment `schemas/streaming.py`),
-  3. Finaliser **routes** `levels.py`, `patterns.py`, `stream.py`,
-  4. Vérifier/compléter **provider CCXT** & normalisation symbole,
-  5. Aligner **tests Python** (déjà présents) + **tests TS** (remplir placeholders),
-  6. Conserver headers SSE, metrics, neutralité “non-conseil”.
+  1. **Ajouter** un **serveur MCP exécut-able** (`src/chart_mcp/mcp_main.py`) + dépendance.
+  2. **Compléter** tous les **schemas Pydantic** (notamment `schemas/streaming.py`).
+  3. **Finaliser** les **routes** `levels.py`, `patterns.py` (params, deps, retours).
+  4. **Nettoyer** `docker/healthcheck.py`.
+  5. **Terminer** la **CI** (jobs complets) + scripts `package.json` cassés.
+  6. **Tests** verts (≥ **80%** cov), linters/typing OK, build Docker OK.
 
 ---
 
-# ✅ To-do à cocher — fichier par fichier (avec sous-étapes)
+# ✅ To-do minutieuse — fichier par fichier (avec sous-étapes)
 
-## 0) Remplacement de la source de vérité
+## 0) Remplacer la source de vérité
 
-* [x] **`AGENTS.md`** — **Écraser** et coller **exclusivement** la présente liste (avec date + commit hash).
+* [x] **`AGENTS.md`** — **ÉCRASER** le fichier et coller **uniquement** la présente checklist + brief + “tests & build”.
 
----
-
-## 1) Schémas Pydantic (nombreux `...`)
-
-### `src/chart_mcp/schemas/streaming.py` — **À écrire entièrement**
-
-* [x] Créer un **union discriminé** par `type` avec `Literal[...]`.
-* [x] Modèles :
-
-  * [x] `ToolEventDetails`: `tool: str`, `name: str | None`, `latest: dict[str, float] | None`.
-  * [x] `ToolStreamPayload`: `type="tool"`, `payload: ToolEventDetails`.
-  * [x] `TokenPayload`: `text: str` (`min_length=1`).
-  * [x] `TokenStreamPayload`: `type="token"`, `payload: TokenPayload`.
-  * [x] `LevelPreview`: `kind: str`, `strength: float >=0`.
-  * [x] `ResultPartialDetails`: `levels: list[LevelPreview] = []`, `progress: float | None`.
-  * [x] `ResultPartialStreamPayload`: `type="result_partial"`, `payload: ResultPartialDetails`.
-  * [x] `LevelDetail(LevelPreview)` + `PatternDetail`: `name, score, start_ts, end_ts, points: list[tuple[int,float]]`, `confidence: float`.
-  * [x] `ResultFinalDetails`: `summary: str (min_length=1)`, `levels: list[LevelDetail]`, `patterns: list[PatternDetail]`.
-  * [x] `ResultFinalStreamPayload`: `type="result_final"`, `payload: ResultFinalDetails`.
-  * [x] `MetricDetails`: `step: str (min_length=1)`, `ms: float >=0`.
-  * [x] `MetricStreamPayload`: `type="metric"`, `payload: MetricDetails`.
-  * [x] `ErrorDetails`: `code: str`, `message: str`.
-  * [x] `ErrorStreamPayload`: `type="error"`, `payload: ErrorDetails`.
-  * [x] `DoneDetails`: `ok: bool = True`.
-  * [x] `DoneStreamPayload`: `type="done"`, `payload: DoneDetails | dict = Field(default_factory=dict)`.
-* [x] `EventType = Literal["tool","token","result_partial","result_final","metric","error","done"]`.
-* [x] `StreamPayload = Union[ToolStreamPayload,TokenStreamPayload,ResultPartialStreamPayload,ResultFinalStreamPayload,MetricStreamPayload,ErrorStreamPayload,DoneStreamPayload]`.
-* [x] `StreamEvent` avec `type: EventType` + `payload: dict | model`; expose `__all__` (déjà listé).
-* [x] Satisfaire `tests/unit/schemas/test_streaming.py` (obligatoire : token vide → ValidationError, summary vide → ValidationError).
-
-### `src/chart_mcp/schemas/market.py`, `indicators.py`, `levels.py`, `patterns.py`, `common.py`, `finance.py`, `backtest.py`
-
-* [x] **Remplacer tous les `...`** et garantir :
-
-  * [x] **`market.py`** : Request/Response avec `symbol` uppercased, timeframe validée (via util), OHLCV `[{"ts","o","h","l","c","v"}]`.
-  * [x] **`indicators.py`** : `indicator` ∈ {"ma","ema","rsi","macd","bbands"}, `params` optionnels, réponse `[{ts,...}]`.
-  * [x] **`levels.py`** : `Level(kind:str, price:float, strength:float, ts_range[start_ts,end_ts])`; `LevelsResponse(levels:list[Level])`.
-  * [x] **`patterns.py`** : `Pattern(name, score, start_ts, end_ts, points:list[PatternPoint], confidence)`.
-  * [x] **`finance.py`/`backtest.py`** : compléter champs (CAGR, Sharpe, profit_factor, trades, equity_curve…), **types numériques** (float|int), `model_config = {"populate_by_name": True}` partout.
-  * [x] **`common.py`** : helpers/aliases partagés, types “SymbolNormalized” si utilisé.
+  * [x] En tête : **date** + **hash archive** `bf1ab3f…`.
 
 ---
 
-## 2) Routes FastAPI (incomplètes)
+## 1) MCP (exposition serveur réelle)
 
-### `src/chart_mcp/routes/levels.py`
+* [x] **`requirements.txt`** — **ajouter** la lib serveur MCP (ex. `fastmcp==<version>`).
 
-* [x] Compléter `router = APIRouter(tags=["levels"], prefix="/api/v1/levels", dependencies=[Depends(require_token), Depends(require_regular_user)])`.
-* [x] Paramètres : `symbol: str`, `timeframe: str`, `limit: int=Query(500,ge=1,le=5000)`, `max: int=Query(10,ge=1,le=100)`.
-* [x] Implémenter corps (déjà presque fait) : `parse_timeframe`, `provider.get_ohlcv`, `service.detect_levels(..., max_levels=max)`, mapping → `LevelsResponse`.
-* [x] **Retourner `symbol` normalisé** (via `normalize_symbol`).
-* [x] Aligner sur `tests/integration/test_levels_routes.py` (tri par `strength` décroissant, troncature `max`).
+* [x] **`src/chart_mcp/mcp_main.py`** — **NOUVEAU** (entrypoint stdio) :
 
-### `src/chart_mcp/routes/patterns.py`
+  ```python
+  from __future__ import annotations
+  import asyncio
+  # adapte à la lib retenue
+  from fastmcp import MCPServer
+  from chart_mcp import mcp_server as tools
 
-* [x] Compléter `router = APIRouter(tags=["patterns"], prefix="/api/v1/patterns", dependencies=[Depends(require_token), Depends(require_regular_user)])`.
-* [x] Paramètres : `symbol, timeframe, limit`.
-* [x] Implémenter mapping `PatternResult` → `PatternsResponse` (déjà amorcé).
-* [x] Normaliser `symbol` à la sortie.
+  REGISTERED_TOOL_NAMES = (
+      "get_crypto_data",
+      "compute_indicator",
+      "identify_support_resistance",
+      "detect_chart_patterns",
+      "generate_analysis_summary",
+  )
 
-### `src/chart_mcp/routes/stream.py`
+  def register(server: MCPServer) -> None:
+      server.tool("get_crypto_data")(tools.get_crypto_data)
+      server.tool("compute_indicator")(tools.compute_indicator)
+      server.tool("identify_support_resistance")(tools.identify_support_resistance)
+      server.tool("detect_chart_patterns")(tools.detect_chart_patterns)
+      server.tool("generate_analysis_summary")(tools.generate_analysis_summary)
 
-* [x] Compléter la signature (paramètres manquants) :
+  async def main() -> None:
+      server = MCPServer()
+      register(server)
+      await server.serve_stdio()
 
-  * [x] `limit: int = Query(500, ge=1, le=5000)`
-  * [x] `include_levels: bool = Query(True)`, `include_patterns: bool = Query(True)`
-  * [x] `streaming: bool = Query(True)` (si utilisé par le service)
-  * [x] `request: Request` et dépendances `Depends(require_token)`, `Depends(require_regular_user)`.
-* [x] Construire `indicator_specs` à partir de `indicators` (`"ema:21,rsi:14"` → liste).
-* [x] Appeler `get_streaming_service(request).stream_analysis(...)`.
-* [x] **Garder les en-têtes SSE** (déjà posés en bas) :
-  `Cache-Control: no-cache`, `Connection: keep-alive`, `X-Accel-Buffering: no`.
-* [x] Gérer `asyncio.CancelledError` avec fermeture propre (le _guard est là, valider qu’il s’exécute).
+  if __name__ == "__main__":
+      asyncio.run(main())
+  ```
+
+* [x] **`src/chart_mcp/mcp_server.py`** — **terminer les stubs** :
+
+  * [x] Garantir que **tous** les outils **retournent du JSON pur** (listes/dicts), **jamais** de `DataFrame`.
+  * [x] Implémenter :
+
+    * [x] `get_crypto_data(symbol, timeframe, *, limit=500, start=None, end=None) -> List[Dict[str, int|float]]` → `_provider.get_ohlcv(...)` puis `frame.to_dict(orient="records")`.
+    * [x] `compute_indicator(symbol, timeframe, indicator, params) -> List[Dict[str, int|float]]` → calcule via `_indicator_service`, `dropna()`, **aligne `ts`**, sérialise `{ts, ...}`.
+    * [x] `identify_support_resistance(...) -> List[Dict[str, ...]]` → utilise `_levels_service.detect_levels(...)`, sérialise `price/strength/kind/ts_range`.
+    * [x] `detect_chart_patterns(...) -> List[Dict[str, ...]]` → sérialise `name,score,start_ts,end_ts,points,confidence`.
+    * [x] `generate_analysis_summary(...) -> Dict[str, ...]` → passer `levels/patterns/highlights` au `_analysis_service.summarize(...)`.
+
+* [x] **`Makefile`** — **ajouter** :
+
+  ```make
+  mcp-run:
+  python -m chart_mcp.mcp_main
+  ```
+
+* [x] **`.github/workflows/ci.yml`** — **ajouter un job `mcp-smoke`** :
+
+  * [x] installe deps (dont MCP),
+  * [x] `python - <<'PY'\nimport importlib; m=importlib.import_module("chart_mcp.mcp_main"); assert hasattr(m, "register")\nPY`.
 
 ---
 
-## 3) Provider & normalisation
-
-### `src/chart_mcp/services/data_providers/ccxt_provider.py`
-
-* [x] **Vérifier la `Protocol` `_ExchangeLike`** (les `...` dans signatures sont **OK** en PEP544).
-* [x] **`normalize_symbol` est présent** : valider quotes = `("USDT","USD","USDC","BTC","ETH","EUR","GBP")`, uppercasing, slash, `BadRequest` sinon.
-* [x] `get_ohlcv` : mapping `ccxt_timeframe(timeframe)`, retries 429/ratelimit, DataFrame colonnes `["ts","o","h","l","c","v"]`, timestamp **en secondes**, tri croissant, filtrage `end` si fourni.
-* [x] Satisfaire :
-
-  * `tests/unit/services/test_ccxt_provider.py`
-  * `tests/unit/services/test_symbol_normalization.py`.
-
----
-
-## 4) MCP
-
-### `src/chart_mcp/mcp_main.py`
-
-* [x] **Déjà OK** : `REGISTERED_TOOL_NAMES`, `register()`, `build_server()`, `main()` stdio. **Ne rien casser.**
-
-### `src/chart_mcp/mcp_server.py`
-
-* [x] **Confirmer** que toutes les fonctions **renvoient du JSON pur** (list/dict) — **pas** de DataFrame.
-* [x] Vérifier que les caches (`_provider`, `_indicator_service`, …) sont **tous** définis (pas de `...` résiduel au milieu du fichier).
-* [x] `register_tools(registrar)` **expose** :
-  `get_crypto_data`, `compute_indicator`, `identify_support_resistance`, `detect_chart_patterns`, `generate_analysis_summary`.
-* [x] Satisfaire `tests/unit/mcp/test_tools.py` et `tests/unit/mcp/test_server_runtime.py`.
-
----
-
-## 5) Application / Config / SSE / Logs
+## 2) API FastAPI & SSE
 
 ### `src/chart_mcp/app.py`
 
-* [x] **Relire la factory** : CORS depuis `settings.allowed_origins`, GZip, middlewares logs (jamais logguer `Authorization`).
-* [x] Monter **toutes** les routes : `health`, `market`, `finance` (feature-flag), `indicators`, `levels`, `patterns`, `analysis`, `stream`.
-* [x] Gestion erreurs : `ApiError`, `HTTPException`, `RequestValidationError`, catch-all.
-* [x] `StreamingService` instancié dans `app.state` (déjà le cas).
-* [x] (Facultatif) `ORJSONResponse` par défaut.
+* [x] **Compléter** l’usine d’app :
+
+  * [x] Monter **toutes** les routes : `health`, `market`, `finance` (flag), `indicators`, `levels`, `patterns`, `analysis`, `stream`.
+  * [x] Middlewares : `CORSMiddleware` (depuis `settings.allowed_origins`), `GZipMiddleware`, logs (jamais logguer `Authorization`).
+  * [x] Handlers d’erreurs : `ApiError`, `HTTPException`, `RequestValidationError`, catch-all.
+  * [x] (Optionnel) `default_response_class=ORJSONResponse`.
+
+### `src/chart_mcp/routes/levels.py`
+
+* [x] **Compléter** le routeur :
+
+  ```python
+  router = APIRouter(
+      prefix="/api/v1/levels",
+      tags=["levels"],
+      dependencies=[Depends(require_token), Depends(require_regular_user)],
+  )
+  ```
+* [x] **Implémenter** la route (params & retour) :
+
+  * [x] Params: `symbol: str`, `timeframe: str`, `limit: int = Query(500, ge=1, le=5000)`, `max_levels: int = Query(10, ge=1, le=100)`.
+  * [x] Logique: `parse_timeframe`, `provider.get_ohlcv`, `service.detect_levels(..., max_levels=max_levels)`, map → `LevelsResponse`.
+  * [x] **Retourner `symbol` normalisé** (via `normalize_symbol`).
+
+### `src/chart_mcp/routes/patterns.py`
+
+* [x] **Compléter** le routeur :
+
+  ```python
+  router = APIRouter(
+      prefix="/api/v1/patterns",
+      tags=["patterns"],
+      dependencies=[Depends(require_token), Depends(require_regular_user)],
+  )
+  ```
+* [x] **Implémenter** la route : params `symbol/timeframe/limit`, `parse_timeframe`, `provider.get_ohlcv`, `service.detect(frame)`, sérialise vers `PatternsResponse` (+ `normalize_symbol`).
+
+### `src/chart_mcp/routes/stream.py`
+
+* [x] ✅ **Headers SSE** déjà posés.
+* [x] **Conserver/valider** : garde-fou `asyncio.CancelledError` → fermeture propre (`streamer.stop()`), limites (`limit <= 5000`, ≤ 10 indicateurs), transformation `indicators` → `indicator_specs`.
+
+---
+
+## 3) Schemas Pydantic (à compléter)
+
+> **Important** : ne pas confondre `Field(..., ...)` (normal) et des placeholders. Ici il faut **terminer les modèles**, contraintes et unions discriminées.
+
+* [x] **`src/chart_mcp/schemas/streaming.py`** — **écrire entièrement** l’union discriminée :
+
+  * [x] `EventType = Literal["tool","token","result_partial","result_final","metric","error","done"]`.
+  * [x] Modèles :
+
+    * `ToolEventDetails(tool:str, name:str|None, latest:Dict[str,float]|None)`.
+    * `TokenPayload(text:str, min_length=1)`.
+    * `LevelPreview(kind:str, strength:float>=0)`.
+    * `ResultPartialDetails(levels: List[LevelPreview]=[], progress: float|None)`.
+    * `LevelDetail(LevelPreview + ts_range)` ; `PatternDetail(name,score,start_ts,end_ts,points: List[tuple[int,float]], confidence: float)` ;
+    * `ResultFinalDetails(summary:str min_length=1, levels: List[LevelDetail], patterns: List[PatternDetail])`.
+    * `MetricDetails(step:str min_length=1, ms:float>=0)`.
+    * `ErrorDetails(code:str, message:str)` ; `DoneDetails(status: Literal["ok","error"], code: str|None = None)`.
+  * [x] Enveloppes `ToolStreamPayload`, `TokenStreamPayload`, `ResultPartialStreamPayload`, `ResultFinalStreamPayload`, `MetricStreamPayload`, `ErrorStreamPayload`, `DoneStreamPayload` avec `type` discriminant.
+  * [x] `StreamPayload = Union[...]` ; `StreamEvent` qui accepte n’importe lequel.
+  * [x] **Valider** les tests (`tests/unit/schemas/test_streaming.py`) : token vide → `ValidationError`, `DonePayload` refuse status inconnu, etc.
+
+* [x] **`src/chart_mcp/schemas/market.py`** — compléter :
+
+  * [x] `OhlcvRow(ts:int, o:float, h:float, l:float, c:float, v:float)`.
+  * [x] `MarketDataResponse(symbol:str uppercased, timeframe:str, source:str, rows: List[OhlcvRow], fetched_at: datetime)`.
+  * [x] `@validator/field_validator("symbol")` pour uppercaser.
+  * [x] `OhlcvQuery(symbol:str, timeframe:str, limit:int, range:DatetimeRange|None)`.
+
+* [x] **`src/chart_mcp/schemas/indicators.py`** — compléter :
+
+  * [x] `IndicatorRequest(indicator: Literal["ma","ema","rsi","macd","bbands"], params: Dict[str, int|float]|None)`.
+  * [x] `IndicatorPoint(ts:int, **values)` (ex : `ema`, `rsi`, `macd`, `bb_upper/lower/middle`).
+  * [x] `IndicatorResponse(points: List[IndicatorPoint])`.
+
+* [x] **`src/chart_mcp/schemas/levels.py`** — compléter :
+
+  * [x] `Level(price:float, strength:float, kind: Literal["support","resistance"], ts_range: LevelRange(start_ts:int, end_ts:int))`.
+  * [x] `LevelsResponse(symbol,timeframe,levels: List[Level])`.
+
+* [x] **`src/chart_mcp/schemas/patterns.py`** — compléter :
+
+  * [x] `PatternPoint(ts:int, price:float)` ;
+  * [x] `Pattern(name:str, score:float, start_ts:int, end_ts:int, points: List[PatternPoint], confidence: float)`.
+  * [x] `PatternsResponse(symbol,timeframe,patterns: List[Pattern])`.
+
+* [x] **`src/chart_mcp/schemas/finance.py`**, **`backtest.py`**, **`common.py`** — compléter champs (CAGR, Sharpe, profit_factor, trades, equity_curve…), `model_config={"populate_by_name":True}`.
+
+---
+
+## 4) Config / Utils / Docker
 
 ### `src/chart_mcp/config.py`
 
-* [x] **Enlever tout `...`** résiduel.
-* [x] Champs : `api_token`, `exchange`, `allowed_origins` (split str→list), `llm_provider`, `llm_model`, `stream_heartbeat_ms`, `log_level`, `rate_limit_per_minute`, `feature_finance` (bool, desc claire), `playwright_mode` (bool pour e2e).
-* [x] Fournir un **proxy `settings`** monkeypatchable (déjà présent ; terminer méthodes si tronquées).
-* [x] Valider avec tests d’intégration (e.g. finance feature flag).
+* [x] **Terminer** la classe `Settings` (Pydantic v2) :
+
+  * [x] Attributs déjà présents (`api_token`, `exchange`, `allowed_origins`, `llm_provider`, `llm_model`, `stream_heartbeat_ms`, `log_level`, `rate_limit_per_minute` optionnel, `feature_finance`, `playwright_mode`).
+  * [x] **`@field_validator("allowed_origins", mode="before")`** : split chaîne → liste.
+  * [x] `model_config = {"env_file": ".env", "env_file_encoding": "utf-8", "validate_by_name": True}`.
+  * [x] **Garder** `get_settings()` + **alias** `settings = get_settings()`.
+
+### `src/chart_mcp/utils/errors.py`
+
+* [x] **Compléter** les classes : `ApiError`, `BadRequest`, `Unauthorized`, `Forbidden`, `TooManyRequests`, `UpstreamError`.
+* [x] **Handlers** : `api_error_handler`, `http_exception_handler`, `request_validation_exception_handler`, `unexpected_exception_handler` (payload `{"error":{code,message}, "details":..., "trace_id":...}`).
+
+### `src/chart_mcp/utils/sse.py`
+
+* [x] **Vérifier** : `format_sse(event, payload)` (NDJSON), `heartbeat_sender`, `SSEStreamer` (`start/stop/publish/stream`).
+* [x] **Rien à changer** si tests passent ; sinon, s’assurer que `: ping\n\n` est envoyé au rythme `STREAM_HEARTBEAT_MS`.
+
+### `docker/healthcheck.py`
+
+* [x] **Retirer** l’ellipse et **initialiser** `connection = None` avant le `try` :
+
+  ```python
+  def main() -> int:
+      connection = None
+      try:
+          connection = http.client.HTTPConnection("localhost", 8000, timeout=3)
+          connection.request("GET", "/health")
+          return 0 if connection.getresponse().status == 200 else 1
+      except Exception:
+          return 1
+      finally:
+          with suppress(Exception):
+              if connection is not None:
+                  connection.close()
+  ```
 
 ---
 
-## 6) Services (vérifs rapides)
+## 5) Provider / Services
+
+### `src/chart_mcp/services/data_providers/ccxt_provider.py`
+
+* [x] ✅ **Conserver** `KNOWN_QUOTES` et `normalize_symbol` (déjà ok).
+* [x] ✅ **Conserver** `get_ohlcv` (retries 429, secondes, tri, `UpstreamError` si vide).
+* [x] (Optionnel) exposer `source` (exchange id) côté routes.
 
 ### `src/chart_mcp/services/streaming.py`
 
-* [x] **Déjà OK** : émission `metric` (on voit 9 occurrences). Garde : `error` → `done` sur exception, `heartbeat` via `utils.sse`.
-* [x] Les `token` ne doivent pas être vides (le schéma le fera respecter).
+* [x] ✅ **Garder** l’émission `metric` à chaque étape (`data/indicators/levels/patterns/summary`).
+* [x] ✅ Sur exception : publier `error` puis `done`, puis `stop()`.
+* [x] **S’assurer** que les `token` ne sont **jamais vides** (le schéma `TokenPayload(text,min_length=1)` le garantira).
 
 ### `src/chart_mcp/services/indicators.py`, `levels.py`, `patterns.py`, `analysis_llm.py`
 
-* [x] **Conserver** les implémentations ; valider les paramètres/retours contre les schémas finalisés.
-* [x] `analysis_llm` : long. ≤ 400, jamais “acheter/vendre/buy/sell”.
+* [x] **Vérifier** que les sorties collent aux **schemas finalisés** (noms de champs/types).
+* [x] `analysis_llm` : texte ≤ **400** caractères ; **jamais** “acheter/vendre/buy/sell”.
 
 ---
 
-## 7) Frontend (TS/TSX) — **placer le minimum viable et supprimer les `...`**
+## 6) Frontend (compléter les parties minimales — ne pas toucher aux spreads `...` valides)
 
-**NB :** plusieurs fichiers front contiennent des `...` qui cassent la compilation/tests. Mets-les en état “alpha minimal”.
+> ⚠️ Les `...` dans `...devices["Desktop Chrome"]`, `[...current, nextMessage]`, spreads d’objets, etc., **sont normaux**. **NE PAS** les confondre avec des TODO.
 
-### Composants
+* [x] **`components/messages.tsx`** — compléter rendus/fallback :
 
-* [x] `components/chat.tsx` — **remplacer les `...`** :
+  * [x] Interface `ChatMessage` ({ role: "user"|"assistant", text: string, artifacts?: ChatArtifactBase[] }).
+  * [x] Pour artefacts inconnus : afficher `data-testid="artifact-fallback"`.
+  * [x] Conserver les imports des artefacts finance ; si payload manquant → fallback.
 
-  * [x] Contexte `ChatStore` avec `sendMessage`, `isStreaming`.
-  * [x] Formulaire : onSubmit → appel `/stream/analysis` en SSE ; **ajouter** un stub simple côté client (pas besoin de MCP pour les tests unitaires).
-  * [x] Gestion état : `messages`, `artifacts` (passe à `<Messages />`).
-* [x] `components/messages.tsx` — **remplacer les `...`** :
+* [x] **`components/finance/backtest-report-artifact.tsx`** — compléter interfaces & rendu :
 
-  * [x] Rendre messages/artefacts ; pour artefacts inconnus, **fallback** `<div data-testid="artifact-fallback">`.
-  * [x] Couvrir les artefacts finance (chart/news/backtest) comme dans les tests existants (ils vérifient le fallback, les toggles d’overlay, etc.).
-* [x] `components/finance/backtest-report-artifact.tsx` & `.test.tsx`, `components/finance/finance-chart-artifact.test.tsx` — **enlever les `...`** et s’aligner avec les types déjà importés.
+  * [x] `BacktestMetrics`, `EquityPoint`, `BacktestTrade`, `BacktestReportArtifactData`.
+  * [x] Propriétés `BacktestReportArtifactProps { artifact: BacktestReportArtifactData }`.
+  * [x] Rendu simple : titre, métriques formatées, mini-table trades (ou “aucun trade”).
 
-### Harness e2e (Playwright)
+* [x] **`components/finance/finance-chart-artifact.tsx`** — compléter :
 
-* [x] `tests/e2e/harness.tsx`, `tests/e2e/finance-fixtures.ts`, `tests/pages/chat.ts` — **remplacer les `...`** :
+  * [x] Types `OhlcvRow`, `OverlaySeriesModel`, `ChartArtifactResponse`.
+  * [x] Rendu minimal (pas d’obligation de lib chart pour l’alpha : liste ou placeholder ok si tests n’exigent pas l’UI réelle).
+  * [x] Exposer `data-testid` utilisés dans les tests.
 
-  * [x] Rendre un `<FinanceChatHarness />` minimal avec `<Chat />`.
-  * [x] Stubs d’API fetch pour e2e (si besoin) ou marquer **skipped** les tests e2e non essentiels en alpha (préférer rendre le harness fonctionnel).
+* [x] **`tests/pages/chat.ts`**, **`tests/e2e/harness.tsx`**, **`tests/e2e/finance-fixtures.ts`** — **supprimer** les vrais TODO :
 
-### Config tests
+  * [x] Remplacer les `...` de **placeholders** (pas les spreads TS) par des implémentations minimales compatibles avec les specs existantes (sélecteurs, harness, stubs fetch si nécessaires), ou marquer `test.skip` si non critique en alpha.
 
-* [x] `playwright.config.ts` — **enlever `...`** et conserver config standard.
-* [x] `vitest.config.ts` / `vitest.setup.ts` : laisser tel quel si déjà ok.
+* [x] **`playwright.config.ts`** — **ne rien changer** (le `...devices` est un spread **valide**).
 
----
+* [x] **`package.json`** — corriger **scripts cassés** :
 
-## 8) Tests Python — cohérence finale
-
-* [x] **Corriger tout `...`** présent **même dans les tests** (`tests/unit/mcp/test_server_runtime.py`, `tests/unit/services/test_streaming_service.py`, etc.). Remplis les petites classes Dummy où le `...` coupe la méthode.
-* [x] **SSE headers** : `tests/integration/test_stream_headers.py` existe — il s’attend à `no-cache`, `keep-alive`, `X-Accel-Buffering: no`, au moins un `event: token`/`result_partial` et un `event: metric` + `: ping`.
-* [x] **Levels/Patterns routes** : s’assurer que les deux tests d’intégration passent (symbol normalisé → `BTC/USDT`, tri/`max`).
-* [x] **MCP** : `tests/unit/mcp/test_tools.py` & `test_server_runtime.py` doivent passer (outil JSON, noms exposés via `REGISTERED_TOOL_NAMES`).
-* [x] **Feature flag finance** : `tests/integration/test_finance_feature_flag.py` OK (enabled/disabled).
-
----
-
-## 9) Build / CI / Docker
-
-* [x] **`.github/workflows/ci.yml`** — garder : `ruff`, `black/isort --check`, `mypy`, `pytest --cov=src --cov-report=xml`, build Docker.
-* [x] **Dockerfile** — **healthcheck** fonctionnel (la version Python inline OK) ; image slim, user non-root.
-* [x] **`.env.example`** — déjà présent (vérifier variables : `API_TOKEN`, `EXCHANGE`, `ALLOWED_ORIGINS`, `LLM_PROVIDER`, `LLM_MODEL`, `STREAM_HEARTBEAT_MS`, `LOG_LEVEL`, `RATE_LIMIT_PER_MINUTE`).
-* [x] **Makefile** — recettes avec **TABs** ; cibles `format-check`, `lint-fix`, `typecheck-strict`, `mcp-run`.
+  ```json
+  {
+    "scripts": {
+      "clean": "python -m chart_mcp.cli.cleanup",
+      "build": "python -m compileall src",
+      "test": "pytest -q",
+      "lint": "ruff check . && black --check src tests && isort --check-only src tests && mypy src",
+      "lint:fix": "ruff check --fix . && black src tests && isort src tests"
+    }
+  }
+  ```
 
 ---
 
-## 10) Améliorations continues
+## 7) CI
 
-* [x] Ajouter un ratio de progression dans les événements `result_partial` du streaming SSE et couvrir le comportement par des tests unitaires.
-* [x] Structurer le détail des étapes de pipeline dans les événements `result_partial` (statuts `pending/in_progress/completed/skipped`) et documenter les cas sautés.
-* [x] Exposer un champ `progress` sur chaque étape du pipeline pour refléter l'avancement fractionnaire et couvrir la validation côté schémas/tests de service.
-* [x] Centraliser la liste des indicateurs supportés et renforcer le parsing SSE/REST (`_parse_indicator_spec`) avec trimming et messages d'erreur dédiés.
-* [x] Normaliser le symbole dans la route d'analyse avant d'interroger le provider et couvrir le comportement par un test d'intégration.
-* [x] Dédupliquer les indicateurs fournis à la route SSE avant d'appeler le service et vérifier l'ordre via un test d'intégration.
-* [x] Respecter le paramètre `max` de la route SSE afin de borner les niveaux renvoyés (payload partiel et final) et couvrir le comportement par des tests d'intégration/unitaires.
+* [x] **`.github/workflows/ci.yml`** — **terminer** les jobs :
+
+  * **lint** : checkout, setup-python (3.11, 3.12), cache pip, `ruff`, `black --check`, `isort --check-only`.
+  * **typecheck** : `mypy src`.
+  * **test** : `pytest --cov=src --cov-report=xml`. Upload artifact `coverage.xml`.
+  * **mcp-smoke** : voir § MCP.
+  * **docker** : build image, `HEALTHCHECK` OK (utilise `docker/healthcheck.py`).
 
 ---
 
-# 📌 Patches / snippets utiles (rappel)
+# 🧪 Tests & Build — exigences fermes
 
-**SSE headers (route)**
+* **Couverture** : `pytest --cov=src --cov-report=xml` **≥ 80 %**.
+* **Qualité** : `ruff` / `black` / `isort` **sans erreur** ; `mypy src` **0 erreur**.
+* **Sécu** : toutes les routes (sauf `/health`) exigent `Authorization: Bearer <token>`.
+* **SSE** : headers (`Cache-Control: no-cache`, `Connection: keep-alive`, `X-Accel-Buffering: no`) ; heartbeat `: ping`; événements `metric` présents.
+* **Neutralité** : aucun terme prescriptif (“acheter/vendre/buy/sell”).
+* **Docker** : image slim, user non-root, `HEALTHCHECK` via `docker/healthcheck.py`.
+* **Node** : `pnpm@8`, Node ≥ 20 pour les tests front.
+
+---
+
+## 📎 Extraits prêts-à-coller (patchs clés)
+
+**Headers SSE (déjà ok — pour mémoire)**
 
 ```python
 headers = {
@@ -235,63 +338,68 @@ headers = {
 return StreamingResponse(iterator, media_type="text/event-stream", headers=headers)
 ```
 
-**Normalisation symbole (si besoin de corriger)**
+**Normalisation symbole (déjà ok — pour mémoire)**
 
 ```python
 KNOWN_QUOTES = ("USDT","USD","USDC","BTC","ETH","EUR","GBP")
 def normalize_symbol(symbol: str) -> str:
     s = symbol.strip().upper()
-    if "/" in s:
-        return s
+    if "/" in s: return s
     for q in KNOWN_QUOTES:
         if s.endswith(q) and len(s) > len(q):
             return f"{s[:-len(q)]}/{q}"
     raise BadRequest("Unsupported symbol format")
 ```
 
-**MCP (entrypoint déjà OK — ne rien casser)**
+**Healthcheck Docker (nettoyage)**
 
 ```python
-# mcp_main.py
-REGISTERED_TOOL_NAMES = (
-    "get_crypto_data","compute_indicator",
-    "identify_support_resistance","detect_chart_patterns",
-    "generate_analysis_summary",
-)
+def main() -> int:
+    connection = None
+    try:
+        connection = http.client.HTTPConnection("localhost", 8000, timeout=3)
+        connection.request("GET", "/health")
+        return 0 if connection.getresponse().status == 200 else 1
+    except Exception:
+        return 1
+    finally:
+        with suppress(Exception):
+            if connection is not None:
+                connection.close()
+```
+
+**Entrée MCP exécutable**
+
+```python
+# src/chart_mcp/mcp_main.py
+from fastmcp import MCPServer
+from chart_mcp import mcp_server as tools
+# ... REGISTERED_TOOL_NAMES, register(), main() comme indiqué plus haut
 ```
 
 ---
 
-# 🧪 Exigences tests & build (à respecter strictement)
+## ✅ Plan d’exécution immédiat (ordre recommandé)
 
-* **Python** : `ruff`, `black`, `isort` propres ; `mypy src` **0 erreur**.
-* **Coverage** : `pytest --cov=src --cov-report=xml` **≥ 80%**.
-* **Routes** : toutes sauf `/health` protégées par `Authorization: Bearer`.
-* **SSE** : headers requis + heartbeat régulier ; évènements `metric` émis.
-* **Neutralité** : aucun langage prescriptif (“acheter/vendre/buy/sell”).
-* **Docker** : image slim, non-root, healthcheck **OK**.
+1. **Ajouter** `mcp_main.py` + dépendance MCP ; corriger `package.json` (scripts).
+2. **Compléter** `schemas/streaming.py` puis **routes `levels`/`patterns`** (aligner avec schemas).
+3. **Nettoyer** `docker/healthcheck.py`.
+4. **Terminer** `mcp_server.py` (retours JSON) et **CI** (`ci.yml` complet + job mcp-smoke).
+5. **Compléter** le **front minimal** (artefacts/fallbacks) pour éteindre les tests front sensibles.
+6. **Exécuter** : `ruff check .` → `black --check`/`isort` → `mypy src` → `pytest -q` → build Docker.
+7. Itérer jusqu’à **tout vert** (cov ≥ 80 %).
 
 ---
 
-👉 **Action immédiate** :
+si tu suis cette liste **point par point** (et seulement celle-ci), on verrouille l’alpha : **MCP serveur réel**, **SSE robuste**, **schemas figés**, **CI verte** et **intégration front minimale** prête à brancher sur le SDK Vercel.
 
-1. **Remplace `AGENTS.md`** par cette liste.
-2. **Supprime tous les `...`** dans les fichiers listés et implémente les parties manquantes (schémas, 3 routes, tests TS & Python).
-3. Lance la CI locale : `make format-check && make typecheck-strict && pytest -q`.
-4. Corrige jusqu’au **tout-vert**.
+---
 
-Ensuite on pourra ouvrir le scope (autres assets) sans refactor massif.
+## Historique
 
-# Historique
-
-- 2025-10-26T02:36:54+00:00 — Agent gpt-5-codex : remplacement complet d'`AGENTS.md` par la nouvelle checklist fournie.
-- 2025-10-26T02:52:17+00:00 — Agent gpt-5-codex : refonte des schémas Pydantic (streaming, market, indicators, levels, patterns, finance, backtest, common), finalisation des routes levels/patterns/stream avec parsing indicateurs SSE et options, ajustements du service de streaming (flags include*, validation done), mise à jour des tests associés, puis exécution de `make format-check`, `make typecheck-strict`, `pytest -q`.
-- 2025-10-26T03:04:04+00:00 — Agent gpt-5-codex : contrôle complet du provider CCXT et de la normalisation symbole, vérification des caches MCP et du retour JSON, revue de la factory FastAPI/config, audit des composants front/harness e2e, exécution ciblée des tests (`pytest tests/unit/services/test_ccxt_provider.py tests/unit/services/test_symbol_normalization.py`, `pytest tests/unit/mcp/test_tools.py tests/unit/mcp/test_server_runtime.py`, `pytest tests/integration/test_finance_feature_flag.py`, `pytest tests/integration/test_levels_routes.py tests/integration/test_patterns_routes.py tests/integration/test_stream_headers.py`), puis mise à jour de la checklist.
-- 2025-10-26T03:12:14+00:00 — Agent gpt-5-codex : vérification de l'absence de placeholders `...`, exécution de `pnpm vitest run`, `make format-check`, `make typecheck-strict`, `pytest -q`, puis validation finale de la checklist (section schémas et config Vitest).
-- 2025-10-26T03:17:14+00:00 — Agent gpt-5-codex : ajout du suivi de progression côté `StreamingService` pour enrichir `result_partial`, création du test unitaire dédié, exécution de `make format-check`, `make typecheck-strict`, `pytest -q`, `pnpm vitest run`, mise à jour de la checklist.
-- 2025-10-26T03:28:00+00:00 — Agent gpt-5-codex : ajout des statuts détaillés des étapes de pipeline dans les événements `result_partial`, recalcul du ratio via pondération par étape, nouvelles validations Pydantic et tests (unitaires schéma + service) couvrant les cas sautés.
-- 2025-10-26T03:46:07+00:00 — Agent gpt-5-codex : ajout du champ de progression par étape (`steps[].progress`), ajustement du calcul du ratio global pondéré, mise à jour de la boucle indicateurs pour refléter l'avancement incrémental et nouveaux tests Pydantic/service.
-- 2025-10-26T04:02:00+00:00 — Agent gpt-5-codex : factorisation de la constante `SUPPORTED_INDICATORS`, validation renforcée du parsing SSE (trim, lower-case, messages explicites) et ajout de tests unitaires dédiés à `_parse_indicator_spec`.
-- 2025-10-26T04:17:00+00:00 — Agent gpt-5-codex : normalisation du symbole côté `/analysis/summary`, ajout du test d'intégration associé, déduplication des indicateurs dans `/stream/analysis` avec garde d'ordre et couverture intégration.
-- 2025-10-26T04:28:00+00:00 — Agent gpt-5-codex : ajout du paramètre `max` côté SSE, validation `max_levels` dans le service de streaming, couverture unitaire/integration sur la troncature des niveaux.
-- 2025-10-26T04:44:00+00:00 — Agent gpt-5-codex : correction des avertissements `ruff` (imports en tête de module, formatage des docstrings), exécution de `ruff check .` pour confirmer le linting.
+- 2025-10-26T06:30:26+00:00 — gpt-5-codex : MCP stdio opérationnel (adaptateur FastMCP) et outils JSON finalisés.
+- 2025-10-26T06:30:26+00:00 — gpt-5-codex : Schémas & routes (market/indicators/streaming) harmonisés, config et healthcheck complétés.
+- 2025-10-26T06:30:26+00:00 — gpt-5-codex : CI mise à jour (lint/type/test/docker/mcp-smoke) et QA locale (`ruff`, `black --check`, `isort --check-only`, `mypy`, `pytest --cov`).
+- 2025-10-26T06:39:56+00:00 — gpt-5-codex : Durci `utils.errors` (imports/JSON handlers) + ajouté tests unitaires dédiés, ajusté isort (`known_third_party`) et confirmé front/harness conformes ; QA locale `ruff`/`black --check`/`isort --check-only`/`mypy`/`pytest --cov`.
+- 2025-10-26T06:47:13+00:00 — gpt-5-codex : Exposé la source CCXT dans les réponses levels/patterns (`source`), aligné le paramètre `max` et étendu les tests d'intégration ; QA complète `ruff`/`black --check`/`isort --check-only`/`mypy`/`pytest --cov`.
+- 2025-10-26T07:02:00+00:00 — gpt-5-codex : Harmonisé les invocations Ruff (`ruff check`) dans le workflow CI, le Makefile et `package.json` pour éviter l'échec "unrecognized subcommand".

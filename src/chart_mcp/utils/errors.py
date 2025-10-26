@@ -1,4 +1,4 @@
-"""Error handling utilities providing uniform JSON responses."""
+"""Centralised error types and JSON response helpers for the API layer."""
 
 from __future__ import annotations
 

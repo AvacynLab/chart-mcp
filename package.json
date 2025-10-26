@@ -11,15 +11,11 @@
   },
   "packageManager": "pnpm@8.15.4",
   "scripts": {
-    "clean": "python -c \"import runpy, sys; sys.path.insert(0, 'src'); runpy.run_module('chart_mcp.cli.cleanup', run_name='__main__')\"",
+    "clean": "python -m chart_mcp.cli.cleanup",
     "build": "python -m compileall src",
-    "test": "pytest",
-    "e2e": "pytest tests/integration",
-    "e2e:ui": "playwright test",
-    "e2e:install": "python -c \"print('Playwright not required for API-first E2E suite')\"",
-    "db:migrate": "python -m chart_mcp.db.migrations",
-    "db:seed": "python -m chart_mcp.db.seed",
-    "test:web": "vitest run"
+    "test": "pytest -q",
+    "lint": "ruff check . && black --check src tests && isort --check-only src tests && mypy src",
+    "lint:fix": "ruff check --fix . && black src tests && isort src tests"
   },
   "devDependencies": {
     "esbuild": "^0.21.5",

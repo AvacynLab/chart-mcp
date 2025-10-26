@@ -1,19 +1,6 @@
-"""Registration of MCP tools for chart_mcp services."""
-
 from __future__ import annotations
 
-from typing import (
-    Any,
-    Callable,
-    Dict,
-    Iterable,
-    List,
-    Mapping,
-    Optional,
-    Protocol,
-    SupportsFloat,
-    cast,
-)
+from typing import Dict, Iterable, List, Mapping, Optional, SupportsFloat, cast
 
 import pandas as pd
 
@@ -23,7 +10,8 @@ from chart_mcp.services.indicators import IndicatorService
 from chart_mcp.services.levels import LevelsService
 from chart_mcp.services.patterns import PatternsService
 
-# Module-level caches keep lazy behaviour while remaining monkeypatch friendly for tests.
+# Lazily instantiated singletons keep the MCP entrypoint lightweight while still allowing
+# the test-suite to monkeypatch individual services.
 _provider: CcxtDataProvider | None = None
 _indicator_service: IndicatorService | None = None
 _levels_service: LevelsService | None = None
@@ -32,7 +20,7 @@ _analysis_service: AnalysisLLMService | None = None
 
 
 def _get_provider() -> CcxtDataProvider:
-    """Instantiate the market data provider lazily to avoid import-time side effects."""
+    """Return a cached CCXT-backed market data provider."""
     global _provider
     if _provider is None:
         _provider = CcxtDataProvider()
@@ -40,7 +28,7 @@ def _get_provider() -> CcxtDataProvider:
 
 
 def _get_indicator_service() -> IndicatorService:
-    """Return a cached indicator service instance."""
+    """Return the indicator computation service."""
     global _indicator_service
     if _indicator_service is None:
         _indicator_service = IndicatorService()
@@ -48,7 +36,7 @@ def _get_indicator_service() -> IndicatorService:
 
 
 def _get_levels_service() -> LevelsService:
-    """Return a cached support/resistance detection service."""
+    """Return the support/resistance detection service."""
     global _levels_service
     if _levels_service is None:
         _levels_service = LevelsService()
@@ -56,7 +44,7 @@ def _get_levels_service() -> LevelsService:
 
 
 def _get_patterns_service() -> PatternsService:
-    """Return a cached chart pattern detection service."""
+    """Return the chart pattern detection service."""
     global _patterns_service
     if _patterns_service is None:
         _patterns_service = PatternsService()
@@ -64,14 +52,14 @@ def _get_patterns_service() -> PatternsService:
 
 
 def _get_analysis_service() -> AnalysisLLMService:
-    """Return a cached analysis summarisation service."""
+    """Return the analysis summarisation service."""
     global _analysis_service
     if _analysis_service is None:
         _analysis_service = AnalysisLLMService()
     return _analysis_service
 
 
-def _get_crypto_frame(
+def _fetch_frame(
     symbol: str,
     timeframe: str,
     *,
@@ -79,16 +67,17 @@ def _get_crypto_frame(
     start: Optional[int] = None,
     end: Optional[int] = None,
 ) -> pd.DataFrame:
-    """Return the raw OHLCV dataframe for internal tool consumption."""
+    """Fetch and normalise OHLCV data for downstream tools."""
     provider = _get_provider()
-    return provider.get_ohlcv(symbol, timeframe, limit=limit, start=start, end=end)
+    normalized_symbol = normalize_symbol(symbol)
+    return provider.get_ohlcv(normalized_symbol, timeframe, limit=limit, start=start, end=end)
 
 
 def _serialize_ohlcv(frame: pd.DataFrame) -> List[Dict[str, float | int]]:
-    """Convert an OHLCV dataframe into JSON-serialisable dictionaries."""
-    records: List[Dict[str, float | int]] = []
+    """Convert a pandas dataframe into JSON-serialisable dictionaries."""
+    payload: List[Dict[str, float | int]] = []
     for row in frame.to_dict(orient="records"):
-        records.append(
+        payload.append(
             {
                 "ts": int(row["ts"]),
                 "o": float(row["o"]),
@@ -98,7 +87,7 @@ def _serialize_ohlcv(frame: pd.DataFrame) -> List[Dict[str, float | int]]:
                 "v": float(row["v"]),
             }
         )
-    return records
+    return payload
 
 
 def get_crypto_data(
@@ -109,8 +98,8 @@ def get_crypto_data(
     start: Optional[int] = None,
     end: Optional[int] = None,
 ) -> List[Dict[str, float | int]]:
-    """Expose OHLCV rows as JSON records for MCP tools."""
-    frame = _get_crypto_frame(symbol, timeframe, limit=limit, start=start, end=end)
+    """Return OHLCV rows as JSON objects for MCP clients."""
+    frame = _fetch_frame(symbol, timeframe, limit=limit, start=start, end=end)
     return _serialize_ohlcv(frame)
 
 
@@ -118,108 +107,131 @@ def compute_indicator(
     symbol: str,
     timeframe: str,
     indicator: str,
-    params: Optional[Dict[str, float]] = None,
+    params: Optional[Mapping[str, SupportsFloat]] = None,
     *,
     limit: int = 500,
 ) -> List[Dict[str, float | int]]:
-    """Compute indicator values and emit JSON-serialisable rows."""
-    frame = _get_crypto_frame(symbol, timeframe, limit=limit)
+    """Compute a technical indicator and serialise the resulting series."""
+    frame = _fetch_frame(symbol, timeframe, limit=limit)
     indicator_service = _get_indicator_service()
-    indicator_frame = indicator_service.compute(frame, indicator, params or {})
+    raw_params = {str(key): float(value) for key, value in (params or {}).items()}
+    indicator_frame = indicator_service.compute(frame, indicator, raw_params)
     cleaned = indicator_frame.dropna()
     if cleaned.empty:
         return []
+
     timestamps = frame.loc[cleaned.index, "ts"].astype(int).tolist()
-    result: List[Dict[str, float | int]] = []
+    records: List[Dict[str, float | int]] = []
     for ts_value, payload in zip(timestamps, cleaned.to_dict(orient="records"), strict=True):
         record: Dict[str, float | int] = {"ts": int(ts_value)}
         for key, value in payload.items():
             record[str(key)] = float(cast(SupportsFloat, value))
-        result.append(record)
-    return result
+        records.append(record)
+    return records
 
 
-def identify_support_resistance(symbol: str, timeframe: str) -> List[Dict[str, object]]:
-    """Detect support/resistance levels for MCP tool."""
-    frame = _get_crypto_frame(symbol, timeframe)
+def identify_support_resistance(
+    symbol: str,
+    timeframe: str,
+    *,
+    limit: int = 500,
+) -> List[Dict[str, object]]:
+    """Detect support and resistance levels for the requested market."""
+    frame = _fetch_frame(symbol, timeframe, limit=limit)
     levels_service = _get_levels_service()
     levels = levels_service.detect_levels(frame)
-    return [
-        {
-            "price": float(lvl.price),
-            "kind": lvl.kind,
-            "strength": float(lvl.strength),
-            "ts_range": {
-                "start_ts": int(lvl.ts_range[0]),
-                "end_ts": int(lvl.ts_range[1]),
-            },
-        }
-        for lvl in levels
-    ]
+    results: List[Dict[str, object]] = []
+    for level in levels:
+        results.append(
+            {
+                "price": float(level.price),
+                "strength": float(level.strength),
+                "kind": level.kind,
+                "ts_range": {
+                    "start_ts": int(level.ts_range[0]),
+                    "end_ts": int(level.ts_range[1]),
+                },
+            }
+        )
+    return results
 
 
-def detect_chart_patterns(symbol: str, timeframe: str) -> List[Dict[str, object]]:
-    """Detect chart patterns for MCP tool."""
-    frame = _get_crypto_frame(symbol, timeframe)
+def detect_chart_patterns(
+    symbol: str,
+    timeframe: str,
+    *,
+    limit: int = 500,
+) -> List[Dict[str, object]]:
+    """Detect chart patterns and serialise them into plain dictionaries."""
+    frame = _fetch_frame(symbol, timeframe, limit=limit)
     patterns_service = _get_patterns_service()
     patterns = patterns_service.detect(frame)
-    return [
-        {
-            "name": pat.name,
-            "score": float(pat.score),
-            "confidence": float(pat.confidence),
-            "start_ts": int(pat.start_ts),
-            "end_ts": int(pat.end_ts),
-            "points": [{"ts": int(ts), "price": float(price)} for ts, price in pat.points],
-        }
-        for pat in patterns
-    ]
+    serialized: List[Dict[str, object]] = []
+    for pattern in patterns:
+        serialized.append(
+            {
+                "name": pattern.name,
+                "score": float(pattern.score),
+                "start_ts": int(pattern.start_ts),
+                "end_ts": int(pattern.end_ts),
+                "confidence": float(pattern.confidence),
+                "points": [{"ts": int(ts), "price": float(price)} for ts, price in pattern.points],
+            }
+        )
+    return serialized
 
 
 def generate_analysis_summary(
     symbol: str,
     timeframe: str,
-    indicators: Iterable[Dict[str, object]] | None = None,
+    *,
+    indicators: Iterable[Mapping[str, object]] | None = None,
     include_levels: bool = True,
     include_patterns: bool = True,
-) -> Dict[str, str]:
-    """Generate heuristic analysis summary for MCP tool."""
-    frame = _get_crypto_frame(symbol, timeframe)
-    indicator_specs: Iterable[Dict[str, object]] = indicators or [
-        # Provide sensible defaults to guarantee coverage for summary heuristics.
-        {"name": "ema", "params": {"window": 50}},
-        {"name": "rsi", "params": {"window": 14}},
-    ]
+) -> Dict[str, object]:
+    """Generate a pedagogical natural-language summary for the requested market."""
+    frame = _fetch_frame(symbol, timeframe)
+    indicator_specs = list(indicators or [])
+    if not indicator_specs:
+        indicator_specs = [
+            {"name": "ema", "params": {"window": 50}},
+            {"name": "rsi", "params": {"window": 14}},
+        ]
+
+    indicator_service = _get_indicator_service()
     highlights: Dict[str, float] = {}
     for spec in indicator_specs:
-        name_obj = spec.get("name")
-        params_raw = spec.get("params", {})
-        name = str(name_obj) if name_obj is not None else "unknown"
-        params_mapping: Mapping[str, object] = params_raw if isinstance(params_raw, Mapping) else {}
-        params = {
-            str(key): float(cast(SupportsFloat, value)) for key, value in params_mapping.items()
+        name = str(spec.get("name", ""))
+        params_obj = spec.get("params")
+        params_map: Mapping[str, object] = params_obj if isinstance(params_obj, Mapping) else {}
+        numeric_params = {
+            str(key): float(cast(SupportsFloat, value)) for key, value in params_map.items()
         }
-        indicator_service = _get_indicator_service()
-        data = indicator_service.compute(frame, name, params)
-        cleaned = data.dropna()
+        indicator_frame = indicator_service.compute(frame, name, numeric_params)
+        cleaned = indicator_frame.dropna()
         if cleaned.empty:
             continue
         latest = cleaned.iloc[-1]
-        first_value_raw = next(iter(latest.values), 0.0)
-        first_value = float(cast(SupportsFloat, first_value_raw))
-        highlights[name] = first_value
+        first_value = next(iter(latest.values), 0.0)
+        highlights[name] = float(cast(SupportsFloat, first_value))
+
     levels_service = _get_levels_service()
     patterns_service = _get_patterns_service()
     levels = levels_service.detect_levels(frame) if include_levels else []
     patterns = patterns_service.detect(frame) if include_patterns else []
-    normalized_symbol = normalize_symbol(symbol)
+
     analysis_service = _get_analysis_service()
-    summary_result = analysis_service.summarize(
-        normalized_symbol, timeframe, highlights, levels, patterns
+    normalized_symbol = normalize_symbol(symbol)
+    summary = analysis_service.summarize(
+        normalized_symbol,
+        timeframe,
+        highlights,
+        levels,
+        patterns,
     )
     return {
-        "summary": summary_result.summary,
-        "disclaimer": summary_result.disclaimer,
+        "summary": summary.summary,
+        "disclaimer": summary.disclaimer,
     }
 
 
@@ -230,28 +242,3 @@ __all__ = [
     "detect_chart_patterns",
     "generate_analysis_summary",
 ]
-
-
-class _ToolRegistrar(Protocol):
-    """Typing contract for MCP servers capable of registering tools."""
-
-    def tool(
-        self,
-        name_or_fn: Callable[..., Any] | str | None = None,
-        *,
-        name: str | None = None,
-        **kwargs: Any,
-    ) -> Callable[[Callable[..., Any]], Any]:
-        """Return a decorator registering *name* against the provided callable."""
-
-
-def register_tools(registrar: _ToolRegistrar) -> None:
-    """Attach all chart MCP tools to *registrar* under stable identifiers."""
-    registrar.tool("get_crypto_data")(get_crypto_data)
-    registrar.tool("compute_indicator")(compute_indicator)
-    registrar.tool("identify_support_resistance")(identify_support_resistance)
-    registrar.tool("detect_chart_patterns")(detect_chart_patterns)
-    registrar.tool("generate_analysis_summary")(generate_analysis_summary)
-
-
-__all__.append("register_tools")

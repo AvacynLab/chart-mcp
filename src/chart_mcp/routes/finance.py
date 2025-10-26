@@ -193,8 +193,8 @@ def get_chart_artifact(
         query.symbol,
         query.timeframe,
         limit=query.limit,
-        start=query.start,
-        end=query.end,
+        start=query.resolved_start(),
+        end=query.resolved_end(),
     )
     rows = normalize_ohlcv_frame(frame)
     overlay_models: list[ChartOverlayToggle] = []

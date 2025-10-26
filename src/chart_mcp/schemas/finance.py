@@ -17,7 +17,7 @@ class QuoteQuery(BaseModel):
 
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True, populate_by_name=True)
 
-    @field_validator("symbol")
+    @field_validator("symbol", mode="before")
     @classmethod
     def uppercase_symbol(cls, value: str) -> str:
         """Normalize the ticker to uppercase for cache stability."""
@@ -43,7 +43,7 @@ class FundamentalsQuery(BaseModel):
 
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True, populate_by_name=True)
 
-    @field_validator("symbol")
+    @field_validator("symbol", mode="before")
     @classmethod
     def uppercase_symbol(cls, value: str) -> str:
         """Return *value* uppercased so fundamentals lookups stay consistent."""
@@ -78,7 +78,7 @@ class NewsQuery(BaseModel):
 
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True, populate_by_name=True)
 
-    @field_validator("symbol")
+    @field_validator("symbol", mode="before")
     @classmethod
     def uppercase_symbol(cls, value: str) -> str:
         """Return *value* uppercased to match the stored news snapshots."""

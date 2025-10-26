@@ -1,4 +1,4 @@
-"""Pydantic models shared by market data routes and MCP tools."""
+"""Pydantic models shared by the market data API endpoints."""
 
 from __future__ import annotations
 
@@ -8,49 +8,50 @@ from typing import List
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from chart_mcp.schemas.common import DatetimeRange
-from chart_mcp.utils.timeframes import parse_timeframe
 
 
 class OhlcvRow(BaseModel):
-    """Single OHLCV entry exposed to API consumers."""
+    """Single OHLCV datapoint (timestamps in seconds)."""
 
-    model_config = ConfigDict(populate_by_name=True, extra="forbid")
+    model_config = ConfigDict(extra="forbid")
 
-    ts: int = Field(..., description="Unix timestamp in seconds")
-    open: float = Field(..., alias="o")
-    high: float = Field(..., alias="h")
-    low: float = Field(..., alias="l")
-    close: float = Field(..., alias="c")
-    volume: float = Field(..., alias="v")
+    ts: int
+    o: float
+    h: float
+    l: float  # noqa: E741 - conventional letter for the low price
+    c: float
+    v: float
 
+    @property
+    def open(self) -> float:
+        """Alias for the open price kept for backward compatibility."""
+        return self.o
 
-class MarketDataRequest(DatetimeRange):
-    """Parameters to fetch OHLCV data from a provider."""
+    @property
+    def high(self) -> float:
+        """Alias for the high price kept for backward compatibility."""
+        return self.h
 
-    model_config = ConfigDict(populate_by_name=True, extra="forbid", str_strip_whitespace=True)
+    @property
+    def low(self) -> float:
+        """Alias for the low price kept for backward compatibility."""
+        return self.l
 
-    symbol: str = Field(..., min_length=3, max_length=20)
-    timeframe: str = Field(..., min_length=2, max_length=6)
-    limit: int = Field(500, ge=10, le=5000)
+    @property
+    def close(self) -> float:
+        """Alias for the close price kept for backward compatibility."""
+        return self.c
 
-    @field_validator("symbol")
-    @classmethod
-    def uppercase_symbol(cls, value: str) -> str:
-        """Return the trading pair uppercased to keep cache keys consistent."""
-        return value.upper()
-
-    @field_validator("timeframe")
-    @classmethod
-    def validate_timeframe(cls, value: str) -> str:
-        """Ensure the timeframe matches the supported formats (1m, 1h, 1d, …)."""
-        parse_timeframe(value)
-        return value
+    @property
+    def volume(self) -> float:
+        """Alias for the volume kept for backward compatibility."""
+        return self.v
 
 
 class MarketDataResponse(BaseModel):
-    """Normalized OHLCV payload returned by the REST layer."""
+    """Response body returned by the OHLCV endpoint."""
 
-    model_config = ConfigDict(populate_by_name=True, extra="forbid")
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
     symbol: str
     timeframe: str
@@ -58,61 +59,40 @@ class MarketDataResponse(BaseModel):
     rows: List[OhlcvRow]
     fetched_at: datetime = Field(default_factory=datetime.utcnow)
 
-    @field_validator("symbol")
+    @field_validator("symbol", mode="before")
     @classmethod
     def uppercase_symbol(cls, value: str) -> str:
-        """Expose uppercase symbols (``BTC/USDT``)."""
+        """Normalize symbols to uppercase for downstream caches."""
         return value.upper()
-
-    @field_validator("timeframe")
-    @classmethod
-    def normalize_timeframe(cls, value: str) -> str:
-        """Return a validated timeframe using the shared parser."""
-        parse_timeframe(value)
-        return value
 
 
 class OhlcvQuery(BaseModel):
-    """Validated query parameters for the OHLCV REST endpoint."""
+    """Query parameters supported by the OHLCV endpoint."""
 
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
-    symbol: str = Field(..., min_length=3, max_length=20, description="Instrument identifier")
-    timeframe: str = Field(..., min_length=2, max_length=6, description="Candlestick timeframe")
-    limit: int = Field(
-        500,
-        ge=10,
-        le=5000,
-        description="Maximum number of candles to retrieve (capped at 5000)",
-    )
-    start: int | None = Field(
-        None,
-        ge=0,
-        description="Inclusive start timestamp in seconds",
-    )
-    end: int | None = Field(
-        None,
-        ge=0,
-        description="Inclusive end timestamp in seconds",
-    )
+    symbol: str = Field(..., min_length=3, max_length=20)
+    timeframe: str = Field(..., min_length=2, max_length=6)
+    limit: int = Field(500, ge=1, le=5000)
+    start: int | None = Field(None, ge=0)
+    end: int | None = Field(None, ge=0)
+    range: DatetimeRange | None = None
 
-    @field_validator("symbol")
-    @classmethod
-    def uppercase_query_symbol(cls, value: str) -> str:
-        """Return the symbol uppercased to keep cache keys consistent."""
-        return value.upper()
+    def resolved_start(self) -> int | None:
+        """Return the start timestamp in seconds if a range is provided."""
+        if self.start is not None:
+            return self.start
+        if self.range and self.range.start:
+            return int(self.range.start.timestamp())
+        return None
 
-    @field_validator("timeframe")
-    @classmethod
-    def validate_query_timeframe(cls, value: str) -> str:
-        """Normalise timeframe strings via :func:`parse_timeframe`."""
-        parse_timeframe(value)
-        return value
+    def resolved_end(self) -> int | None:
+        """Return the end timestamp in seconds if a range is provided."""
+        if self.end is not None:
+            return self.end
+        if self.range and self.range.end:
+            return int(self.range.end.timestamp())
+        return None
 
 
-__all__ = [
-    "OhlcvRow",
-    "MarketDataRequest",
-    "MarketDataResponse",
-    "OhlcvQuery",
-]
+__all__ = ["OhlcvRow", "MarketDataResponse", "OhlcvQuery"]
