@@ -13,7 +13,7 @@ from chart_mcp.schemas.analysis import (
     IndicatorSnapshot,
     RequestedIndicator,
 )
-from chart_mcp.schemas.levels import Level, LevelRange
+from chart_mcp.schemas.levels import Level
 from chart_mcp.schemas.patterns import Pattern, PatternPoint
 from chart_mcp.services.analysis_llm import AnalysisLLMService
 from chart_mcp.services.data_providers.base import MarketDataProvider
@@ -60,7 +60,10 @@ def summary(
     """Run the complete analysis pipeline and return the aggregated output."""
     provider, indicator_service, levels_service, patterns_service, analysis_service = services
     parse_timeframe(payload.timeframe)
-    frame = provider.get_ohlcv(payload.symbol, payload.timeframe, limit=500)
+    normalized_symbol = normalize_symbol(payload.symbol)
+    # Normalise the symbol once and reuse it for provider calls and the
+    # downstream summary to guarantee consistent casing/slash formatting.
+    frame = provider.get_ohlcv(normalized_symbol, payload.timeframe, limit=500)
     if len(frame) < 400:
         # The downstream indicator computations (e.g. Bollinger 200) require a
         # sizeable history window. Enforce a consistent floor so API responses
@@ -89,10 +92,10 @@ def summary(
     level_models = (
         [
             Level(
-                price=lvl.price,
-                strength=lvl.strength,
                 kind=lvl.kind,
-                ts_range=LevelRange(start_ts=lvl.ts_range[0], end_ts=lvl.ts_range[1]),
+                price=float(lvl.price),
+                strength=float(lvl.strength),
+                ts_range=(int(lvl.ts_range[0]), int(lvl.ts_range[1])),
             )
             for lvl in levels
         ]
@@ -115,7 +118,6 @@ def summary(
         if payload.include_patterns
         else None
     )
-    normalized_symbol = normalize_symbol(payload.symbol)
     summary_result = analysis_service.summarize(
         normalized_symbol,
         payload.timeframe,

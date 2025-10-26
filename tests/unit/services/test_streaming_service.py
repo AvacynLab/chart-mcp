@@ -69,8 +69,28 @@ class _FailingIndicator(IndicatorService):
 class _DummyLevels(LevelsService):
     """No-op levels detector returning an empty candidate list."""
 
-    def detect_levels(self, frame: pd.DataFrame) -> list[LevelCandidate]:  # type: ignore[override]
+    def detect_levels(  # type: ignore[override]
+        self, frame: pd.DataFrame, *, max_levels: int = 10
+    ) -> list[LevelCandidate]:
         return []
+
+
+class _RecordingLevels(LevelsService):
+    """Levels stub capturing the requested ``max_levels`` for assertions."""
+
+    def __init__(self, levels: list[LevelCandidate]) -> None:
+        self._levels = levels
+        self.last_max_levels: Optional[int] = None
+
+    def detect_levels(  # type: ignore[override]
+        self,
+        frame: pd.DataFrame,
+        *,
+        max_levels: int = 10,
+    ) -> list[LevelCandidate]:
+        self.last_max_levels = max_levels
+        # Return a copy so callers can mutate the result without affecting the fixture.
+        return list(self._levels[:max_levels])
 
 
 class _DummyPatterns(PatternsService):
@@ -321,3 +341,158 @@ async def test_stream_analysis_normalizes_symbol_in_events() -> None:
     assert tool_events, "Expected at least one tool_start event"
     tool_payload = tool_events[0]["payload"]
     assert tool_payload["symbol"] == "BTC/USDT"
+
+
+@pytest.mark.anyio
+async def test_stream_analysis_partial_event_exposes_progress_ratio() -> None:
+    """Partial payloads expose a bounded progress ratio for UI loaders."""
+    frame = pd.DataFrame(
+        {
+            "ts": list(range(1, 16)),
+            "o": [float(v) for v in range(1, 16)],
+            "h": [float(v) + 0.6 for v in range(1, 16)],
+            "l": [float(v) - 0.6 for v in range(1, 16)],
+            "c": [float(v) for v in range(1, 16)],
+            "v": [200 + v for v in range(15)],
+        }
+    )
+    service = StreamingService(
+        _StaticProvider(frame),
+        IndicatorService(),
+        _DummyLevels(),
+        _DummyPatterns(),
+        _DummyLLM(),
+    )
+
+    iterator = await service.stream_analysis(
+        "BTCUSDT",
+        "4h",
+        [{"name": "ema", "params": {"window": 5}}],
+        limit=15,
+        include_levels=True,
+        include_patterns=False,
+    )
+    raw = await asyncio.wait_for(_collect_events(iterator), timeout=1.0)
+    await iterator.aclose()
+
+    events = _parse_events(raw)
+    partial_payloads = [payload for event, payload in events if event == "result_partial"]
+    assert partial_payloads, "Expected a partial event in the SSE stream"
+    progress = partial_payloads[0]["payload"].get("progress")
+    assert progress is not None
+    assert 0.0 < progress < 1.0
+    steps = partial_payloads[0]["payload"].get("steps")
+    assert isinstance(steps, list) and steps, "Progress steps should be provided"
+    status_map = {step["name"]: step["status"] for step in steps}
+    progress_map = {step["name"]: step.get("progress") for step in steps}
+    assert status_map["data"] == "completed"
+    assert status_map["indicators"] == "completed"
+    assert status_map["levels"] == "completed"
+    assert status_map["patterns"] == "skipped"
+    assert status_map["summary"] == "pending"
+    assert progress_map["data"] == pytest.approx(1.0)
+    assert progress_map["indicators"] == pytest.approx(1.0)
+    assert progress_map["levels"] == pytest.approx(1.0)
+    assert progress_map["patterns"] == pytest.approx(1.0)
+    assert progress_map["summary"] == pytest.approx(0.0)
+
+
+@pytest.mark.anyio
+async def test_stream_analysis_progress_handles_skipped_stages() -> None:
+    """When optional stages are skipped they are labelled and ignored in ratios."""
+    frame = pd.DataFrame(
+        {
+            "ts": list(range(1, 12)),
+            "o": [float(v) for v in range(1, 12)],
+            "h": [float(v) + 0.4 for v in range(1, 12)],
+            "l": [float(v) - 0.4 for v in range(1, 12)],
+            "c": [float(v) for v in range(1, 12)],
+            "v": [150 + v for v in range(11)],
+        }
+    )
+    service = StreamingService(
+        _StaticProvider(frame),
+        IndicatorService(),
+        _DummyLevels(),
+        _DummyPatterns(),
+        _DummyLLM(),
+    )
+
+    iterator = await service.stream_analysis(
+        "ETHUSDT",
+        "1h",
+        [],
+        limit=11,
+        include_levels=False,
+        include_patterns=False,
+    )
+    raw = await asyncio.wait_for(_collect_events(iterator), timeout=1.0)
+    await iterator.aclose()
+
+    events = _parse_events(raw)
+    partial_payloads = [payload for event, payload in events if event == "result_partial"]
+    assert partial_payloads, "Expected a partial payload when streaming"
+    payload = partial_payloads[0]["payload"]
+    assert payload["progress"] == pytest.approx(2.0 / 3.0, rel=1e-6)
+    step_payload = {step["name"]: step for step in payload.get("steps", [])}
+    assert step_payload["levels"]["status"] == "skipped"
+    assert step_payload["patterns"]["status"] == "skipped"
+    assert step_payload["summary"]["status"] == "pending"
+    assert step_payload["levels"]["progress"] == pytest.approx(1.0)
+    assert step_payload["patterns"]["progress"] == pytest.approx(1.0)
+    assert step_payload["summary"]["progress"] == pytest.approx(0.0)
+
+
+@pytest.mark.anyio
+async def test_stream_analysis_honours_max_levels_limit() -> None:
+    """The streaming pipeline should enforce the caller-provided max_levels bound."""
+    frame = pd.DataFrame(
+        {
+            "ts": list(range(1, 61)),
+            "o": [float(v) for v in range(1, 61)],
+            "h": [float(v) + 0.4 for v in range(1, 61)],
+            "l": [float(v) - 0.4 for v in range(1, 61)],
+            "c": [float(v) for v in range(1, 61)],
+            "v": [200 + v for v in range(60)],
+        }
+    )
+    levels_fixture = [
+        LevelCandidate(price=102.5, timestamps=list(range(1, 8)), kind="resistance"),
+        LevelCandidate(price=95.0, timestamps=list(range(10, 15)), kind="support"),
+        LevelCandidate(price=108.0, timestamps=list(range(20, 23)), kind="resistance"),
+    ]
+    levels_service = _RecordingLevels(levels_fixture)
+    service = StreamingService(
+        _StaticProvider(frame),
+        IndicatorService(),
+        levels_service,
+        _DummyPatterns(),
+        _DummyLLM(),
+    )
+
+    iterator = await service.stream_analysis(
+        "BTCUSDT",
+        "1h",
+        [],
+        limit=50,
+        max_levels=2,
+    )
+    raw = await asyncio.wait_for(_collect_events(iterator), timeout=1.0)
+    await iterator.aclose()
+
+    events = _parse_events(raw)
+    partial_payload = next(data for event, data in events if event == "result_partial")
+    final_payload = next(data for event, data in events if event == "result_final")
+
+    partial_levels = partial_payload["payload"].get("levels", [])
+    final_levels = final_payload["payload"].get("levels", [])
+
+    assert len(partial_levels) == 2
+    assert len(final_levels) == 2
+    assert levels_service.last_max_levels == 2
+
+    partial_strengths = [level["strength"] for level in partial_levels]
+    final_strengths = [level["strength"] for level in final_levels]
+
+    assert partial_strengths == sorted(partial_strengths, reverse=True)
+    assert final_strengths == sorted(final_strengths, reverse=True)

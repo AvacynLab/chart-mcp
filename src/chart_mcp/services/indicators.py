@@ -15,6 +15,11 @@ import pandas as pd
 
 from chart_mcp.utils.errors import BadRequest
 
+# Supported indicator identifiers exposed through the API and streaming layer.
+# Keeping the vocabulary in a single location avoids mismatches between the
+# schema validators, REST routes and the indicator service dispatch logic.
+SUPPORTED_INDICATORS: frozenset[str] = frozenset({"ma", "ema", "rsi", "macd", "bbands"})
+
 
 def _validate_window(window: int, *, name: str) -> int:
     """Ensure that the sliding window parameter is strictly positive."""
@@ -135,4 +140,5 @@ __all__ = [
     "relative_strength_index",
     "macd",
     "bollinger_bands",
+    "SUPPORTED_INDICATORS",
 ]

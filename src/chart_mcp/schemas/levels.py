@@ -1,62 +1,57 @@
-"""Schemas describing detected support and resistance levels.
-
-The models enforce strict validation so clients always receive a predictable
-shape: timestamps must be ordered, strengths remain bounded within ``[0, 1]``
-and symbols are normalised to uppercase.
-"""
+"""Schemas representing support/resistance levels returned by the API."""
 
 from __future__ import annotations
 
-from typing import List
+from typing import List, Tuple
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
-
-
-class LevelRange(BaseModel):
-    """Time range where the level is relevant."""
-
-    start_ts: int
-    end_ts: int
-    model_config = ConfigDict(extra="forbid")
-
-    @model_validator(mode="after")
-    def validate_bounds(self) -> "LevelRange":
-        """Ensure the range boundaries are chronologically ordered."""
-        if self.end_ts < self.start_ts:
-            msg = "end_ts must be greater than or equal to start_ts"
-            raise ValueError(msg)
-        return self
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class Level(BaseModel):
     """Support or resistance level description."""
 
-    price: float
-    strength: float = Field(..., ge=0, le=1)
-    kind: str = Field(..., pattern="^(support|resistance)$")
-    ts_range: LevelRange
     model_config = ConfigDict(extra="forbid")
+
+    kind: str = Field(..., min_length=1, description="Level type (support/resistance)")
+    price: float = Field(..., description="Representative price of the level")
+    strength: float = Field(..., ge=0.0, le=1.0, description="Confidence score within [0,1]")
+    ts_range: Tuple[int, int] = Field(
+        ..., description="Tuple describing the inclusive time range of the level"
+    )
+
+    @field_validator("ts_range")
+    @classmethod
+    def ensure_ordered_range(cls, value: Tuple[int, int]) -> Tuple[int, int]:
+        """Ensure the range boundaries are chronologically ordered."""
+
+        start, end = value
+        if end < start:
+            raise ValueError("end timestamp must be greater than or equal to start timestamp")
+        return value
 
 
 class LevelsResponse(BaseModel):
     """Collection of detected levels."""
 
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
     symbol: str
     timeframe: str
     levels: List[Level]
-    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
     @field_validator("symbol")
     @classmethod
     def uppercase_symbol(cls, value: str) -> str:
         """Return uppercase symbols so responses remain consistent."""
+
         return value.upper()
 
     @field_validator("timeframe")
     @classmethod
     def normalize_timeframe(cls, value: str) -> str:
         """Strip whitespace and keep the timeframe lowercase (``1h``)."""
+
         return value.strip().lower()
 
 
-__all__ = ["LevelRange", "Level", "LevelsResponse"]
+__all__ = ["Level", "LevelsResponse"]

@@ -5,6 +5,8 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import time
+from dataclasses import dataclass
+from enum import Enum
 from typing import AsyncIterator, Dict, Iterable, List, Mapping, SupportsFloat, cast
 
 from loguru import logger
@@ -19,6 +21,7 @@ from chart_mcp.schemas.streaming import (
     MetricDetails,
     MetricStreamPayload,
     PatternDetail,
+    ProgressStep,
     ResultFinalDetails,
     ResultFinalStreamPayload,
     ResultPartialDetails,
@@ -36,6 +39,51 @@ from chart_mcp.services.levels import LevelCandidate, LevelsService
 from chart_mcp.services.patterns import PatternResult, PatternsService
 from chart_mcp.utils.errors import ApiError, BadRequest
 from chart_mcp.utils.sse import SseStreamer
+
+
+class _StageStatus(str, Enum):
+    """Enumeration of pipeline stage states for structured progress output."""
+
+    PENDING = "pending"
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+    SKIPPED = "skipped"
+
+
+@dataclass
+class _StageProgress:
+    """Track the completion metadata for an individual pipeline stage."""
+
+    name: str
+    weight: float = 1.0
+    status: _StageStatus = _StageStatus.PENDING
+    progress: float = 0.0
+
+    def mark_in_progress(self) -> None:
+        """Record that the stage is currently executing."""
+
+        self.status = _StageStatus.IN_PROGRESS
+
+    def mark_completed(self) -> None:
+        """Record that the stage has finished successfully."""
+
+        self.set_progress(1.0)
+        self.status = _StageStatus.COMPLETED
+
+    def skip(self) -> None:
+        """Mark a stage as skipped while excluding it from progress weighting."""
+
+        self.status = _StageStatus.SKIPPED
+        self.weight = 0.0
+        self.progress = 1.0
+
+    def set_progress(self, ratio: float) -> None:
+        """Update the fractional completion for the stage (monotonic clamp)."""
+
+        clamped = min(max(ratio, 0.0), 1.0)
+        if clamped < self.progress:
+            return
+        self.progress = clamped
 
 
 class StreamingService:
@@ -60,7 +108,12 @@ class StreamingService:
         symbol: str,
         timeframe: str,
         indicators: Iterable[Dict[str, object]],
+        *,
         limit: int = 500,
+        include_levels: bool = True,
+        include_patterns: bool = True,
+        streaming: bool = True,
+        max_levels: int = 10,
     ) -> AsyncIterator[str]:
         """Stream SSE chunks by chaining provider, indicator, and LLM calls.
 
@@ -75,6 +128,17 @@ class StreamingService:
         limit:
             Number of OHLCV rows requested from the provider. Guarded to keep the
             streaming job bounded and deterministic across environments.
+        include_levels:
+            Toggle indicating whether support/resistance detection should run.
+        include_patterns:
+            Toggle indicating whether chart pattern detection should run.
+        streaming:
+            Flag kept for parity with the REST query parameters. Only ``True`` is
+            currently supported; a ``False`` value results in a :class:`BadRequest`.
+        max_levels:
+            Upper bound on the number of levels returned in the partial and final
+            payloads. Mirrors the REST endpoint so UI components can request a
+            consistent amount of data across surfaces.
 
         """
         if limit <= 0 or limit > 5000:
@@ -82,6 +146,10 @@ class StreamingService:
             # an unreasonable amount of historical data. The upper bound mirrors the
             # finance REST routes to keep behaviour consistent across surfaces.
             raise BadRequest("limit must be between 1 and 5000 for streaming analysis")
+        if not streaming:
+            raise BadRequest("streaming mode must remain enabled")
+        if max_levels <= 0 or max_levels > 100:
+            raise BadRequest("max_levels must be between 1 and 100")
         normalized_symbol = normalize_symbol(symbol)
         # Normalizing the symbol keeps SSE payloads aligned with the REST
         # responses (`BTC/USDT`) and allows downstream services to reuse cached
@@ -99,6 +167,41 @@ class StreamingService:
                 ).model_dump(),
             )
 
+        indicator_specs = list(indicators)
+        # Copying the iterable allows the service to iterate multiple times (for
+        # progress calculation and introspection) without consuming a generator
+        # passed by the caller.
+
+        stages: Dict[str, _StageProgress] = {
+            "data": _StageProgress("data"),
+            "indicators": _StageProgress("indicators"),
+            "levels": _StageProgress("levels"),
+            "patterns": _StageProgress("patterns"),
+            "summary": _StageProgress("summary"),
+        }
+        if not include_levels:
+            stages["levels"].skip()
+        if not include_patterns:
+            stages["patterns"].skip()
+
+        def _progress_snapshot() -> tuple[float, List[ProgressStep]]:
+            """Compute the cumulative progress ratio and stage status list."""
+
+            total_weight = sum(stage.weight for stage in stages.values() if stage.weight > 0.0)
+            if total_weight <= 0:
+                ratio = 0.0
+            else:
+                # Multiply each stage weight by its fractional completion to obtain a
+                # smooth ratio in [0, 1]. Skipped stages expose ``weight = 0`` so they
+                # are ignored in the computation.
+                accumulated = sum(stage.weight * stage.progress for stage in stages.values())
+                ratio = min(max(accumulated / total_weight, 0.0), 1.0)
+            step_snapshots = [
+                ProgressStep(name=stage.name, status=stage.status.value, progress=stage.progress)
+                for stage in stages.values()
+            ]
+            return ratio, step_snapshots
+
         async def _run_pipeline() -> None:
             """Execute the streaming pipeline while guarding against crashes."""
             try:
@@ -113,10 +216,12 @@ class StreamingService:
                         ),
                     ).model_dump(),
                 )
+                stages["data"].mark_in_progress()
                 start_data = time.perf_counter()
                 frame = await asyncio.to_thread(
                     self.provider.get_ohlcv, normalized_symbol, timeframe, limit=limit
                 )
+                stages["data"].mark_completed()
                 await _publish_metric("data", time.perf_counter() - start_data)
                 await streamer.publish(
                     "tool_end",
@@ -131,8 +236,10 @@ class StreamingService:
 
                 indicator_values: Dict[str, Dict[str, float]] = {}
                 # Accumulate the latest indicator values to feed heuristics and streaming payloads.
+                stages["indicators"].mark_in_progress()
                 start_indicators = time.perf_counter()
-                for spec in indicators:
+                total_specs = max(len(indicator_specs), 1)
+                for index, spec in enumerate(indicator_specs, start=1):
                     name = str(spec.get("name") or "unknown")
                     params_raw = spec.get("params") or {}
                     params_mapping: Mapping[str, object] = (
@@ -160,19 +267,33 @@ class StreamingService:
                             ),
                         ).model_dump(),
                     )
+                    # Reflect incremental indicator progress so the ratio evolves smoothly.
+                    stages["indicators"].set_progress(index / total_specs)
+                stages["indicators"].mark_completed()
                 await _publish_metric("indicators", time.perf_counter() - start_indicators)
 
-                start_levels = time.perf_counter()
-                levels: List[LevelCandidate] = await asyncio.to_thread(
-                    self.levels_service.detect_levels, frame
-                )
-                await _publish_metric("levels", time.perf_counter() - start_levels)
+                levels: List[LevelCandidate] = []
+                if include_levels:
+                    stages["levels"].mark_in_progress()
+                    start_levels = time.perf_counter()
+                    levels = await asyncio.to_thread(
+                        self.levels_service.detect_levels, frame, max_levels=max_levels
+                    )
+                    await _publish_metric("levels", time.perf_counter() - start_levels)
+                    stages["levels"].mark_completed()
+                else:
+                    await _publish_metric("levels", 0.0)
 
-                start_patterns = time.perf_counter()
-                patterns: List[PatternResult] = await asyncio.to_thread(
-                    self.patterns_service.detect, frame
-                )
-                await _publish_metric("patterns", time.perf_counter() - start_patterns)
+                patterns: List[PatternResult] = []
+                if include_patterns:
+                    stages["patterns"].mark_in_progress()
+                    start_patterns = time.perf_counter()
+                    patterns = await asyncio.to_thread(self.patterns_service.detect, frame)
+                    await _publish_metric("patterns", time.perf_counter() - start_patterns)
+                    stages["patterns"].mark_completed()
+                else:
+                    await _publish_metric("patterns", 0.0)
+                progress, step_snapshots = _progress_snapshot()
                 await streamer.publish(
                     "result_partial",
                     ResultPartialStreamPayload(
@@ -185,12 +306,15 @@ class StreamingService:
                                     kind=lvl.kind,
                                     strength=float(lvl.strength),
                                 )
-                                for lvl in levels[:3]
+                                for lvl in levels[: min(3, max_levels)]
                             ],
+                            progress=progress,
+                            steps=step_snapshots,
                         ),
                     ).model_dump(),
                 )
 
+                stages["summary"].mark_in_progress()
                 start_summary = time.perf_counter()
                 analysis_output = await asyncio.to_thread(
                     self.analysis_service.summarize,
@@ -204,6 +328,7 @@ class StreamingService:
                     patterns,
                 )
                 await _publish_metric("summary", time.perf_counter() - start_summary)
+                stages["summary"].mark_completed()
                 summary_text = analysis_output.summary
                 for sentence in summary_text.split("."):
                     text = sentence.strip()
@@ -247,7 +372,7 @@ class StreamingService:
                     "done",
                     DoneStreamPayload(
                         type="done",
-                        payload=DoneDetails(status="success"),
+                        payload=DoneDetails(ok=True),
                     ).model_dump(),
                 )
             except ApiError as exc:
@@ -268,7 +393,7 @@ class StreamingService:
                     "done",
                     DoneStreamPayload(
                         type="done",
-                        payload=DoneDetails(status="error", code=exc.code),
+                        payload=DoneDetails(ok=False, code=exc.code),
                     ).model_dump(),
                 )
             except Exception:
@@ -288,7 +413,7 @@ class StreamingService:
                     "done",
                     DoneStreamPayload(
                         type="done",
-                        payload=DoneDetails(status="error", code="internal_error"),
+                        payload=DoneDetails(ok=False, code="internal_error"),
                     ).model_dump(),
                 )
             finally:

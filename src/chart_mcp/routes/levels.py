@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+"""Routes exposing support/resistance detection results."""
+
 from typing import List
 
 from fastapi import APIRouter, Depends, Query, Request
 
 from chart_mcp.routes.auth import require_regular_user, require_token
-from chart_mcp.schemas.levels import Level, LevelRange, LevelsResponse
+from chart_mcp.schemas.levels import Level, LevelsResponse
 from chart_mcp.services.data_providers.base import MarketDataProvider
 from chart_mcp.services.data_providers.ccxt_provider import normalize_symbol
 from chart_mcp.services.levels import LevelsService
@@ -29,23 +31,25 @@ def get_services(request: Request) -> tuple[MarketDataProvider, LevelsService]:
 def list_levels(
     symbol: str = Query(..., min_length=3, max_length=20),
     timeframe: str = Query(...),
-    limit: int = Query(500, ge=50, le=2000),
-    max_levels: int = Query(10, ge=1, le=50, description="Nombre maximum de niveaux renvoyés."),
+    limit: int = Query(500, ge=1, le=5000),
+    max: int = Query(10, ge=1, le=100, description="Nombre maximum de niveaux renvoyés."),
     services: tuple[MarketDataProvider, LevelsService] = Depends(get_services),
 ) -> LevelsResponse:
     """Compute supports and resistances for a symbol."""
     provider, service = services
     parse_timeframe(timeframe)
-    frame = provider.get_ohlcv(symbol, timeframe, limit=limit)
+    normalized_symbol = normalize_symbol(symbol)
+    frame = provider.get_ohlcv(normalized_symbol, timeframe, limit=limit)
+    max_levels = max
     candidates = service.detect_levels(frame, max_levels=max_levels)
+    sorted_candidates = sorted(candidates, key=lambda lvl: lvl.strength, reverse=True)[:max_levels]
     levels: List[Level] = [
         Level(
-            price=candidate.price,
-            strength=candidate.strength,
             kind=candidate.kind,
-            ts_range=LevelRange(start_ts=candidate.ts_range[0], end_ts=candidate.ts_range[1]),
+            price=float(candidate.price),
+            strength=float(candidate.strength),
+            ts_range=(int(candidate.ts_range[0]), int(candidate.ts_range[1])),
         )
-        for candidate in candidates
+        for candidate in sorted_candidates
     ]
-    normalized_symbol = normalize_symbol(symbol)
     return LevelsResponse(symbol=normalized_symbol, timeframe=timeframe, levels=levels)

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+"""Routes exposing chart pattern detection results."""
+
 from typing import List
 
 from fastapi import APIRouter, Depends, Query, Request
@@ -29,24 +31,24 @@ def get_services(request: Request) -> tuple[MarketDataProvider, PatternsService]
 def list_patterns(
     symbol: str = Query(..., min_length=3, max_length=20),
     timeframe: str = Query(...),
-    limit: int = Query(500, ge=50, le=2000),
+    limit: int = Query(500, ge=1, le=5000),
     services: tuple[MarketDataProvider, PatternsService] = Depends(get_services),
 ) -> PatternsResponse:
     """Detect chart patterns for the provided symbol/timeframe."""
     provider, service = services
     parse_timeframe(timeframe)
-    frame = provider.get_ohlcv(symbol, timeframe, limit=limit)
+    normalized_symbol = normalize_symbol(symbol)
+    frame = provider.get_ohlcv(normalized_symbol, timeframe, limit=limit)
     detected: List[PatternResult] = service.detect(frame)
     patterns: List[Pattern] = [
         Pattern(
             name=result.name,
-            score=result.score,
-            start_ts=result.start_ts,
-            end_ts=result.end_ts,
-            points=[PatternPoint(ts=ts, price=price) for ts, price in result.points],
-            confidence=result.confidence,
+            score=float(result.score),
+            start_ts=int(result.start_ts),
+            end_ts=int(result.end_ts),
+            points=[PatternPoint(ts=int(ts), price=float(price)) for ts, price in result.points],
+            confidence=float(result.confidence),
         )
         for result in detected
     ]
-    normalized_symbol = normalize_symbol(symbol)
     return PatternsResponse(symbol=normalized_symbol, timeframe=timeframe, patterns=patterns)
