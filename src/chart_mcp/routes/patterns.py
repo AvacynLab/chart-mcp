@@ -2,17 +2,13 @@
 
 from __future__ import annotations
 
-"""Routes exposing chart pattern detection results."""
-
-from typing import List
-
 from fastapi import APIRouter, Depends, Query, Request
 
 from chart_mcp.routes.auth import require_regular_user, require_token
 from chart_mcp.schemas.patterns import Pattern, PatternPoint, PatternsResponse
 from chart_mcp.services.data_providers.base import MarketDataProvider
 from chart_mcp.services.data_providers.ccxt_provider import normalize_symbol
-from chart_mcp.services.patterns import PatternResult, PatternsService
+from chart_mcp.services.patterns import PatternsService
 from chart_mcp.utils.timeframes import parse_timeframe
 
 router = APIRouter(
@@ -39,8 +35,8 @@ def list_patterns(
     parse_timeframe(timeframe)
     normalized_symbol = normalize_symbol(symbol)
     frame = provider.get_ohlcv(normalized_symbol, timeframe, limit=limit)
-    detected: List[PatternResult] = service.detect(frame)
-    patterns: List[Pattern] = [
+    detected = service.detect(frame)
+    patterns = [
         Pattern(
             name=result.name,
             score=float(result.score),

@@ -44,7 +44,6 @@ def test_stream_analysis_rejects_too_many_indicators(client):
 
 def test_stream_analysis_deduplicates_indicator_specs(client, monkeypatch):
     """Duplicate indicator specs are collapsed before invoking the service."""
-
     streaming_service = client.app.state.streaming_service
     captured: dict[str, object] = {}
 

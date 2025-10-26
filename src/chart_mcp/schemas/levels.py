@@ -23,7 +23,6 @@ class Level(BaseModel):
     @classmethod
     def ensure_ordered_range(cls, value: Tuple[int, int]) -> Tuple[int, int]:
         """Ensure the range boundaries are chronologically ordered."""
-
         start, end = value
         if end < start:
             raise ValueError("end timestamp must be greater than or equal to start timestamp")
@@ -43,14 +42,12 @@ class LevelsResponse(BaseModel):
     @classmethod
     def uppercase_symbol(cls, value: str) -> str:
         """Return uppercase symbols so responses remain consistent."""
-
         return value.upper()
 
     @field_validator("timeframe")
     @classmethod
     def normalize_timeframe(cls, value: str) -> str:
         """Strip whitespace and keep the timeframe lowercase (``1h``)."""
-
         return value.strip().lower()
 
 

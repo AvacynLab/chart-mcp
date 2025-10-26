@@ -192,7 +192,6 @@ class DoneStreamPayload(BaseModel):
     @classmethod
     def coerce_payload(cls, values: Dict[str, Any]) -> Dict[str, Any]:
         """Ensure dictionaries are validated against :class:`DoneDetails`."""
-
         payload = values.get("payload")
         if isinstance(payload, dict):
             values["payload"] = DoneDetails(**payload)

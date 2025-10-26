@@ -37,14 +37,12 @@ class MarketDataRequest(DatetimeRange):
     @classmethod
     def uppercase_symbol(cls, value: str) -> str:
         """Return the trading pair uppercased to keep cache keys consistent."""
-
         return value.upper()
 
     @field_validator("timeframe")
     @classmethod
     def validate_timeframe(cls, value: str) -> str:
         """Ensure the timeframe matches the supported formats (1m, 1h, 1d, …)."""
-
         parse_timeframe(value)
         return value
 
@@ -64,14 +62,12 @@ class MarketDataResponse(BaseModel):
     @classmethod
     def uppercase_symbol(cls, value: str) -> str:
         """Expose uppercase symbols (``BTC/USDT``)."""
-
         return value.upper()
 
     @field_validator("timeframe")
     @classmethod
     def normalize_timeframe(cls, value: str) -> str:
         """Return a validated timeframe using the shared parser."""
-
         parse_timeframe(value)
         return value
 
@@ -104,14 +100,12 @@ class OhlcvQuery(BaseModel):
     @classmethod
     def uppercase_query_symbol(cls, value: str) -> str:
         """Return the symbol uppercased to keep cache keys consistent."""
-
         return value.upper()
 
     @field_validator("timeframe")
     @classmethod
     def validate_query_timeframe(cls, value: str) -> str:
         """Normalise timeframe strings via :func:`parse_timeframe`."""
-
         parse_timeframe(value)
         return value
 

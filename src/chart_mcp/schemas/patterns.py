@@ -31,7 +31,6 @@ class Pattern(BaseModel):
     @model_validator(mode="after")
     def validate_window(self) -> Pattern:
         """Ensure pattern timestamps are ordered and bounds sensible."""
-
         if self.end_ts < self.start_ts:
             raise ValueError("end_ts must be greater than or equal to start_ts")
         return self
@@ -50,14 +49,12 @@ class PatternsResponse(BaseModel):
     @classmethod
     def uppercase_symbol(cls, value: str) -> str:
         """Return uppercase symbols for downstream consumers."""
-
         return value.upper()
 
     @field_validator("timeframe")
     @classmethod
     def normalize_timeframe(cls, value: str) -> str:
         """Expose timeframe in lowercase to mirror query expectations."""
-
         return value.strip().lower()
 
 

@@ -294,3 +294,4 @@ Ensuite on pourra ouvrir le scope (autres assets) sans refactor massif.
 - 2025-10-26T04:02:00+00:00 — Agent gpt-5-codex : factorisation de la constante `SUPPORTED_INDICATORS`, validation renforcée du parsing SSE (trim, lower-case, messages explicites) et ajout de tests unitaires dédiés à `_parse_indicator_spec`.
 - 2025-10-26T04:17:00+00:00 — Agent gpt-5-codex : normalisation du symbole côté `/analysis/summary`, ajout du test d'intégration associé, déduplication des indicateurs dans `/stream/analysis` avec garde d'ordre et couverture intégration.
 - 2025-10-26T04:28:00+00:00 — Agent gpt-5-codex : ajout du paramètre `max` côté SSE, validation `max_levels` dans le service de streaming, couverture unitaire/integration sur la troncature des niveaux.
+- 2025-10-26T04:44:00+00:00 — Agent gpt-5-codex : correction des avertissements `ruff` (imports en tête de module, formatage des docstrings), exécution de `ruff check .` pour confirmer le linting.

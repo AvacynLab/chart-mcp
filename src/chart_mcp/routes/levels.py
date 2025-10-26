@@ -2,10 +2,6 @@
 
 from __future__ import annotations
 
-"""Routes exposing support/resistance detection results."""
-
-from typing import List
-
 from fastapi import APIRouter, Depends, Query, Request
 
 from chart_mcp.routes.auth import require_regular_user, require_token
@@ -43,7 +39,7 @@ def list_levels(
     max_levels = max
     candidates = service.detect_levels(frame, max_levels=max_levels)
     sorted_candidates = sorted(candidates, key=lambda lvl: lvl.strength, reverse=True)[:max_levels]
-    levels: List[Level] = [
+    levels = [
         Level(
             kind=candidate.kind,
             price=float(candidate.price),

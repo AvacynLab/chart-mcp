@@ -28,7 +28,6 @@ def test_analysis_summary(client):
 
 def test_analysis_summary_normalizes_symbol(client, monkeypatch):
     """Analysis endpoint normalises symbols before calling the provider."""
-
     provider = client.app.state.provider
     captured: dict[str, str] = {}
 

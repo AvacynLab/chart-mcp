@@ -28,14 +28,12 @@ class IndicatorRequest(BaseModel):
     @classmethod
     def uppercase_symbol(cls, value: str) -> str:
         """Normalise symbols to uppercase (``BTC/USDT``)."""
-
         return value.upper()
 
     @field_validator("indicator")
     @classmethod
     def normalize_indicator(cls, value: str) -> str:
         """Validate indicator identifiers against the supported set."""
-
         cleaned = value.strip().lower()
         if cleaned not in SUPPORTED_INDICATORS:
             msg = ", ".join(sorted(SUPPORTED_INDICATORS))
@@ -46,7 +44,6 @@ class IndicatorRequest(BaseModel):
     @classmethod
     def cast_param_values(cls, value: Dict[str, float]) -> Dict[str, float]:
         """Ensure JSON numbers are cast to ``float`` for downstream services."""
-
         return {str(key): float(val) for key, val in value.items()}
 
 
@@ -62,7 +59,6 @@ class IndicatorValue(BaseModel):
     @classmethod
     def coerce_values(cls, value: Dict[str, float]) -> Dict[str, float]:
         """Cast indicator values to floats to avoid Decimal leaks."""
-
         return {str(key): float(val) for key, val in value.items()}
 
 
@@ -80,21 +76,18 @@ class IndicatorMeta(BaseModel):
     @classmethod
     def uppercase_symbol(cls, value: str) -> str:
         """Expose uppercase symbols."""
-
         return value.upper()
 
     @field_validator("indicator")
     @classmethod
     def lowercase_indicator(cls, value: str) -> str:
         """Expose indicator identifiers in lowercase."""
-
         return value.lower()
 
     @field_validator("params")
     @classmethod
     def ensure_float_params(cls, value: Dict[str, float]) -> Dict[str, float]:
         """Ensure metadata parameters keep ``float`` semantics."""
-
         return {str(key): float(val) for key, val in value.items()}
 
 

@@ -90,7 +90,6 @@ def test_result_partial_rejects_unknown_step_status() -> None:
 
 def test_progress_step_rejects_out_of_range_progress() -> None:
     """Progress ratios must remain within the [0, 1] interval."""
-
     with pytest.raises(ValidationError):
         ResultPartialStreamPayload(
             type="result_partial",

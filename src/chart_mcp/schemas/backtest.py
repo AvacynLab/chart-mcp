@@ -99,7 +99,6 @@ class BacktestRequest(BaseModel):
     @classmethod
     def validate_timeframe(cls, value: str) -> str:
         """Validate timeframe strings via the shared helper."""
-
         parse_timeframe(value)
         return value
 
@@ -160,13 +159,11 @@ class BacktestResponse(BaseModel):
     @classmethod
     def uppercase_symbol(cls, value: str) -> str:
         """Expose uppercase symbols in responses."""
-
         return value.upper()
 
     @field_validator("timeframe")
     @classmethod
     def normalize_timeframe(cls, value: str) -> str:
         """Ensure timeframe is validated and returned unchanged."""
-
         parse_timeframe(value)
         return value

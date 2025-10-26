@@ -132,8 +132,8 @@ def _parse_indicator_spec(spec: str) -> tuple[str, Dict[str, float]]:
     "ema:21" -> ("ema", {"window": 21.0})
     "macd:fast=12;slow=26" -> ("macd", {"fast": 12.0, "slow": 26.0})
     "rsi" -> ("rsi", {})
-    """
 
+    """
     cleaned_spec = spec.strip()
     if not cleaned_spec:
         raise BadRequest("Indicator specification cannot be empty")

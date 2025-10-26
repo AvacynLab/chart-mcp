@@ -61,25 +61,21 @@ class _StageProgress:
 
     def mark_in_progress(self) -> None:
         """Record that the stage is currently executing."""
-
         self.status = _StageStatus.IN_PROGRESS
 
     def mark_completed(self) -> None:
         """Record that the stage has finished successfully."""
-
         self.set_progress(1.0)
         self.status = _StageStatus.COMPLETED
 
     def skip(self) -> None:
         """Mark a stage as skipped while excluding it from progress weighting."""
-
         self.status = _StageStatus.SKIPPED
         self.weight = 0.0
         self.progress = 1.0
 
     def set_progress(self, ratio: float) -> None:
         """Update the fractional completion for the stage (monotonic clamp)."""
-
         clamped = min(max(ratio, 0.0), 1.0)
         if clamped < self.progress:
             return
@@ -186,7 +182,6 @@ class StreamingService:
 
         def _progress_snapshot() -> tuple[float, List[ProgressStep]]:
             """Compute the cumulative progress ratio and stage status list."""
-
             total_weight = sum(stage.weight for stage in stages.values() if stage.weight > 0.0)
             if total_weight <= 0:
                 ratio = 0.0
