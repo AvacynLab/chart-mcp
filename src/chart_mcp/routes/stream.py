@@ -83,6 +83,8 @@ async def stream_analysis(
         ]
 
     streaming_service = get_streaming_service(request)
+    if limit > 5000:
+        raise BadRequest("limit must be less than or equal to 5000 for streaming analysis")
     iterator = await streaming_service.stream_analysis(
         symbol,
         timeframe,

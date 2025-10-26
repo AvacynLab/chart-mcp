@@ -1,8 +1,12 @@
+"""MCP stdio entrypoint exposing chart analysis tooling."""
+
 from __future__ import annotations
 
 import asyncio
-from typing import Callable
+from collections.abc import Mapping, Sequence
+from typing import Any
 
+import pandas as pd
 from fastmcp import FastMCP
 
 from chart_mcp import mcp_server as tools
@@ -14,47 +18,51 @@ REGISTERED_TOOL_NAMES = (
     "detect_chart_patterns",
     "generate_analysis_summary",
 )
+"""Ordered tuple listing every tool exposed over the MCP transport."""
 
 
-class MCPServer:
-    """Adapter exposing a minimal API over :class:`fastmcp.FastMCP`."""
+def _df_records(payload: pd.DataFrame | Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    """Convert Pandas frames or pre-serialised rows into JSON-friendly records.
 
-    def __init__(self, name: str | None = None, instructions: str | None = None) -> None:
-        self._inner = FastMCP(name=name, instructions=instructions)
+    The REST surface manipulates Pandas objects for convenience and numerical
+    precision. This helper keeps that internal contract intact while ensuring
+    that the MCP server only emits plain dictionaries, which are naturally
+    serialisable over stdio transports. For backwards-compatibility we also
+    accept already-serialised sequences of mappings.
+    """
+    if isinstance(payload, pd.DataFrame):
+        records = payload.reset_index(drop=True).to_dict(orient="records")
+        return [{str(key): value for key, value in row.items()} for row in records]
+    return [{str(key): value for key, value in dict(item).items()} for item in payload]
 
-    def tool(
-        self,
-        name_or_fn: str | None = None,
-        *,
-        name: str | None = None,
-        **kwargs: object,
-    ) -> Callable[[Callable[..., object]], object]:
-        """Delegate tool registration to the underlying FastMCP instance."""
-        return self._inner.tool(name_or_fn, name=name, **kwargs)
+
+class MCPServer(FastMCP):
+    """Compatibility subclass exposing the ``serve_stdio`` helper."""
 
     async def serve_stdio(self) -> None:
-        """Expose the registered tools over stdio without banners."""
-        await self._inner.run_stdio_async(show_banner=False)
-
-    def __getattr__(self, item: str) -> object:
-        return getattr(self._inner, item)
+        """Run the stdio loop without printing the SDK banner."""
+        await self.run_stdio_async(show_banner=False)
 
 
 def register(server: MCPServer) -> None:
-    """Attach every exported MCP tool to *server*.
-
-    The function is intentionally compact so the CI smoke test can import this
-    module and verify that all expected tool names are registered.
-    """
-    server.tool("get_crypto_data")(tools.get_crypto_data)
-    server.tool("compute_indicator")(tools.compute_indicator)
+    """Attach every public MCP tool to *server* with JSON conversion."""
+    server.tool("get_crypto_data")(
+        lambda symbol, timeframe, limit=500, start=None, end=None: _df_records(
+            tools.get_crypto_data(symbol, timeframe, limit=limit, start=start, end=end)
+        )
+    )
+    server.tool("compute_indicator")(
+        lambda symbol, timeframe, indicator, params=None: _df_records(
+            tools.compute_indicator(symbol, timeframe, indicator, params or {})
+        )
+    )
     server.tool("identify_support_resistance")(tools.identify_support_resistance)
     server.tool("detect_chart_patterns")(tools.detect_chart_patterns)
     server.tool("generate_analysis_summary")(tools.generate_analysis_summary)
 
 
 async def main() -> None:
-    """Instantiate an :class:`MCPServer` and serve it over stdio."""
+    """Launch the MCP server over stdio using the default tool registry."""
     server = MCPServer()
     register(server)
     await server.serve_stdio()

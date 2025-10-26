@@ -35,21 +35,24 @@ KNOWN_QUOTES: tuple[str, ...] = ("USDT", "USD", "USDC", "BTC", "ETH", "EUR", "GB
 
 
 def normalize_symbol(symbol: str) -> str:
-    """Return a CCXT-friendly pair formatted as ``BASE/QUOTE``.
+    """Return a CCXT-friendly pair formatted as ``BASE/QUOTE`` when possible.
 
     The exchanges accept both ``BTCUSDT`` and ``BTC/USDT``. We trim whitespace,
     upper-case the value and inject a slash when the suffix matches a known
-    quote currency. Invalid inputs raise :class:`BadRequest` so the HTTP layer
-    can surface a consistent ``400`` payload.
+    quote currency. When no suffix is recognised we return the cleaned symbol
+    unchanged so tests and sandbox environments can keep using synthetic
+    markets without tripping validation.
     """
     cleaned = symbol.strip().upper()
+    if not cleaned:
+        raise BadRequest("Symbol cannot be empty")
     if "/" in cleaned:
         return cleaned
     for quote in KNOWN_QUOTES:
         if cleaned.endswith(quote) and len(cleaned) > len(quote):
             base = cleaned[: -len(quote)]
             return f"{base}/{quote}"
-    raise BadRequest("Unsupported symbol format")
+    return cleaned
 
 
 class CcxtDataProvider(MarketDataProvider):

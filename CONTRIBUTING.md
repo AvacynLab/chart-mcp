@@ -22,4 +22,16 @@ Merci de votre intérêt pour l'alpha de `chart-mcp` !
 3. Ajoutez ou mettez à jour les tests, puis assurez-vous qu'ils passent tous.
 4. Ouvrez une Pull Request en décrivant vos modifications et la méthode de test.
 
+### Raccourcis Makefile
+
+Plusieurs cibles accélèrent les vérifications locales :
+
+| Commande | Description |
+| --- | --- |
+| `make format-check` | Vérifie `black` et `isort` en mode lecture seule sur `src` et `tests`. |
+| `make typecheck-strict` | Lance `mypy` sur le dossier `src`. |
+| `make mcp-run` | Démarre le serveur MCP en stdio (`python -m chart_mcp.mcp_main`). |
+
+Consultez également `.env.example` pour ajuster votre configuration avant d'exécuter ces cibles.
+
 Merci 💜
