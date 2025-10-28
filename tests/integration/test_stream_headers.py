@@ -13,6 +13,7 @@ def test_stream_analysis_headers_and_events(client, monkeypatch):
     async def immediate_heartbeat(queue):  # type: ignore[no-untyped-def]
         """Inject a first heartbeat instantly to keep the test deterministic."""
         await queue.put(": ping\n\n")
+        await queue.put(sse.format_sse("heartbeat", {"ts": 1}))
         while True:
             await asyncio.sleep(0.1)
 
@@ -27,4 +28,5 @@ def test_stream_analysis_headers_and_events(client, monkeypatch):
 
     assert "event: token" in payload or "event: result_partial" in payload
     assert "event: metric" in payload
+    assert "event: heartbeat" in payload
     assert ": ping" in payload

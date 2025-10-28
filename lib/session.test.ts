@@ -5,8 +5,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
  * the resolver state and any mocked dependencies (e.g. `next/headers`).
  */
 async function loadSessionModule() {
-  const module = await import("./session");
-  return module;
+  const sessionModule = await import("./session");
+  return sessionModule;
 }
 
 describe("session helpers", () => {

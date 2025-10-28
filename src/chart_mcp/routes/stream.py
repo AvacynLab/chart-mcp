@@ -14,6 +14,7 @@ from chart_mcp.routes.auth import require_regular_user, require_token
 from chart_mcp.services.indicators import SUPPORTED_INDICATORS
 from chart_mcp.services.streaming import StreamingService
 from chart_mcp.utils.errors import BadRequest
+from chart_mcp.utils.logging import set_request_metadata
 from chart_mcp.utils.timeframes import parse_timeframe
 
 router = APIRouter(
@@ -28,7 +29,15 @@ def get_streaming_service(request: Request) -> StreamingService:
     return cast(StreamingService, request.app.state.streaming_service)
 
 
-@router.get("/analysis")
+@router.get(
+    "/analysis",
+    summary="Stream the multi-step analysis as SSE",
+    description=(
+        "Diffuse en temps réel les étapes de l'analyse (données, indicateurs, niveaux, "
+        "patrons) ainsi que le texte IA tokenisé."
+    ),
+    response_description="Flux Server-Sent Events ordonné.",
+)
 async def stream_analysis(
     request: Request,
     symbol: Annotated[str, Query(..., min_length=3, max_length=20)],
@@ -58,6 +67,8 @@ async def stream_analysis(
 ) -> StreamingResponse:
     """Stream analysis events using Server-Sent Events."""
     parse_timeframe(timeframe)
+    # Log the user intent early so failed validation still emits useful context.
+    set_request_metadata(symbol=symbol, timeframe=timeframe)
     if not streaming:
         raise BadRequest("streaming must remain enabled for SSE analysis")
 
@@ -97,25 +108,28 @@ async def stream_analysis(
 
     async def _cancellation_guard() -> AsyncIterator[str]:
         """Yield SSE chunks and ensure graceful shutdown on cancellation."""
-        try:
-            async for chunk in iterator:
-                yield chunk
-        except asyncio.CancelledError:
-            # Explicitly close the generator so the underlying streamer stops the
-            # heartbeat task and avoids dangling background work.
+
+        async def _close_iterator() -> None:
+            """Terminate the underlying streaming job when the client disconnects."""
             closer = getattr(iterator, "aclose", None)
             if callable(closer):
                 maybe_coro = closer()
                 if inspect.isawaitable(maybe_coro):
-                    # ``cast`` communicates to the type-checker that the awaitable
-                    # conforms to the protocol even though ``isawaitable`` only
-                    # returns a ``bool`` at runtime.
                     await cast(Awaitable[object], maybe_coro)
             stopper = getattr(iterator, "stop", None)
             if callable(stopper):
                 stop_result = stopper()
                 if inspect.isawaitable(stop_result):
                     await cast(Awaitable[object], stop_result)
+
+        try:
+            async for chunk in iterator:
+                if await request.is_disconnected():
+                    await _close_iterator()
+                    break
+                yield chunk
+        except asyncio.CancelledError:
+            await _close_iterator()
             raise
 
     headers = {

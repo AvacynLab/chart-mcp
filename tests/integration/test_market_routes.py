@@ -37,6 +37,6 @@ def test_get_ohlcv_rejects_unsupported_timeframe(client):
         params={"symbol": "BTCUSDT", "timeframe": "7m"},
     )
 
-    assert response.status_code == 400
+    assert response.status_code == 422
     payload = response.json()
-    assert payload["error"]["code"] == "bad_request"
+    assert payload["error"]["code"] == "unprocessable_entity"

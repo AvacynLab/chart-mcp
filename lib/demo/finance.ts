@@ -1,5 +1,5 @@
 import type { ChatMessage } from "@components/messages";
-import type { ChartArtifactResponse } from "@components/finance/finance-chart-artifact";
+import type { ChartArtifactResponse } from "@components/finance/ChartArtifact";
 import type { BacktestReportArtifactData } from "@components/finance/backtest-report-artifact";
 import type { FundamentalsSnapshot, QuoteSnapshot } from "@components/finance/fundamentals-card";
 import type { NewsItemModel } from "@components/finance/news-list";

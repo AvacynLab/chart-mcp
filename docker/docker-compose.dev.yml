@@ -13,9 +13,29 @@ services:
       - LLM_MODEL=heuristic-v1
       - STREAM_HEARTBEAT_MS=5000
       - LOG_LEVEL=INFO
+      - SEARXNG_BASE_URL=http://searxng:8080
+      - SEARXNG_TIMEOUT=10
     ports:
       - "8000:8000"
     volumes:
       - ../src:/app/src:ro
       - ../.env:/app/.env:ro
     command: ["uvicorn", "chart_mcp.app:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    depends_on:
+      - searxng
+
+  searxng:
+    image: searxng/searxng:latest
+    environment:
+      - BASE_URL=http://localhost:8080
+      - SEARXNG_SECRET=dev-secret-change-me
+      - UWSGI_WORKERS=1
+      - UWSGI_THREADS=2
+    volumes:
+      - searxng-data:/etc/searxng
+      - ./searxng/settings.yml:/etc/searxng/settings.yml:ro
+    ports:
+      - "8080:8080"
+
+volumes:
+  searxng-data:

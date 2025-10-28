@@ -5,9 +5,11 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import json
+import time
 from typing import AsyncIterator, Iterable, TypedDict
 
 from chart_mcp.config import settings
+from chart_mcp.services.metrics import metrics
 from chart_mcp.types import JSONValue
 
 _HEARTBEAT_COMMENT = ": ping\n\n"
@@ -28,11 +30,14 @@ def format_sse(event: str, payload: JSONValue) -> str:
 
 
 async def heartbeat_sender(queue: "asyncio.Queue[str]") -> None:
-    """Send heartbeat comments at the configured interval."""
+    """Send heartbeat packets and comments at the configured interval."""
     interval = settings.stream_heartbeat_ms / 1000
     while True:
         await asyncio.sleep(interval)
         await queue.put(_HEARTBEAT_COMMENT)
+        ts_ms = int(time.time() * 1000)
+        await queue.put(format_sse("heartbeat", {"ts": ts_ms}))
+        metrics.increment_stream_event("heartbeat")
 
 
 class SseStreamer:
@@ -59,6 +64,7 @@ class SseStreamer:
 
     async def publish(self, event: str, payload: JSONValue) -> None:
         """Publish an SSE event to the internal queue."""
+        metrics.increment_stream_event(event)
         await self._queue.put(format_sse(event, payload))
 
     async def stream(self) -> AsyncIterator[str]:

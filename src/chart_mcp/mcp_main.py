@@ -58,7 +58,7 @@ def register(server: MCPServer) -> None:
     )
     server.tool("identify_support_resistance")(tools.identify_support_resistance)
     server.tool("detect_chart_patterns")(tools.detect_chart_patterns)
-    server.tool("generate_analysis_summary")(tools.generate_analysis_summary)
+    server.tool("generate_analysis_summary")(lambda payload: tools.generate_analysis_summary(payload))
 
 
 async def main() -> None:

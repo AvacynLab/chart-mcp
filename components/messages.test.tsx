@@ -98,7 +98,7 @@ describe("Messages", () => {
 
     render(<Messages messages={[]} artifacts={[artifact]} />);
 
-    expect(screen.getByTestId("finance-chart-artifact")).toBeInTheDocument();
+    expect(screen.getByTestId("chart-artifact")).toBeInTheDocument();
     expect(screen.getByTestId("overlay-toggle-sma-50")).toBeInTheDocument();
     expect(screen.getByTestId("overlay-toggle-ema-21")).toBeInTheDocument();
   });

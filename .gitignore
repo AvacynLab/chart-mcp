@@ -19,6 +19,9 @@ htmlcov/
 *.lock
 uv.lock
 node_modules/
+.next/
 playwright-report/
 playwright-results/
+test-results/
 tests/.auth/
+tsconfig.tsbuildinfo

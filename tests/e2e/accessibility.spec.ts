@@ -9,7 +9,7 @@ test.describe("Finance artefact accessibility", () => {
     await freezeTime(page);
     await interceptFinanceRoutes(page);
     await mountFinanceHarness(page);
-    await expect(page.getByTestId("finance-chart-artifact")).toBeVisible();
+    await expect(page.getByTestId("chart-artifact")).toBeVisible();
   });
 
   test("exposes accessible semantics and resilient fallbacks", async ({ page }) => {

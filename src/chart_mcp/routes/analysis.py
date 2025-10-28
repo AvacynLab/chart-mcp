@@ -22,7 +22,8 @@ from chart_mcp.services.data_providers.ccxt_provider import normalize_symbol
 from chart_mcp.services.indicators import IndicatorService
 from chart_mcp.services.levels import LevelsService
 from chart_mcp.services.patterns import PatternsService
-from chart_mcp.utils.errors import BadRequest
+from chart_mcp.utils.errors import BadRequest, UnprocessableEntity
+from chart_mcp.utils.logging import set_request_metadata
 from chart_mcp.utils.timeframes import parse_timeframe
 
 ServicesTuple = Tuple[
@@ -53,17 +54,32 @@ def get_services(
 ServiceDeps = Annotated[ServicesTuple, Depends(get_services)]
 
 
-@router.post("/summary", response_model=AnalysisResponse)
+@router.post(
+    "/summary",
+    response_model=AnalysisResponse,
+    summary="Generate a comprehensive market analysis",
+    description=(
+        "Combine indicateurs, niveaux et figures chartistes pour produire une synthèse "
+        "pédagogique accompagnée d'un disclaimer."
+    ),
+    response_description="Analyse agrégée prête à être affichée côté front.",
+)
 def summary(
     payload: AnalysisRequest,
     services: ServiceDeps,
 ) -> AnalysisResponse:
     """Run the complete analysis pipeline and return the aggregated output."""
     provider, indicator_service, levels_service, patterns_service, analysis_service = services
-    parse_timeframe(payload.timeframe)
+    try:
+        parse_timeframe(payload.timeframe)
+    except UnprocessableEntity as exc:
+        # Convert semantic validation errors to a 400 so the response stays
+        # consistent with the historical behaviour exercised by integration tests.
+        raise BadRequest(str(exc)) from exc
     normalized_symbol = normalize_symbol(payload.symbol)
     # Normalise the symbol once and reuse it for provider calls and the
     # downstream summary to guarantee consistent casing/slash formatting.
+    set_request_metadata(symbol=normalized_symbol, timeframe=payload.timeframe)
     frame = provider.get_ohlcv(normalized_symbol, payload.timeframe, limit=500)
     if len(frame) < 400:
         # The downstream indicator computations (e.g. Bollinger 200) require a
@@ -100,6 +116,7 @@ def summary(
                     start_ts=int(lvl.ts_range[0]),
                     end_ts=int(lvl.ts_range[1]),
                 ),
+                strength_label=lvl.strength_label,
             )
             for lvl in levels
         ]

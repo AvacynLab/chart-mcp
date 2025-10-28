@@ -13,6 +13,7 @@ from chart_mcp.services.data_providers.base import MarketDataProvider as DataPro
 from chart_mcp.services.data_providers.ccxt_provider import normalize_symbol
 from chart_mcp.utils.data_adapter import normalize_ohlcv_frame
 from chart_mcp.utils.errors import BadRequest
+from chart_mcp.utils.logging import set_request_metadata
 from chart_mcp.utils.timeframes import parse_timeframe
 
 router = APIRouter(
@@ -27,7 +28,16 @@ def get_provider(request: Request) -> DataProvider:
     return cast(DataProvider, request.app.state.provider)
 
 
-@router.get("/ohlcv", response_model=MarketDataResponse)
+@router.get(
+    "/ohlcv",
+    response_model=MarketDataResponse,
+    summary="Retrieve normalized OHLCV candles",
+    description=(
+        "Retourne les chandeliers OHLCV normalisés pour un symbole donné en "
+        "validant strictement la période demandée."
+    ),
+    response_description="Série OHLCV normalisée triée par timestamp croissant.",
+)
 def get_ohlcv(
     provider: Annotated[DataProvider, Depends(get_provider)],
     query: Annotated[OhlcvQuery, Depends()],
@@ -48,6 +58,9 @@ def get_ohlcv(
     )
     rows = normalize_ohlcv_frame(frame)
     normalized_symbol = normalize_symbol(query.symbol)
+    # Enrich the structured logging context so the middleware exposes
+    # ``symbol``/``timeframe`` even for pure REST requests.
+    set_request_metadata(symbol=normalized_symbol, timeframe=query.timeframe)
     return MarketDataResponse(
         symbol=normalized_symbol,
         timeframe=query.timeframe,

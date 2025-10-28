@@ -19,6 +19,7 @@ sys.path.insert(0, str(SRC))
 os.environ.setdefault("API_TOKEN", "testingtoken")
 os.environ.setdefault("PLAYWRIGHT", "true")
 os.environ.setdefault("FEATURE_FINANCE", "true")
+os.environ.setdefault("ALLOWED_ORIGINS", "http://localhost:3000")
 
 from chart_mcp.app import create_app  # noqa: E402
 from chart_mcp.services.analysis_llm import AnalysisLLMService  # noqa: E402
@@ -33,6 +34,7 @@ from chart_mcp.services.finance import (  # noqa: E402
 )
 from chart_mcp.services.indicators import IndicatorService  # noqa: E402
 from chart_mcp.services.levels import LevelsService  # noqa: E402
+from chart_mcp.services.metrics import metrics  # noqa: E402
 from chart_mcp.services.patterns import PatternsService  # noqa: E402
 
 
@@ -84,6 +86,7 @@ def ohlcv_frame() -> pd.DataFrame:
 
 @pytest.fixture()
 def test_app(ohlcv_frame: pd.DataFrame):
+    metrics.reset()
     app = create_app()
     provider = FakeProvider(ohlcv_frame)
     indicator_service = IndicatorService()
@@ -156,7 +159,7 @@ def client(test_app):
         client.headers.update(
             {
                 "Authorization": "Bearer testingtoken",
-                "X-User-Type": "regular",
+                "X-Session-User": "regular",
             }
         )
         yield client

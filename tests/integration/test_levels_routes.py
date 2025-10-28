@@ -16,6 +16,9 @@ def test_levels_route(client):
     assert data["symbol"] == "BTC/USDT"
     assert data["source"] == "stub"
     assert isinstance(data["levels"], list)
+    for level in data["levels"]:
+        assert "strength_label" in level
+        assert level["strength_label"] in {"fort", "général"}
 
 
 def test_levels_route_respects_max_parameter(client):
@@ -28,8 +31,10 @@ def test_levels_route_respects_max_parameter(client):
     data = response.json()
     assert data["source"] == "stub"
     strengths = [level["strength"] for level in data["levels"]]
+    labels = [level["strength_label"] for level in data["levels"]]
     assert len(strengths) <= 2
     assert strengths == sorted(strengths, reverse=True)
+    assert all(label in {"fort", "général"} for label in labels)
 
 
 def test_levels_route_requires_authorization(test_app):
@@ -48,7 +53,7 @@ def test_levels_route_rejects_invalid_timeframe(client):
         "/api/v1/levels",
         params={"symbol": "BTCUSDT", "timeframe": "7m", "limit": 50},
     )
-    assert response.status_code == 400
+    assert response.status_code == 422
     error = response.json()["error"]
-    assert error["code"] == "bad_request"
+    assert error["code"] == "unprocessable_entity"
     assert "timeframe" in error["message"].lower()

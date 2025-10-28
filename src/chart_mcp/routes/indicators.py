@@ -14,6 +14,7 @@ from chart_mcp.schemas.indicators import (
 from chart_mcp.services.data_providers.base import MarketDataProvider
 from chart_mcp.services.data_providers.ccxt_provider import normalize_symbol
 from chart_mcp.services.indicators import IndicatorService
+from chart_mcp.utils.logging import set_request_metadata
 from chart_mcp.utils.timeframes import parse_timeframe
 
 router = APIRouter(
@@ -28,7 +29,16 @@ def get_services(request: Request) -> tuple[MarketDataProvider, IndicatorService
     return request.app.state.provider, request.app.state.indicator_service
 
 
-@router.post("/compute", response_model=IndicatorResponse)
+@router.post(
+    "/compute",
+    response_model=IndicatorResponse,
+    summary="Compute a technical indicator",
+    description=(
+        "Calcule un indicateur technique après récupération de l'OHLCV et renvoie la "
+        "série sans valeurs manquantes."
+    ),
+    response_description="Série d'indicateurs alignée sur les timestamps d'entrée.",
+)
 def compute_indicator(
     payload: IndicatorRequest,
     services: tuple[MarketDataProvider, IndicatorService] = Depends(get_services),
@@ -49,6 +59,9 @@ def compute_indicator(
         for ts_value, record in zip(ts_values, records, strict=True)
     ]
     normalized_symbol = normalize_symbol(payload.symbol)
+    # Update the structured logging context so downstream logs capture the
+    # trading pair and timeframe involved in the computation.
+    set_request_metadata(symbol=normalized_symbol, timeframe=payload.timeframe)
     meta = IndicatorMeta(
         symbol=normalized_symbol,
         timeframe=payload.timeframe,

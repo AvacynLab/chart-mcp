@@ -9,7 +9,7 @@ test.describe("Finance artefact harness", () => {
     await freezeTime(page);
     await interceptFinanceRoutes(page);
     await mountFinanceHarness(page);
-    await expect(page.getByTestId("finance-chart-artifact")).toBeVisible();
+    await expect(page.getByTestId("chart-artifact")).toBeVisible();
   });
 
   test("displays chart details and supports overlay toggles", async ({ page }) => {

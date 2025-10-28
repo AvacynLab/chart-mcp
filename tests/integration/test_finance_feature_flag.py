@@ -28,7 +28,7 @@ def test_finance_routes_disabled(monkeypatch) -> None:
     app = app_module.create_app()
     with TestClient(app) as client:
         client.headers.update(
-            {"Authorization": "Bearer testingtoken", "X-User-Type": "regular"}
+            {"Authorization": "Bearer testingtoken", "X-Session-User": "regular"}
         )
         response = client.get("/api/v1/finance/quote", params={"symbol": "BTCUSD"})
         assert response.status_code == 404
@@ -54,7 +54,7 @@ def test_finance_routes_enabled_smoke(monkeypatch) -> None:
         client.headers.update(
             {
                 "Authorization": "Bearer testingtoken",
-                "X-User-Type": "regular",
+                "X-Session-User": "regular",
             }
         )
         response = client.get(

@@ -1,57 +1,76 @@
-import { chromium, expect, FullConfig } from "@playwright/test";
+import type { FullConfig } from "@playwright/test";
 import fs from "node:fs/promises";
 import path from "node:path";
 
 const STORAGE_DIR = path.resolve(__dirname, "../.auth");
 const STORAGE_STATE = path.join(STORAGE_DIR, "regular.json");
 
-/**
- * Global Playwright setup that provisions a regular user session once per test
- * suite. The flow mirrors the manual steps an operator would perform on the
- * login page: visit `/login`, submit credentials, wait for the redirect to
- * `/chat`, and finally persist the storage state for downstream tests.
- */
-async function storageStateExists(): Promise<boolean> {
-  try {
-    await fs.access(STORAGE_STATE);
-    return true;
-  } catch {
-    return false;
-  }
+interface CookieState {
+  readonly name: string;
+  readonly value: string;
+  readonly domain: string;
+  readonly path: string;
+  readonly expires: number;
+  readonly httpOnly: boolean;
+  readonly secure: boolean;
+  readonly sameSite: "Strict" | "Lax" | "None";
 }
 
-async function performLogin(baseURL: string): Promise<void> {
+interface SerializableStorageState {
+  readonly cookies: readonly CookieState[];
+  readonly origins: ReadonlyArray<{
+    readonly origin: string;
+    readonly localStorage?: readonly { readonly name: string; readonly value: string }[];
+    readonly sessionStorage?: readonly { readonly name: string; readonly value: string }[];
+  }>;
+}
+
+/**
+ * Construct a deterministic storage state that mimics the cookies emitted by
+ * the demo login flow. Persisting the JSON directly keeps the global setup
+ * independent from a running Next.js server which simplifies local and CI
+ * workflows alike.
+ */
+async function writeStorageState(baseURL: string): Promise<void> {
   await fs.mkdir(STORAGE_DIR, { recursive: true });
 
-  if (await storageStateExists()) {
-    return;
-  }
+  const target = new URL(baseURL);
+  const domain = target.hostname || "127.0.0.1";
+  const expires = Math.floor(Date.now() / 1000) + 86_400; // 24h validity window.
 
-  const browser = await chromium.launch();
-  const page = await browser.newPage();
+  const state: SerializableStorageState = {
+    cookies: [
+      {
+        name: "sessionType",
+        value: "regular",
+        domain,
+        path: "/",
+        expires,
+        httpOnly: false,
+        secure: false,
+        sameSite: "Lax",
+      },
+      {
+        name: "sessionName",
+        value: encodeURIComponent("regular@example.com"),
+        domain,
+        path: "/",
+        expires,
+        httpOnly: false,
+        secure: false,
+        sameSite: "Lax",
+      },
+    ],
+    origins: [],
+  };
 
-  try {
-    await page.goto(`${baseURL}/login`);
-    await expect(page.getByTestId("auth-root")).toBeVisible();
-    await expect(page.getByTestId("auth-email")).toBeVisible();
-    await page.getByTestId("auth-email").fill("regular@example.com");
-    await page.getByTestId("auth-password").fill("super-secret");
-    await Promise.all([
-      page.waitForURL(`${baseURL}/chat`),
-      page.getByTestId("auth-submit").click(),
-    ]);
-
-    await expect(page).toHaveURL(`${baseURL}/chat`);
-    await page.context().storageState({ path: STORAGE_STATE });
-  } finally {
-    await browser.close();
-  }
+  await fs.writeFile(STORAGE_STATE, JSON.stringify(state, null, 2), "utf8");
 }
 
 export default async function globalSetup(config: FullConfig): Promise<void> {
   const projectBaseURL = config.projects[0]?.use?.baseURL;
   const baseURL = projectBaseURL ?? process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
-  await performLogin(baseURL);
+  await writeStorageState(baseURL);
 }
 
 export { STORAGE_STATE };

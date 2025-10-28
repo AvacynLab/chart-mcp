@@ -6,7 +6,7 @@ import type { ChatArtifactBase } from "../../components/messages";
 import type {
   ChartArtifactResponse,
   ChartCandleDetails,
-} from "../../components/finance/finance-chart-artifact";
+} from "../../components/finance/ChartArtifact";
 import type { BacktestReportArtifactData } from "../../components/finance/backtest-report-artifact";
 import type {
   FundamentalsSnapshot,
@@ -206,6 +206,12 @@ function FinanceChatHarness(): JSX.Element {
       <div data-testid="harness-error" role="alert">
         {error ?? "Une erreur inattendue est survenue."}
       </div>
+    );
+  }
+
+  if (!resolvedChart) {
+    return (
+      <div data-testid="harness-empty">Aucun graphique disponible pour cette session.</div>
     );
   }
 

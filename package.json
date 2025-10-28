@@ -2,8 +2,13 @@
   "name": "chart-mcp",
   "version": "0.1.0",
   "private": true,
-  "description": "Tooling scripts for chart-mcp CI and local workflows",
+  "description": "Frontend workspace for the chart-mcp Next.js dashboard",
   "dependencies": {
+    "@microsoft/fetch-event-source": "^2.0.1",
+    "lightweight-charts": "^4.2.3",
+    "next": "14.2.5",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
     "zod": "^3.23.8"
   },
   "engines": {
@@ -11,14 +16,16 @@
   },
   "packageManager": "pnpm@8.15.4",
   "scripts": {
-    "clean": "python -m chart_mcp.cli.cleanup",
-    "build": "python -m compileall src",
-    "test": "pytest -q",
-    "lint": "ruff check . && black --check src tests && isort --check-only src tests && mypy src",
-    "lint:fix": "ruff check --fix . && black src tests && isort src tests"
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test"
   },
   "devDependencies": {
-    "esbuild": "^0.21.5",
     "@playwright/test": "1.47.0",
     "@testing-library/jest-dom": "^6.4.2",
     "@testing-library/react": "^14.2.1",
@@ -26,11 +33,12 @@
     "@types/node": "^20.11.30",
     "@types/react": "^18.2.37",
     "@types/react-dom": "^18.2.15",
-    "@vitejs/plugin-react": "^4.2.0",
+    "@vitejs/plugin-react": "^5.1.0",
+    "esbuild": "^0.21.5",
+    "eslint": "^8.57.0",
+    "eslint-config-next": "14.2.5",
     "jsdom": "^23.2.0",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "typescript": "^5.3.3",
+    "typescript": "5.4.5",
     "vitest": "^1.4.0"
   }
 }
