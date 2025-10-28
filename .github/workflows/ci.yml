@@ -155,23 +155,18 @@ jobs:
           key: buildx-${{ runner.os }}-${{ github.sha }}
           restore-keys: |
             buildx-${{ runner.os }}-
-      - name: Determine registry tags
-        id: registry-tags
+      - name: Prepare image metadata
+        id: image-meta
         run: |
-          tags=("chart-mcp:${GITHUB_SHA}")
-          should_push=false
+          echo "local-tag=chart-mcp:${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
           if [ -n "${REGISTRY_URL}" ] && [ -n "${REGISTRY_IMAGE_NAME}" ] && [ -n "${REGISTRY_USERNAME}" ] && [ -n "${REGISTRY_PASSWORD}" ]; then
-            should_push=true
-            tags+=("${REGISTRY_URL}/${REGISTRY_IMAGE_NAME}:${GITHUB_SHA}")
+            echo "should-push=true" >> "$GITHUB_OUTPUT"
+            echo "registry-tag=${REGISTRY_URL}/${REGISTRY_IMAGE_NAME}:${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+          else
+            echo "should-push=false" >> "$GITHUB_OUTPUT"
           fi
-          {
-            echo "tags<<EOF"
-            printf '%s\n' "${tags[@]}"
-            echo "EOF"
-            echo "should-push=${should_push}"
-          } >> "$GITHUB_OUTPUT"
       - name: Log in to registry
-        if: ${{ steps.registry-tags.outputs['should-push'] == 'true' }}
+        if: ${{ steps.image-meta.outputs.should-push == 'true' }}
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY_URL }}
@@ -182,8 +177,9 @@ jobs:
         with:
           context: .
           file: docker/Dockerfile
-          push: ${{ steps.registry-tags.outputs['should-push'] == 'true' }}
-          tags: ${{ steps.registry-tags.outputs.tags }}
+          push: false
+          load: true
+          tags: ${{ steps.image-meta.outputs.local-tag }}
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
       - name: Move Docker cache
@@ -192,11 +188,19 @@ jobs:
             rm -rf /tmp/.buildx-cache
             mv /tmp/.buildx-cache-new /tmp/.buildx-cache
           fi
+      - name: Push image to registry
+        if: ${{ steps.image-meta.outputs.should-push == 'true' }}
+        env:
+          LOCAL_TAG: ${{ steps.image-meta.outputs.local-tag }}
+          REGISTRY_TAG: ${{ steps.image-meta.outputs.registry-tag }}
+        run: |
+          docker tag "$LOCAL_TAG" "$REGISTRY_TAG"
+          docker push "$REGISTRY_TAG"
       - name: Run container healthcheck
         env:
           API_TOKEN: testingtoken
         run: |
-          docker run -d --rm -p 8000:8000 -e API_TOKEN="$API_TOKEN" --name chart-mcp-ci chart-mcp:${{ github.sha }}
+          docker run -d --rm -p 8000:8000 -e API_TOKEN="$API_TOKEN" --name chart-mcp-ci ${{ steps.image-meta.outputs.local-tag }}
           trap 'docker stop chart-mcp-ci' EXIT
           python docker/healthcheck.py
 
