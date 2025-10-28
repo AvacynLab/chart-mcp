@@ -11,9 +11,8 @@ returned to FastMCP.
 
 from __future__ import annotations
 
-from collections.abc import Iterable as IterableABC
-from collections.abc import Mapping
-from typing import Any, Dict, Iterable, List, MutableMapping
+import collections.abc as collections_abc
+from typing import Any, Dict, Iterable, List, Mapping, MutableMapping
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
 
@@ -385,7 +384,7 @@ class MCPWebSearchRequest(BaseModel):
             return []
         if isinstance(value, str):
             candidates = value.split(",")
-        elif isinstance(value, IterableABC):
+        elif isinstance(value, collections_abc.Iterable):
             candidates = list(value)
         else:  # pragma: no cover - validation garde-fou
             raise TypeError("categories must be a string or iterable of strings")

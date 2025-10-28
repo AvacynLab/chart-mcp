@@ -18,11 +18,11 @@ from chart_mcp.routes import (
     indicators,
     levels,
     market,
+    metrics,
     patterns,
     search,
     stream,
 )
-from chart_mcp.routes import metrics as metrics_route
 from chart_mcp.services.analysis_llm import AnalysisLLMService
 from chart_mcp.services.backtest import BacktestService
 from chart_mcp.services.data_providers.ccxt_provider import CcxtDataProvider
@@ -175,7 +175,7 @@ def create_app() -> FastAPI:
 
     app.include_router(health.router)
     app.include_router(market.router)
-    app.include_router(metrics_route.router)
+    app.include_router(metrics.router)
     if finance_feature_enabled:
         app.include_router(finance.router)
     app.include_router(indicators.router)

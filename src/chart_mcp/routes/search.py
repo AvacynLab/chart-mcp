@@ -7,8 +7,7 @@ from typing import Annotated, List, cast
 from fastapi import APIRouter, Depends, Query, Request
 
 from chart_mcp.routes.auth import require_regular_user, require_token
-from chart_mcp.schemas.search import SearchResponse
-from chart_mcp.schemas.search import SearchResult as SearchResultModel
+from chart_mcp.schemas import search as search_schema
 from chart_mcp.services.search import SearchClientProtocol
 from chart_mcp.utils.errors import BadRequest, UpstreamError
 
@@ -34,7 +33,7 @@ ClientDep = Annotated[SearchClientProtocol, Depends(get_search_client)]
 
 @router.get(
     "",
-    response_model=SearchResponse,
+    response_model=search_schema.SearchResponse,
     summary="Search crypto intelligence with SearxNG",
     description=(
         "Proxy vers l'instance SearxNG interne pour agréger news, articles techniques et "
@@ -56,7 +55,7 @@ def search(
         str | None,
         Query(description="Optional SearxNG time filter such as day/week/month"),
     ] = None,
-) -> SearchResponse:
+) -> search_schema.SearchResponse:
     """Proxy the query to SearxNG and return normalized results."""
     parsed_categories = _parse_categories(categories)
     try:
@@ -65,8 +64,8 @@ def search(
         raise BadRequest(str(exc)) from exc
     except UpstreamError:
         raise
-    response_items: List[SearchResultModel] = [
-        SearchResultModel(
+    response_items: List[search_schema.SearchResult] = [
+        search_schema.SearchResult(
             title=item.title,
             url=item.url,
             snippet=item.snippet,
@@ -75,7 +74,11 @@ def search(
         )
         for item in results
     ]
-    return SearchResponse(query=q, categories=parsed_categories, results=response_items)
+    return search_schema.SearchResponse(
+        query=q,
+        categories=parsed_categories,
+        results=response_items,
+    )
 
 
 def _parse_categories(raw: str | None) -> List[str]:
