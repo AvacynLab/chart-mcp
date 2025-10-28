@@ -33,6 +33,8 @@ export default defineConfig(async () => {
         "@components": resolve(rootDir, "components"),
         "@lib": resolve(rootDir, "lib"),
         "next/headers": resolve(rootDir, "tests/stubs/next-headers.ts"),
+        "lightweight-charts": resolve(rootDir, "tests/stubs/lightweight-charts.ts"),
+        "@microsoft/fetch-event-source": resolve(rootDir, "tests/stubs/fetch-event-source.ts"),
       },
     },
   };

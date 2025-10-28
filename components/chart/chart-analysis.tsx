@@ -19,7 +19,7 @@ import {
   Time,
   createChart,
 } from "lightweight-charts";
-import { fetchEventSource } from "@microsoft/fetch-event-source";
+import { fetchEventSource, type EventSourceMessage } from "@microsoft/fetch-event-source";
 
 /**
  * Shape of a single OHLCV row returned by the backend REST endpoint.
@@ -268,12 +268,12 @@ class FetchEventSourceClient implements EventSourceLike {
           Accept: "text/event-stream",
         },
         signal: this.controller.signal,
-        onmessage: (message) => {
+        onmessage: (message: EventSourceMessage) => {
           const eventName = message.event ?? "message";
           const payload = message.data ?? "";
           this.dispatch(eventName, payload);
         },
-        onerror: (error) => {
+        onerror: (error: unknown) => {
           const reason = error instanceof Error ? error.message : String(error);
           this.dispatch(
             "error",

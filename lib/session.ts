@@ -59,7 +59,8 @@ async function resolveSessionFromCookies(): Promise<Session | null> {
     }
 
     const nameCookie = jar.get("sessionName");
-    const decodedName = nameCookie ? decodeURIComponent(nameCookie.value) : "Invité régulier";
+    const rawName = typeof nameCookie?.value === "string" ? nameCookie.value : "Invité régulier";
+    const decodedName = decodeURIComponent(rawName);
 
     return {
       user: {
