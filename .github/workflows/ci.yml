@@ -204,6 +204,7 @@ jobs:
           docker run -d --rm -p 8000:8000 \
             -e API_TOKEN="$API_TOKEN" \
             -e ALLOWED_ORIGINS="$ALLOWED_ORIGINS" \
+            -e PLAYWRIGHT=1 \
             --name chart-mcp-ci \
             ${{ steps.image-meta.outputs.local-tag }}
           trap 'docker stop chart-mcp-ci' EXIT
