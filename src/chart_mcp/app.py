@@ -18,11 +18,11 @@ from chart_mcp.routes import (
     indicators,
     levels,
     market,
-    metrics as metrics_route,
     patterns,
     search,
     stream,
 )
+from chart_mcp.routes import metrics as metrics_route
 from chart_mcp.services.analysis_llm import AnalysisLLMService
 from chart_mcp.services.backtest import BacktestService
 from chart_mcp.services.data_providers.ccxt_provider import CcxtDataProvider
