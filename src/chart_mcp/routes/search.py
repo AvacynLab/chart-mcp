@@ -7,8 +7,7 @@ from typing import Annotated, List, cast
 from fastapi import APIRouter, Depends, Query, Request
 
 from chart_mcp.routes.auth import require_regular_user, require_token
-from chart_mcp.schemas.search import SearchResponse
-from chart_mcp.schemas.search import SearchResult as SearchResultModel
+from chart_mcp.schemas.search import SearchResponse, SearchResult as SearchResultModel
 from chart_mcp.services.search import SearchClientProtocol
 from chart_mcp.utils.errors import BadRequest, UpstreamError
 

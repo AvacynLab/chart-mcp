@@ -11,8 +11,7 @@ returned to FastMCP.
 
 from __future__ import annotations
 
-from collections.abc import Iterable as IterableABC
-from collections.abc import Mapping
+from collections.abc import Iterable as IterableABC, Mapping
 from typing import Any, Dict, Iterable, List, MutableMapping
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
