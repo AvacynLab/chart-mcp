@@ -315,6 +315,7 @@ Ton objectif est d’aligner parfaitement l’alpha sur le cahier des charges cr
 * **CI** :
 
   * [ ] lint/typecheck/tests passent ; images Docker construites ; e2e vert.
+    * ✅ 2025-10-28 — Déclenchement corrigé : la workflow `CI` s'exécute maintenant sur toutes les branches (`push`/`pull_request`) et peut être lancée manuellement via `workflow_dispatch`.
     * Playwright `pnpm test:e2e` démarre désormais automatiquement Next.js et injecte un état de session, mais il reste à valider le pipeline complet (lint → build images).
 
 ---
@@ -352,3 +353,4 @@ Si tu veux, je peux enchaîner par des **patches prêts à appliquer** (diffs) p
 - 2025-10-28T06:45:00Z — gpt-5-codex : Correction de l'indentation Makefile (tabs), ajout de la documentation backend (`make setup` + `ALLOWED_ORIGINS`) et validation de `make setup` + `make dev`.
 - 2025-10-28T07:55:00Z — gpt-5-codex : Stabilisation de l'espace Next.js (dépendances `next`/`lightweight-charts` figées, scripts `pnpm` documentés, typage SSE ajusté), ajout d'un stub TypeScript pour `@vitejs/plugin-react` et conversion de Vitest en import dynamique. Vérification via `pnpm lint`, `pnpm typecheck`, `pnpm vitest --run`.
 - 2025-10-28T08:45:00Z — gpt-5-codex : Automatisation du serveur Next.js pour Playwright (`webServer` + session JSON), mise à jour de `tests/setup/auth.setup.ts`, ajout du root layout App Router et documentation README/`.gitignore`. Tests : `pnpm typecheck`, `pnpm exec playwright test tests/e2e/chart-analysis.spec.ts --reporter=list`.
+- 2025-10-28T09:30:00Z — gpt-5-codex : Correction du déclenchement CI (workflow sur toutes les branches + déclenchement manuel `workflow_dispatch`) pour que les jobs démarrent sur les branches de travail.

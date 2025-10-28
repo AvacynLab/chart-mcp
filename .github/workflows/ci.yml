@@ -5,9 +5,15 @@ name: CI
 
 on:
   push:
+    # Run on every branch so feature work is validated before opening a PR.
     branches:
-      - main
+      - '**'
   pull_request:
+    # Keep PR checks available for any base branch (defaults to all).
+    branches:
+      - '**'
+  # Allow maintainers to trigger the workflow manually when needed.
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.ref }}
