@@ -160,6 +160,17 @@ jobs:
           key: buildx-${{ runner.os }}-${{ github.sha }}
           restore-keys: |
             buildx-${{ runner.os }}-
+      - name: Determine registry tags
+        id: registry-tags
+        run: |
+          {
+            echo "tags<<EOF"
+            echo "chart-mcp:${GITHUB_SHA}"
+            if [ -n "${REGISTRY_URL}" ] && [ -n "${REGISTRY_IMAGE_NAME}" ]; then
+              echo "${REGISTRY_URL}/${REGISTRY_IMAGE_NAME}:${GITHUB_SHA}"
+            fi
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
       - name: Log in to registry
         if: ${{ env.REGISTRY_URL != '' && env.REGISTRY_USERNAME != '' && env.REGISTRY_PASSWORD != '' }}
         uses: docker/login-action@v3
@@ -173,9 +184,7 @@ jobs:
           context: .
           file: docker/Dockerfile
           push: ${{ env.REGISTRY_URL != '' && env.REGISTRY_USERNAME != '' && env.REGISTRY_PASSWORD != '' && env.REGISTRY_IMAGE_NAME != '' }}
-          tags: |
-            chart-mcp:${{ github.sha }}
-            ${{ env.REGISTRY_URL != '' && env.REGISTRY_IMAGE_NAME != '' && format('{0}/{1}:{2}', env.REGISTRY_URL, env.REGISTRY_IMAGE_NAME, github.sha) || '' }}
+          tags: ${{ steps.registry-tags.outputs.tags }}
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
       - name: Move Docker cache
