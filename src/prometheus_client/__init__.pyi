@@ -2,8 +2,7 @@ from typing import Any
 
 CONTENT_TYPE_LATEST: str
 
-class CollectorRegistry:
-    ...
+class CollectorRegistry: ...
 
 class Counter:
     def __init__(self, *args: Any, **kwargs: Any) -> None: ...
