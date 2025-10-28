@@ -51,9 +51,7 @@ class RequestLogContext:
 
 
 _TRACE_ID: ContextVar[str] = ContextVar("trace_id", default="unknown")
-_REQUEST_CONTEXT: ContextVar[RequestLogContext | None] = ContextVar(
-    "request_context", default=None
-)
+_REQUEST_CONTEXT: ContextVar[RequestLogContext | None] = ContextVar("request_context", default=None)
 
 
 def configure_logging() -> None:

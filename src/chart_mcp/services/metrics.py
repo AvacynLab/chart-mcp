@@ -74,7 +74,9 @@ class MetricsRegistry:
     def record_provider_error(self, provider: str, exchange: str, reason: str) -> None:
         """Increment the provider error counter for the supplied context."""
         cleaned_reason = reason or "unknown"
-        self.provider_errors.labels(provider=provider, exchange=exchange, reason=cleaned_reason).inc()
+        self.provider_errors.labels(
+            provider=provider, exchange=exchange, reason=cleaned_reason
+        ).inc()
 
     def observe_stage_duration(self, stage: str, seconds: float) -> None:
         """Record how long a pipeline stage took in seconds (clamped to >= 0)."""

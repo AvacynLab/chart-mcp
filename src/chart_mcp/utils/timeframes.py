@@ -41,9 +41,7 @@ _TIMEFRAME_DEFINITIONS: Tuple[Tuple[str, int], ...] = (
 _TIMEFRAME_TO_SECONDS: Dict[str, int] = {
     alias: seconds for alias, seconds in _TIMEFRAME_DEFINITIONS
 }
-_NORMALISED_ALIASES: Dict[str, str] = {
-    alias.lower(): alias for alias, _ in _TIMEFRAME_DEFINITIONS
-}
+_NORMALISED_ALIASES: Dict[str, str] = {alias.lower(): alias for alias, _ in _TIMEFRAME_DEFINITIONS}
 
 
 def _normalise(value: str) -> str:

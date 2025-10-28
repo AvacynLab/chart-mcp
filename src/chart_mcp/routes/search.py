@@ -47,7 +47,10 @@ def search(
     q: Annotated[str, Query(min_length=3, description="User search query")],
     categories: Annotated[
         str | None,
-        Query(description="Comma-separated SearxNG categories (e.g. news,science)", example="news,science"),
+        Query(
+            description="Comma-separated SearxNG categories (e.g. news,science)",
+            example="news,science",
+        ),
     ] = None,
     time_range: Annotated[
         str | None,

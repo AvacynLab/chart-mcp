@@ -90,7 +90,9 @@ class PatternsService:
             if head_lift < 0.02:  # Head must be at least 2 % above the shoulders.
                 continue
             # Shoulder symmetry ensures both sides keep similar amplitude (<5 % gap).
-            shoulder_similarity = 1.0 - abs(left_height - right_height) / max(left_height, right_height)
+            shoulder_similarity = 1.0 - abs(left_height - right_height) / max(
+                left_height, right_height
+            )
             if shoulder_similarity < 0.95:
                 continue
             neck_left_rel = lows[left_idx + 1 : head_idx]
@@ -113,9 +115,7 @@ class PatternsService:
             score = float(
                 min(
                     0.9,
-                    0.6
-                    + 0.2 * min(head_lift / 0.1, 1.0)
-                    + 0.2 * shoulder_similarity,
+                    0.6 + 0.2 * min(head_lift / 0.1, 1.0) + 0.2 * shoulder_similarity,
                 )
             )
             # Confidence leans on symmetry and neckline alignment for stability.
@@ -166,7 +166,9 @@ class PatternsService:
             if head_drop < 0.02:
                 continue
             # Symmetry check mirrored on trough depths (<5 % deviation tolerated).
-            shoulder_similarity = 1.0 - abs(left_depth - right_depth) / max(abs(left_depth), abs(right_depth))
+            shoulder_similarity = 1.0 - abs(left_depth - right_depth) / max(
+                abs(left_depth), abs(right_depth)
+            )
             if shoulder_similarity < 0.95:
                 continue
             neck_left_rel = highs[left_idx + 1 : head_idx]
@@ -188,9 +190,7 @@ class PatternsService:
             score = float(
                 min(
                     0.9,
-                    0.6
-                    + 0.2 * min(head_drop / 0.1, 1.0)
-                    + 0.2 * shoulder_similarity,
+                    0.6 + 0.2 * min(head_drop / 0.1, 1.0) + 0.2 * shoulder_similarity,
                 )
             )
             confidence = float(

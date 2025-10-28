@@ -200,7 +200,9 @@ class LevelsService:
         if merge_threshold <= 0:
             raise ValueError("merge_threshold must be positive")
 
-        peak_distance = max(1, int(distance)) if distance is not None else max(2, len(sanitized) // 25)
+        peak_distance = (
+            max(1, int(distance)) if distance is not None else max(2, len(sanitized) // 25)
+        )
         volatility = float(np.std(closes))
         price_range = float(np.max(closes) - np.min(closes))
         default_prominence = max(volatility * 0.5, price_range * 0.015, 1e-8)

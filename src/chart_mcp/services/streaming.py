@@ -267,8 +267,7 @@ class StreamingService:
                             params_raw if isinstance(params_raw, Mapping) else {}
                         )
                         params = {
-                            str(k): float(cast(SupportsFloat, v))
-                            for k, v in params_mapping.items()
+                            str(k): float(cast(SupportsFloat, v)) for k, v in params_mapping.items()
                         }
                         data = await asyncio.to_thread(
                             self.indicator_service.compute, frame, name, params

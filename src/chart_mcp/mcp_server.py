@@ -350,11 +350,7 @@ def generate_analysis_summary(
             "min_touches": levels_params.min_touches or 2,
         }
 
-    levels = (
-        levels_service.detect_levels(frame, **level_kwargs)
-        if request.include_levels
-        else []
-    )
+    levels = levels_service.detect_levels(frame, **level_kwargs) if request.include_levels else []
 
     patterns_params = request.patterns_params
     patterns = patterns_service.detect(frame) if request.include_patterns else []

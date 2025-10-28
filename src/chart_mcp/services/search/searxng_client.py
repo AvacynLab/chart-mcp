@@ -24,7 +24,6 @@ class SearchClientProtocol(Protocol):
         """Execute the search and return normalized results."""
 
 
-
 @dataclass(slots=True)
 class SearchResult:
     """Normalized representation of a single search result item."""
