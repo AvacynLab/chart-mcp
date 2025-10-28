@@ -35,7 +35,7 @@ export class ChatPage {
 
   /** Locator for the finance chart artefact rendered within the conversation. */
   public get financeChart(): Locator {
-    return this.page.getByTestId("finance-chart-artifact");
+    return this.page.getByTestId("chart-artifact");
   }
 
   /** Locator exposing the candle details pane accompanying the chart. */
@@ -63,7 +63,7 @@ export async function freezeTime(page: Page, isoTimestamp = "2024-01-01T00:00:00
   await page.addInitScript((fixed) => {
     const FixedDate = class extends Date {
       public constructor(...args: ConstructorParameters<typeof Date>) {
-        if (args.length === 0) {
+        if (args[0] === undefined) {
           super(fixed);
           return;
         }

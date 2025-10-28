@@ -10,7 +10,11 @@ from typing import Dict, List
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from chart_mcp.services.indicators import SUPPORTED_INDICATORS
+from chart_mcp.services.indicators import (
+    CANONICAL_INDICATORS,
+    INDICATOR_ALIASES,
+    SUPPORTED_INDICATORS,
+)
 
 
 class IndicatorRequest(BaseModel):
@@ -35,10 +39,11 @@ class IndicatorRequest(BaseModel):
     def normalize_indicator(cls, value: str) -> str:
         """Validate indicator identifiers against the supported set."""
         cleaned = value.strip().lower()
-        if cleaned not in SUPPORTED_INDICATORS:
+        canonical = INDICATOR_ALIASES.get(cleaned, cleaned)
+        if canonical not in CANONICAL_INDICATORS:
             msg = ", ".join(sorted(SUPPORTED_INDICATORS))
             raise ValueError(f"Unsupported indicator '{value}'. Allowed: {msg}")
-        return cleaned
+        return canonical
 
     @field_validator("params")
     @classmethod

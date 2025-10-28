@@ -14,7 +14,7 @@ _security = HTTPBearer(auto_error=False)
 BearerCredentials = Annotated[HTTPAuthorizationCredentials | None, Depends(_security)]
 RegularUserHeader = Annotated[
     str | None,
-    Header(alias="X-User-Type", convert_underscores=False),
+    Header(alias="X-Session-User", convert_underscores=False),
 ]
 
 
@@ -28,6 +28,10 @@ def require_token(credentials: BearerCredentials) -> None:
 
 def require_regular_user(user_type: RegularUserHeader = None) -> None:
     """Ensure the request originates from a regular (non-guest) session."""
+    # The cahier des charges enforces ``X-Session-User: regular`` as the explicit
+    # contract between the backend and the front/agent clients. Using the exact
+    # header name also keeps the API specification in sync with the MCP tooling
+    # documentation that references this guard.
     if user_type is None:
         raise Forbidden("Regular session required", code="forbidden:chat")
     if user_type.lower() != "regular":

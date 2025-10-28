@@ -9,7 +9,10 @@ from chart_mcp.services.patterns import PatternResult
 
 def test_summary_contains_disclaimer_elements():
     service = AnalysisLLMService()
-    levels = [LevelCandidate(price=100, timestamps=[1, 2, 3], kind="support")]
+    level = LevelCandidate(kind="support", window_start=0, window_end=10, merge_threshold=0.0025)
+    for idx, ts in enumerate([1, 2, 3]):
+        level.add_touch(100.0, ts, idx)
+    levels = [level]
     patterns = [
         PatternResult(
             name="triangle", score=0.7, start_ts=1, end_ts=5, points=[(1, 100.0)], confidence=0.6

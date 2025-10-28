@@ -1,11 +1,12 @@
 import { act, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import FinanceChartArtifact, {
+import ChartArtifact, {
   type ChartArtifactResponse,
   type ChartCandleDetails,
   type ChartEventPayload,
+  type ChartApi,
   type LineSeriesApi,
-} from "./finance-chart-artifact";
+} from "./ChartArtifact";
 
 class FakeCandlestickSeries {
   public readonly setData = vi.fn();
@@ -116,7 +117,14 @@ function buildArtifact(overrides: Partial<ChartArtifactResponse> = {}): ChartArt
   };
 }
 
-describe("FinanceChartArtifact", () => {
+function requireChartInstance(instance: FakeChart | null): FakeChart {
+  if (!instance) {
+    throw new Error("Le graphique aurait dû être créé pour ce scénario de test.");
+  }
+  return instance;
+}
+
+describe("ChartArtifact", () => {
   afterEach(() => {
     vi.restoreAllMocks();
   });
@@ -131,9 +139,7 @@ describe("FinanceChartArtifact", () => {
     });
     const createChart = vi.fn(() => new FakeChart());
 
-    render(
-      <FinanceChartArtifact artifact={artifact} createChart={createChart} />,
-    );
+    render(<ChartArtifact artifact={artifact} createChart={createChart} />);
 
     expect(createChart).not.toHaveBeenCalled();
     expect(screen.getByText(/aucune donnée de marché/i)).toBeInTheDocument();
@@ -148,13 +154,12 @@ describe("FinanceChartArtifact", () => {
 
     const artifact = buildArtifact();
 
-    render(
-      <FinanceChartArtifact artifact={artifact} createChart={createChart} />,
-    );
+    render(<ChartArtifact artifact={artifact} createChart={createChart} />);
 
     expect(createChart).toHaveBeenCalledTimes(1);
-    expect(lastChart?.candlestick.setData).toHaveBeenCalled();
-    const call = lastChart?.candlestick.setData.mock.calls.at(-1);
+    const chartInstance = requireChartInstance(lastChart);
+    expect(chartInstance.candlestick.setData).toHaveBeenCalled();
+    const call = chartInstance.candlestick.setData.mock.calls.at(-1);
     expect(call?.[0]).toHaveLength(artifact.rows.length);
   });
 
@@ -180,17 +185,18 @@ describe("FinanceChartArtifact", () => {
     });
 
     const { unmount } = render(
-      <FinanceChartArtifact artifact={artifact} createChart={createChart} />,
+      <ChartArtifact artifact={artifact} createChart={createChart} />,
     );
 
-    expect(lastChart?.lineSeries[0]?.setData).toHaveBeenCalled();
+    const chartInstance = requireChartInstance(lastChart);
+    expect(chartInstance.lineSeries[0]?.setData).toHaveBeenCalled();
 
     unmount();
 
-    expect(lastChart?.remove).toHaveBeenCalledTimes(1);
-    expect(lastChart?.lineSeries[0]?.remove).toHaveBeenCalledTimes(1);
-    expect(lastChart?.clickHandlers).toHaveLength(0);
-    expect(lastChart?.crosshairHandlers).toHaveLength(0);
+    expect(chartInstance.remove).toHaveBeenCalledTimes(1);
+    expect(chartInstance.lineSeries[0]?.remove).toHaveBeenCalledTimes(1);
+    expect(chartInstance.clickHandlers).toHaveLength(0);
+    expect(chartInstance.crosshairHandlers).toHaveLength(0);
   });
 
   it("updates the candle details when a point is selected", () => {
@@ -204,7 +210,7 @@ describe("FinanceChartArtifact", () => {
     const artifact = buildArtifact();
 
     render(
-      <FinanceChartArtifact
+      <ChartArtifact
         artifact={artifact}
         createChart={createChart}
         onSelectCandle={onSelect}
@@ -212,7 +218,8 @@ describe("FinanceChartArtifact", () => {
     );
 
     act(() => {
-      lastChart?.clickHandlers[0]?.({ time: artifact.details[1]?.ts });
+      const chartInstance = requireChartInstance(lastChart);
+      chartInstance.clickHandlers[0]?.({ time: artifact.details[1]?.ts });
     });
 
     expect(onSelect).toHaveBeenCalledWith(artifact.details[1]);
@@ -228,16 +235,18 @@ describe("FinanceChartArtifact", () => {
 
     const artifact = buildArtifact();
 
-    render(<FinanceChartArtifact artifact={artifact} createChart={createChart} />);
+    render(<ChartArtifact artifact={artifact} createChart={createChart} />);
 
     act(() => {
-      lastChart?.crosshairHandlers[0]?.({ time: artifact.details[1]?.ts });
+      const chartInstance = requireChartInstance(lastChart);
+      chartInstance.crosshairHandlers[0]?.({ time: artifact.details[1]?.ts });
     });
 
     expect(screen.getByText(artifact.details[1]?.close.toFixed(2) ?? "")).toBeInTheDocument();
 
     act(() => {
-      lastChart?.crosshairHandlers[0]?.({ time: null });
+      const chartInstance = requireChartInstance(lastChart);
+      chartInstance.crosshairHandlers[0]?.({ time: null });
     });
 
     expect(screen.getByText(artifact.selected?.close.toFixed(2) ?? "")).toBeInTheDocument();
@@ -265,14 +274,15 @@ describe("FinanceChartArtifact", () => {
     });
 
     const { rerender } = render(
-      <FinanceChartArtifact artifact={initial} createChart={createChart} />,
+      <ChartArtifact artifact={initial} createChart={createChart} />,
     );
 
-    expect(lastChart?.lineSeries).toHaveLength(1);
-    const [series] = lastChart?.lineSeries ?? [];
+    const chartInstance = requireChartInstance(lastChart);
+    expect(chartInstance.lineSeries).toHaveLength(1);
+    const [series] = chartInstance.lineSeries;
 
     rerender(
-      <FinanceChartArtifact
+      <ChartArtifact
         artifact={{ ...initial, overlays: [] }}
         createChart={createChart}
       />,

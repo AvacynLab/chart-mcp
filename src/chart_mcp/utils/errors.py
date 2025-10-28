@@ -51,6 +51,13 @@ class BadRequest(ApiError):
     code = "bad_request"
 
 
+class UnprocessableEntity(ApiError):
+    """Exception raised when well-formed inputs fail semantic validation."""
+
+    status_code = 422
+    code = "unprocessable_entity"
+
+
 class Unauthorized(ApiError):
     """Exception raised when the API token validation fails."""
 
@@ -143,6 +150,7 @@ def request_validation_exception_handler(_: Request, exc: Exception) -> JSONResp
 __all__ = [
     "ApiError",
     "BadRequest",
+    "UnprocessableEntity",
     "Unauthorized",
     "Forbidden",
     "UpstreamError",

@@ -68,7 +68,10 @@ describe("BacktestReportArtifact", () => {
   });
 
   it("passes coerced parameters to the retest handler", async () => {
-    const onRetest = vi.fn<(params: BacktestRetestParams) => void>();
+    const onRetestSpy = vi.fn<[BacktestRetestParams], void>();
+    const onRetest = (params: BacktestRetestParams) => {
+      onRetestSpy(params);
+    };
     render(
       <BacktestReportArtifact
         artifact={buildArtifact({ trades: [] })}
@@ -90,7 +93,7 @@ describe("BacktestReportArtifact", () => {
     });
 
     await waitFor(() => {
-      expect(onRetest).toHaveBeenCalledWith({
+      expect(onRetestSpy).toHaveBeenCalledWith({
         fastWindow: 25,
         slowWindow: 80,
         feesBps: 12.5,

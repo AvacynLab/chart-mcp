@@ -1,24 +1,40 @@
 """Technical indicator computations using pandas/numpy primitives.
 
-Each helper focuses on a single indicator so the FastAPI routes, the MCP
-tools layer and the unit tests can all share the exact same implementation.
-We aggressively validate parameters upfront which keeps downstream code free
-from repetitive checks and produces consistent error messages.
+The module exposes well documented helpers for each indicator along with a
+thin :class:`IndicatorService` dispatcher that is reused by the REST API, the
+SSE streaming pipeline and the MCP tools layer. Centralising the logic keeps
+the mathematical formulas, error handling and column naming consistent across
+the different entry points.
 """
 
 from __future__ import annotations
 
-from typing import Dict
+from typing import Dict, Mapping
 
 import numpy as np
 import pandas as pd
 
 from chart_mcp.utils.errors import BadRequest
 
-# Supported indicator identifiers exposed through the API and streaming layer.
-# Keeping the vocabulary in a single location avoids mismatches between the
-# schema validators, REST routes and the indicator service dispatch logic.
-SUPPORTED_INDICATORS: frozenset[str] = frozenset({"ma", "ema", "rsi", "macd", "bbands"})
+#: Canonical indicator identifiers surfaced through the public API.
+CANONICAL_INDICATORS: frozenset[str] = frozenset({"ma", "ema", "rsi", "macd", "bbands"})
+#: Friendly aliases accepted by the API (currently only ``sma``).
+INDICATOR_ALIASES: Mapping[str, str] = {"sma": "ma"}
+#: Complete set of accepted identifiers (canonical names + aliases).
+SUPPORTED_INDICATORS: frozenset[str] = frozenset(
+    set(CANONICAL_INDICATORS) | set(INDICATOR_ALIASES.keys())
+)
+
+# Default parameters closely follow technical analysis conventions. Surfacing
+# them as constants makes the behaviour explicit and simplifies unit tests.
+DEFAULT_SMA_WINDOW = 20
+DEFAULT_EMA_WINDOW = 20
+DEFAULT_RSI_WINDOW = 14
+DEFAULT_MACD_FAST = 12
+DEFAULT_MACD_SLOW = 26
+DEFAULT_MACD_SIGNAL = 9
+DEFAULT_BBANDS_WINDOW = 20
+DEFAULT_BBANDS_STDDEV = 2.0
 
 
 def _validate_window(window: int, *, name: str) -> int:
@@ -35,23 +51,38 @@ def _validate_min_length(frame: pd.DataFrame, window: int) -> None:
 
 
 def simple_moving_average(frame: pd.DataFrame, window: int) -> pd.Series:
-    """Return simple moving average over the closing price."""
+    """Return the Simple Moving Average over the closing price column.
+
+    Parameters
+    ----------
+    frame:
+        OHLCV dataframe containing a ``c`` close column.
+    window:
+        Number of periods over which the arithmetic mean is computed.
+
+    """
     window = _validate_window(window, name="SMA")
     _validate_min_length(frame, window)
     close_series = frame["c"].astype(float)
-    return close_series.rolling(window=window, min_periods=window).mean()
+    series = close_series.rolling(window=window, min_periods=window).mean()
+    return series.rename(f"sma_{window}")
 
 
 def exponential_moving_average(frame: pd.DataFrame, window: int) -> pd.Series:
-    """Return exponential moving average using pandas ewm."""
+    """Return the Exponential Moving Average of the closing price.
+
+    The multiplier ``alpha`` used by :meth:`pandas.Series.ewm` is derived from
+    the provided window which mirrors the convention used by trading platforms.
+    """
     window = _validate_window(window, name="EMA")
     _validate_min_length(frame, window)
     close_series = frame["c"].astype(float)
-    return close_series.ewm(span=window, adjust=False).mean()
+    series = close_series.ewm(span=window, adjust=False).mean()
+    return series.rename(f"ema_{window}")
 
 
 def relative_strength_index(frame: pd.DataFrame, window: int) -> pd.Series:
-    """Compute RSI following the classic Wilder smoothing."""
+    """Compute the Relative Strength Index using Wilder's smoothing method."""
     window = _validate_window(window, name="RSI")
     if window < 2:
         raise BadRequest("RSI window must be >= 2 to compute price deltas")
@@ -67,11 +98,26 @@ def relative_strength_index(frame: pd.DataFrame, window: int) -> pd.Series:
     rs = avg_gain / avg_loss.replace({0.0: np.nan})
     rs = rs.replace([np.inf, -np.inf], np.nan)
     rsi = 100 - (100 / (1 + rs))
-    return rsi.fillna(50.0)
+    # The first ``window`` samples do not have enough history to compute RSI.
+    # Returning 50 keeps the early part of the series neutral, which is the
+    # behaviour expected by the front-end overlays and the unit tests.
+    return rsi.fillna(50.0).rename(f"rsi_{window}")
 
 
 def macd(frame: pd.DataFrame, fast: int = 12, slow: int = 26, signal: int = 9) -> pd.DataFrame:
-    """Compute MACD line, signal line and histogram."""
+    """Compute Moving Average Convergence Divergence (MACD).
+
+    The implementation follows the classic parameters ``12``/``26``/``9`` but
+    allows the caller to override them. The resulting dataframe exposes three
+    columns with explicit names so downstream consumers can rely on stable keys:
+
+    ``macd``
+        Difference between the fast and slow EMAs.
+    ``macd_signal``
+        EMA of the MACD line using the ``signal`` period.
+    ``macd_hist``
+        Histogram showing the divergence between ``macd`` and ``macd_signal``.
+    """
     fast = _validate_window(fast, name="MACD fast")
     slow = _validate_window(slow, name="MACD slow")
     signal = _validate_window(signal, name="MACD signal")
@@ -80,7 +126,7 @@ def macd(frame: pd.DataFrame, fast: int = 12, slow: int = 26, signal: int = 9) -
     macd_line = exponential_moving_average(frame, fast) - exponential_moving_average(frame, slow)
     signal_line = macd_line.ewm(span=signal, adjust=False).mean()
     hist = macd_line - signal_line
-    result = pd.DataFrame({"macd": macd_line, "signal": signal_line, "hist": hist})
+    result = pd.DataFrame({"macd": macd_line, "macd_signal": signal_line, "macd_hist": hist})
     warmup = max(slow - 1, signal - 1)
     if warmup > 0:
         result.iloc[:warmup] = np.nan
@@ -88,7 +134,18 @@ def macd(frame: pd.DataFrame, fast: int = 12, slow: int = 26, signal: int = 9) -
 
 
 def bollinger_bands(frame: pd.DataFrame, window: int = 20, stddev: float = 2.0) -> pd.DataFrame:
-    """Compute Bollinger Bands around the simple moving average."""
+    """Compute Bollinger Bands around the simple moving average.
+
+    The helper returns a dataframe with the following keys to keep naming
+    consistent across the API, SSE stream and documentation:
+
+    ``bb_middle``
+        The SMA used as the middle band.
+    ``bb_upper``
+        Upper band obtained by adding ``stddev`` standard deviations.
+    ``bb_lower``
+        Lower band obtained by subtracting ``stddev`` standard deviations.
+    """
     window = _validate_window(window, name="Bollinger Bands")
     if stddev <= 0:
         raise BadRequest("Standard deviation multiplier must be positive")
@@ -98,7 +155,7 @@ def bollinger_bands(frame: pd.DataFrame, window: int = 20, stddev: float = 2.0) 
     std = close_series.rolling(window=window, min_periods=window).std()
     upper = sma + stddev * std
     lower = sma - stddev * std
-    return pd.DataFrame({"middle": sma, "upper": upper, "lower": lower})
+    return pd.DataFrame({"bb_middle": sma, "bb_upper": upper, "bb_lower": lower})
 
 
 class IndicatorService:
@@ -108,37 +165,48 @@ class IndicatorService:
         self, frame: pd.DataFrame, indicator: str, params: Dict[str, float]
     ) -> pd.DataFrame:
         """Dispatch indicator computation based on the provided name."""
-        indicator = indicator.lower()
-        if indicator == "ma":
-            window = int(params.get("window", 20))
+        normalized = indicator.lower().strip()
+        canonical = INDICATOR_ALIASES.get(normalized, normalized)
+        if canonical not in CANONICAL_INDICATORS:
+            raise BadRequest(f"Unsupported indicator '{indicator}'")
+
+        if canonical == "ma":
+            window = int(params.get("window", DEFAULT_SMA_WINDOW))
             series = simple_moving_average(frame, window)
-            return pd.DataFrame({"ma": series})
-        if indicator == "ema":
-            window = int(params.get("window", 20))
+            column = f"sma_{window}"
+            return pd.DataFrame({column: series})
+        if canonical == "ema":
+            window = int(params.get("window", DEFAULT_EMA_WINDOW))
             series = exponential_moving_average(frame, window)
-            return pd.DataFrame({"ema": series})
-        if indicator == "rsi":
-            window = int(params.get("window", 14))
+            column = f"ema_{window}"
+            return pd.DataFrame({column: series})
+        if canonical == "rsi":
+            window = int(params.get("window", DEFAULT_RSI_WINDOW))
             series = relative_strength_index(frame, window)
-            return pd.DataFrame({"rsi": series})
-        if indicator == "macd":
-            fast = int(params.get("fast", 12))
-            slow = int(params.get("slow", 26))
-            signal = int(params.get("signal", 9))
+            column = f"rsi_{window}"
+            return pd.DataFrame({column: series})
+        if canonical == "macd":
+            fast = int(params.get("fast", DEFAULT_MACD_FAST))
+            slow = int(params.get("slow", DEFAULT_MACD_SLOW))
+            signal = int(params.get("signal", DEFAULT_MACD_SIGNAL))
             return macd(frame, fast=fast, slow=slow, signal=signal)
-        if indicator == "bbands":
-            window = int(params.get("window", 20))
-            stddev = float(params.get("stddev", 2.0))
+        if canonical == "bbands":
+            window = int(params.get("window", DEFAULT_BBANDS_WINDOW))
+            stddev = float(params.get("stddev", DEFAULT_BBANDS_STDDEV))
             return bollinger_bands(frame, window=window, stddev=stddev)
+        # The guard above should prevent reaching this branch; keeping the
+        # exception for defensive programming in case of future refactors.
         raise BadRequest(f"Unsupported indicator '{indicator}'")
 
 
 __all__ = [
     "IndicatorService",
+    "CANONICAL_INDICATORS",
+    "INDICATOR_ALIASES",
+    "SUPPORTED_INDICATORS",
     "simple_moving_average",
     "exponential_moving_average",
     "relative_strength_index",
     "macd",
     "bollinger_bands",
-    "SUPPORTED_INDICATORS",
 ]

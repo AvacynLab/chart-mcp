@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Callable, List
+from dataclasses import dataclass, field
+from typing import Callable, Dict, List
 
 import numpy as np
 import pandas as pd
@@ -19,6 +19,7 @@ class PatternResult:
     end_ts: int
     points: List[tuple[int, float]]
     confidence: float
+    metadata: Dict[str, object] = field(default_factory=dict)
 
 
 class PatternsService:
@@ -36,9 +37,191 @@ class PatternsService:
         if len(frame) >= 10:
             results.extend(self._detect_double_extrema(closes, timestamps))
             results.extend(self._detect_triangle(highs, lows, timestamps))
+            results.extend(self._detect_head_shoulders(highs, lows, timestamps))
         results.extend(self._detect_channel(closes, timestamps))
         results.extend(self._detect_candlestick_patterns(frame))
         return sorted(results, key=lambda r: r.score, reverse=True)[:5]
+
+    def _detect_head_shoulders(
+        self,
+        highs: np.ndarray,
+        lows: np.ndarray,
+        timestamps: np.ndarray,
+    ) -> List[PatternResult]:
+        """Detect classical and inverse head & shoulders formations.
+
+        The implementation uses a lightweight heuristic based on three local
+        extrema separated by at least one candle, ensuring that the middle
+        extremum (the head) stands out from the shoulders while the neckline
+        remains reasonably flat.  Additional metadata describing the indices of
+        each key point is attached so downstream consumers can render the
+        structure on charts.
+        """
+
+        def _build_metadata(
+            indices: Dict[str, int],
+            direction: str,
+        ) -> Dict[str, object]:
+            return {
+                "type": "head_shoulders",
+                "direction": direction,
+                "indices": indices,
+            }
+
+        results: List[PatternResult] = []
+        min_spacing = 2  # Require at least one bar between the extremums.
+
+        # Bearish head & shoulders built from local maxima.
+        peak_indices = self._local_extrema(
+            highs, lambda left, center, right: center >= left and center >= right
+        )
+        for a in range(len(peak_indices) - 2):
+            left_idx, head_idx, right_idx = peak_indices[a : a + 3]
+            if head_idx - left_idx < min_spacing or right_idx - head_idx < min_spacing:
+                continue
+            left_height = float(highs[left_idx])
+            head_height = float(highs[head_idx])
+            right_height = float(highs[right_idx])
+            shoulder_avg = (left_height + right_height) / 2.0
+            if shoulder_avg <= 0:
+                continue
+            # Normalised elevation of the head compared to the average shoulder height.
+            head_lift = (head_height - shoulder_avg) / shoulder_avg
+            if head_lift < 0.02:  # Head must be at least 2 % above the shoulders.
+                continue
+            # Shoulder symmetry ensures both sides keep similar amplitude (<5 % gap).
+            shoulder_similarity = 1.0 - abs(left_height - right_height) / max(
+                left_height, right_height
+            )
+            if shoulder_similarity < 0.95:
+                continue
+            neck_left_rel = lows[left_idx + 1 : head_idx]
+            neck_right_rel = lows[head_idx + 1 : right_idx]
+            if len(neck_left_rel) == 0 or len(neck_right_rel) == 0:
+                continue
+            neck_left_offset = int(np.argmin(neck_left_rel))
+            neck_right_offset = int(np.argmin(neck_right_rel))
+            neck_left_idx = left_idx + 1 + neck_left_offset
+            neck_right_idx = head_idx + 1 + neck_right_offset
+            neck_left = float(lows[neck_left_idx])
+            neck_right = float(lows[neck_right_idx])
+            neck_avg = (neck_left + neck_right) / 2.0
+            if neck_avg == 0:
+                continue
+            neckline_diff = abs(neck_left - neck_right) / max(neck_avg, 1e-9)
+            if neckline_diff > 0.03:
+                continue
+            # Blend prominence and symmetry into a bounded scoring heuristic.
+            score = float(
+                min(
+                    0.9,
+                    0.6 + 0.2 * min(head_lift / 0.1, 1.0) + 0.2 * shoulder_similarity,
+                )
+            )
+            # Confidence leans on symmetry and neckline alignment for stability.
+            confidence = float(
+                max(0.55, min(0.9, 0.5 * shoulder_similarity + 0.5 * (1.0 - neckline_diff)))
+            )
+            indices = {
+                "iL": int(left_idx),
+                "iHead": int(head_idx),
+                "iR": int(right_idx),
+                "iNeckline1": int(neck_left_idx),
+                "iNeckline2": int(neck_right_idx),
+            }
+            results.append(
+                PatternResult(
+                    name="head_shoulders",
+                    score=score,
+                    start_ts=int(timestamps[left_idx]),
+                    end_ts=int(timestamps[right_idx]),
+                    points=[
+                        (int(timestamps[left_idx]), left_height),
+                        (int(timestamps[head_idx]), head_height),
+                        (int(timestamps[right_idx]), right_height),
+                        (int(timestamps[neck_left_idx]), neck_left),
+                        (int(timestamps[neck_right_idx]), neck_right),
+                    ],
+                    confidence=confidence,
+                    metadata=_build_metadata(indices, "bearish"),
+                )
+            )
+
+        # Bullish inverse head & shoulders built from local minima.
+        trough_indices = self._local_extrema(
+            lows, lambda left, center, right: center <= left and center <= right
+        )
+        for a in range(len(trough_indices) - 2):
+            left_idx, head_idx, right_idx = trough_indices[a : a + 3]
+            if head_idx - left_idx < min_spacing or right_idx - head_idx < min_spacing:
+                continue
+            left_depth = float(lows[left_idx])
+            head_depth = float(lows[head_idx])
+            right_depth = float(lows[right_idx])
+            shoulder_avg = (left_depth + right_depth) / 2.0
+            if shoulder_avg == 0:
+                continue
+            # Normalised depth of the head compared to the shoulders (inverse pattern).
+            head_drop = (shoulder_avg - head_depth) / abs(shoulder_avg)
+            if head_drop < 0.02:
+                continue
+            # Symmetry check mirrored on trough depths (<5 % deviation tolerated).
+            shoulder_similarity = 1.0 - abs(left_depth - right_depth) / max(
+                abs(left_depth), abs(right_depth)
+            )
+            if shoulder_similarity < 0.95:
+                continue
+            neck_left_rel = highs[left_idx + 1 : head_idx]
+            neck_right_rel = highs[head_idx + 1 : right_idx]
+            if len(neck_left_rel) == 0 or len(neck_right_rel) == 0:
+                continue
+            neck_left_offset = int(np.argmax(neck_left_rel))
+            neck_right_offset = int(np.argmax(neck_right_rel))
+            neck_left_idx = left_idx + 1 + neck_left_offset
+            neck_right_idx = head_idx + 1 + neck_right_offset
+            neck_left = float(highs[neck_left_idx])
+            neck_right = float(highs[neck_right_idx])
+            neck_avg = (neck_left + neck_right) / 2.0
+            if neck_avg == 0:
+                continue
+            neckline_diff = abs(neck_left - neck_right) / max(abs(neck_avg), 1e-9)
+            if neckline_diff > 0.03:
+                continue
+            score = float(
+                min(
+                    0.9,
+                    0.6 + 0.2 * min(head_drop / 0.1, 1.0) + 0.2 * shoulder_similarity,
+                )
+            )
+            confidence = float(
+                max(0.55, min(0.9, 0.5 * shoulder_similarity + 0.5 * (1.0 - neckline_diff)))
+            )
+            indices = {
+                "iL": int(left_idx),
+                "iHead": int(head_idx),
+                "iR": int(right_idx),
+                "iNeckline1": int(neck_left_idx),
+                "iNeckline2": int(neck_right_idx),
+            }
+            results.append(
+                PatternResult(
+                    name="inverse_head_shoulders",
+                    score=score,
+                    start_ts=int(timestamps[left_idx]),
+                    end_ts=int(timestamps[right_idx]),
+                    points=[
+                        (int(timestamps[left_idx]), left_depth),
+                        (int(timestamps[head_idx]), head_depth),
+                        (int(timestamps[right_idx]), right_depth),
+                        (int(timestamps[neck_left_idx]), neck_left),
+                        (int(timestamps[neck_right_idx]), neck_right),
+                    ],
+                    confidence=confidence,
+                    metadata=_build_metadata(indices, "bullish"),
+                )
+            )
+
+        return results
 
     def _local_extrema(
         self, series: np.ndarray, compare: Callable[[float, float, float], bool]

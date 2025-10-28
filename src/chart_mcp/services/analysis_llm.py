@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import Dict, Iterable, List
+from typing import Dict, Generator, Iterable, List
 
 from chart_mcp.services.levels import LevelCandidate
 from chart_mcp.services.patterns import PatternResult
@@ -66,6 +66,29 @@ class AnalysisLLMService:
             summary = self._truncate(summary)
         summary = self._sanitize(summary)
         return AnalysisSummary(summary=summary, disclaimer=self.disclaimer)
+
+    def stream_summary(
+        self,
+        symbol: str,
+        timeframe: str,
+        indicator_highlights: Dict[str, float],
+        levels: Iterable[LevelCandidate],
+        patterns: Iterable[PatternResult],
+    ) -> Generator[str, None, AnalysisSummary]:
+        """Yield a tokenised summary before returning the final :class:`AnalysisSummary`.
+
+        The generator mimics incremental decoding by splitting the deterministic
+        summary into whitespace-delimited tokens.  Each yielded element retains the
+        trailing space (except the final token) so SSE consumers can simply append
+        fragments to a growing text node without having to re-introduce spacing.
+        """
+        summary = self.summarize(symbol, timeframe, indicator_highlights, levels, patterns)
+        tokens = summary.summary.split()
+        total = len(tokens)
+        for idx, token in enumerate(tokens):
+            suffix = " " if idx < total - 1 else ""
+            yield f"{token}{suffix}"
+        return summary
 
     @staticmethod
     def _sanitize(text: str) -> str:

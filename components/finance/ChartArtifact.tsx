@@ -93,7 +93,7 @@ export interface ChartApi {
   unsubscribeCrosshairMove(handler: (param: ChartEventPayload) => void): void;
 }
 
-export interface FinanceChartArtifactProps {
+export interface ChartArtifactProps {
   /** Payload delivered by the backend finance service. */
   readonly artifact: ChartArtifactResponse;
   /** Factory that constructs the underlying chart instance. */
@@ -123,14 +123,14 @@ function mapOhlcvRows(rows: readonly OhlcvRow[]): readonly unknown[] {
 }
 
 /**
- * Finance chart artefact responsible for rendering OHLCV data and overlays.
- */
-export default function FinanceChartArtifact({
+ * Chart artefact responsible for rendering OHLCV data and overlays.
+*/
+export default function ChartArtifact({
   artifact,
   createChart,
   onSelectCandle,
   onHoverCandle,
-}: FinanceChartArtifactProps): JSX.Element {
+}: ChartArtifactProps): JSX.Element {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mountedRef = useRef(false);
   const chartRef = useRef<ChartApi | null>(null);
@@ -279,14 +279,14 @@ export default function FinanceChartArtifact({
 
   if (!hasData) {
     return (
-      <section data-testid="finance-chart-artifact" aria-live="polite">
+      <section data-testid="chart-artifact" aria-live="polite">
         <p>Aucune donnée de marché disponible pour {artifact.symbol}.</p>
       </section>
     );
   }
 
   return (
-    <section data-testid="finance-chart-artifact" className="finance-chart">
+    <section data-testid="chart-artifact" className="finance-chart">
       <header>
         <h2>
           {artifact.symbol} — {artifact.timeframe}

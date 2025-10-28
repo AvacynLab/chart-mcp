@@ -66,7 +66,13 @@ def get_finance_service(request: Request) -> FinanceDataService:
     return cast(FinanceDataService, request.app.state.finance_service)
 
 
-@router.get("/quote", response_model=QuoteResponse)
+@router.get(
+    "/quote",
+    response_model=QuoteResponse,
+    summary="Retrieve a quote snapshot",
+    description="Renvoie un instantané prix/variation pour un symbole suivi par le service finance.",
+    response_description="Dernière cotation connue du symbole demandé.",
+)
 def get_quote(
     query: Annotated[QuoteQuery, Depends()],
     service: Annotated[FinanceDataService, Depends(get_finance_service)],
@@ -82,7 +88,13 @@ def get_quote(
     )
 
 
-@router.get("/fundamentals", response_model=FundamentalsResponse)
+@router.get(
+    "/fundamentals",
+    response_model=FundamentalsResponse,
+    summary="Load fundamentals for a symbol",
+    description="Expose un sous-ensemble de métriques fondamentales pré-agrégées.",
+    response_description="Données fondamentales prêtes à l'affichage.",
+)
 def get_fundamentals(
     query: Annotated[FundamentalsQuery, Depends()],
     service: Annotated[FinanceDataService, Depends(get_finance_service)],
@@ -99,7 +111,13 @@ def get_fundamentals(
     )
 
 
-@router.get("/news", response_model=NewsResponse)
+@router.get(
+    "/news",
+    response_model=NewsResponse,
+    summary="List curated finance news",
+    description="Retourne des actualités chronologiques provenant du cache finance déterministe.",
+    response_description="Articles triés par date décroissante.",
+)
 def get_news(
     query: Annotated[NewsQuery, Depends()],
     service: Annotated[FinanceDataService, Depends(get_finance_service)],
@@ -118,7 +136,13 @@ def get_news(
     return NewsResponse(symbol=query.symbol, items=items)
 
 
-@router.get("/screen", response_model=ScreenResponse)
+@router.get(
+    "/screen",
+    response_model=ScreenResponse,
+    summary="Run the deterministic screener",
+    description="Applique les filtres sectoriels/score pour retourner des actifs présélectionnés.",
+    response_description="Résultats de screener ordonnés.",
+)
 def get_screen(
     query: Annotated[ScreenQuery, Depends()],
     service: Annotated[FinanceDataService, Depends(get_finance_service)],
@@ -137,7 +161,13 @@ def get_screen(
     return ScreenResponse(results=serialized)
 
 
-@router.post("/backtest", response_model=BacktestResponse)
+@router.post(
+    "/backtest",
+    response_model=BacktestResponse,
+    summary="Execute a backtest scenario",
+    description="Lance le moteur de backtest interne avec paramètres de stratégie, frais et slippage.",
+    response_description="Résultat complet du backtest (équité, métriques, trades).",
+)
 def run_backtest(
     payload: BacktestRequest,
     provider: Annotated[MarketDataProvider, Depends(get_provider)],
@@ -181,7 +211,13 @@ def _serialize_backtest(symbol: str, timeframe: str, result: BacktestResult) -> 
     )
 
 
-@router.get("/chart", response_model=ChartArtifactResponse)
+@router.get(
+    "/chart",
+    response_model=ChartArtifactResponse,
+    summary="Build a chart artefact",
+    description="Assemble un artefact de graphique (statistiques, overlays, chandelles enrichies).",
+    response_description="Artefact détaillé prêt pour le front finance.",
+)
 def get_chart_artifact(
     query: Annotated[ChartArtifactQuery, Depends()],
     provider: Annotated[MarketDataProvider, Depends(get_provider)],

@@ -18,6 +18,24 @@ from chart_mcp.services.streaming import StreamingService
 from chart_mcp.utils.errors import BadRequest
 
 
+def _build_candidate(
+    kind: str,
+    price: float,
+    timestamps: list[int],
+    *,
+    window_start: int,
+    window_end: int,
+    merge_threshold: float = 0.0025,
+) -> LevelCandidate:
+    """Construct a :class:`LevelCandidate` with repeated touches."""
+    candidate = LevelCandidate(
+        kind=kind, window_start=window_start, window_end=window_end, merge_threshold=merge_threshold
+    )
+    for idx, ts in enumerate(timestamps):
+        candidate.add_touch(price, ts, idx)
+    return candidate
+
+
 class _StaticProvider(MarketDataProvider):
     """Provider returning deterministic OHLCV rows for cancellation tests."""
 
@@ -70,7 +88,14 @@ class _DummyLevels(LevelsService):
     """No-op levels detector returning an empty candidate list."""
 
     def detect_levels(  # type: ignore[override]
-        self, frame: pd.DataFrame, *, max_levels: int = 10
+        self,
+        frame: pd.DataFrame,
+        *,
+        max_levels: int = 10,
+        distance: int | None = None,
+        prominence: float | None = None,
+        merge_threshold: float = 0.0025,
+        min_touches: int = 2,
     ) -> list[LevelCandidate]:
         return []
 
@@ -87,10 +112,15 @@ class _RecordingLevels(LevelsService):
         frame: pd.DataFrame,
         *,
         max_levels: int = 10,
+        distance: int | None = None,
+        prominence: float | None = None,
+        merge_threshold: float = 0.0025,
+        min_touches: int = 2,
     ) -> list[LevelCandidate]:
         self.last_max_levels = max_levels
+        ranked = sorted(self._levels, key=lambda lvl: lvl.strength, reverse=True)
         # Return a copy so callers can mutate the result without affecting the fixture.
-        return list(self._levels[:max_levels])
+        return list(ranked[:max_levels])
 
 
 class _DummyPatterns(PatternsService):
@@ -307,13 +337,13 @@ async def test_stream_analysis_emits_metric_events_for_every_stage() -> None:
     metric_events = [data for event, data in events if event == "metric"]
 
     steps = [metric["payload"]["step"] for metric in metric_events]
-    assert steps == ["data", "indicators", "levels", "patterns", "summary"]
+    assert steps == ["ohlcv", "indicators", "levels", "patterns", "summary"]
     assert all(metric["payload"]["ms"] >= 0 for metric in metric_events)
 
 
 @pytest.mark.anyio
 async def test_stream_analysis_normalizes_symbol_in_events() -> None:
-    """Tool events should expose the normalized ``BASE/QUOTE`` symbol."""
+    """Stage metadata should expose the normalized ``BASE/QUOTE`` symbol."""
     frame = pd.DataFrame(
         {
             "ts": list(range(1, 6)),
@@ -337,10 +367,13 @@ async def test_stream_analysis_normalizes_symbol_in_events() -> None:
     await iterator.aclose()
 
     parsed = _parse_events(raw_events)
-    tool_events = [payload for event, payload in parsed if event == "tool_start"]
-    assert tool_events, "Expected at least one tool_start event"
-    tool_payload = tool_events[0]["payload"]
-    assert tool_payload["symbol"] == "BTC/USDT"
+    step_events = [payload for event, payload in parsed if event == "step:start"]
+    assert step_events, "Expected at least one step:start event"
+    ohlcv_event = next(
+        payload for payload in step_events if payload["payload"]["stage"] == "ohlcv"
+    )
+    metadata = ohlcv_event["payload"].get("metadata", {})
+    assert metadata["symbol"] == "BTC/USDT"
 
 
 @pytest.mark.anyio
@@ -385,12 +418,12 @@ async def test_stream_analysis_partial_event_exposes_progress_ratio() -> None:
     assert isinstance(steps, list) and steps, "Progress steps should be provided"
     status_map = {step["name"]: step["status"] for step in steps}
     progress_map = {step["name"]: step.get("progress") for step in steps}
-    assert status_map["data"] == "completed"
+    assert status_map["ohlcv"] == "completed"
     assert status_map["indicators"] == "completed"
     assert status_map["levels"] == "completed"
     assert status_map["patterns"] == "skipped"
     assert status_map["summary"] == "pending"
-    assert progress_map["data"] == pytest.approx(1.0)
+    assert progress_map["ohlcv"] == pytest.approx(1.0)
     assert progress_map["indicators"] == pytest.approx(1.0)
     assert progress_map["levels"] == pytest.approx(1.0)
     assert progress_map["patterns"] == pytest.approx(1.0)
@@ -457,9 +490,27 @@ async def test_stream_analysis_honours_max_levels_limit() -> None:
         }
     )
     levels_fixture = [
-        LevelCandidate(price=102.5, timestamps=list(range(1, 8)), kind="resistance"),
-        LevelCandidate(price=95.0, timestamps=list(range(10, 15)), kind="support"),
-        LevelCandidate(price=108.0, timestamps=list(range(20, 23)), kind="resistance"),
+        _build_candidate(
+            kind="resistance",
+            price=102.5,
+            timestamps=list(range(1, 8)),
+            window_start=1,
+            window_end=60,
+        ),
+        _build_candidate(
+            kind="support",
+            price=95.0,
+            timestamps=list(range(10, 15)),
+            window_start=1,
+            window_end=60,
+        ),
+        _build_candidate(
+            kind="resistance",
+            price=108.0,
+            timestamps=list(range(20, 23)),
+            window_start=1,
+            window_end=60,
+        ),
     ]
     levels_service = _RecordingLevels(levels_fixture)
     service = StreamingService(

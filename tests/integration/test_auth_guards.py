@@ -15,7 +15,7 @@ def test_regular_user_header_allows_market_access(client) -> None:  # noqa: ANN0
 
 
 def test_missing_user_type_header_is_rejected(test_app) -> None:  # noqa: ANN001
-    """Requests without ``X-User-Type`` should be forbidden despite a valid token."""
+    """Requests without ``X-Session-User`` should be forbidden despite a valid token."""
     with TestClient(test_app) as anonymous_client:
         anonymous_client.headers.update({"Authorization": "Bearer testingtoken"})
         response = anonymous_client.get(
@@ -34,7 +34,7 @@ def test_guest_user_is_blocked_from_data_routes(test_app) -> None:  # noqa: ANN0
         guest_client.headers.update(
             {
                 "Authorization": "Bearer testingtoken",
-                "X-User-Type": "guest",
+                "X-Session-User": "guest",
             }
         )
         response = guest_client.get(

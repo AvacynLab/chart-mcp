@@ -44,6 +44,12 @@ async function loadBundle(): Promise<string> {
  */
 export async function mountFinanceHarness(page: Page): Promise<void> {
   const script = await loadBundle();
+  // Encode the bundled script so the inline module cannot prematurely close the
+  // `<script>` tag when minified helpers contain the substring `</script>`. The
+  // replacement keeps the bundle intact while allowing us to inject the markup
+  // directly into the page.
+  const escapedScript = script.replace(/<\//g, "<\\/");
+
   const html = `<!DOCTYPE html>
     <html lang="fr">
       <head>
@@ -53,10 +59,14 @@ export async function mountFinanceHarness(page: Page): Promise<void> {
       </head>
       <body>
         <div id="root"></div>
-        <script type="module">${script}</script>
+        <script type="module">${escapedScript}</script>
       </body>
     </html>`;
 
-  await page.goto(`data:text/html,${encodeURIComponent(html)}`);
+  // Navigating to `data:` URLs can be flaky on Chromium inside CI, leading to
+  // spurious `net::ERR_ABORTED` errors. Using `page.setContent` avoids the
+  // additional navigation layer while still rendering the harness against the
+  // Playwright-controlled origin.
+  await page.setContent(html, { waitUntil: "load" });
 }
 

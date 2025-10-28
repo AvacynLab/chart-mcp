@@ -28,9 +28,15 @@ combine_as_imports = true
 [tool.ruff]
 line-length = 100
 src = ["src"]
-extend-select = ["B", "SIM", "I", "D"]
-ignore = ["D100", "D104", "D105", "D107"]
 exclude = ["tests/snapshots"]
+
+[tool.ruff.lint]
+# Enable additional plugins beyond the default Pyflakes/pycodestyle suite.
+# ``A`` activates flake8-builtins so redefining Python builtins surfaces lint
+# errors, matching the "no-redefined-builtin" requirement documented in the
+# backlog.
+extend-select = ["A", "B", "SIM", "I", "D"]
+ignore = ["D100", "D104", "D105", "D107"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["D103"]

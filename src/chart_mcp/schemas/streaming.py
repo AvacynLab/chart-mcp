@@ -12,7 +12,9 @@ from typing import Annotated, Any, Dict, List, Literal, Tuple, Union
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 EventType = Literal[
-    "tool",
+    "heartbeat",
+    "step:start",
+    "step:end",
     "token",
     "result_partial",
     "result_final",
@@ -40,24 +42,51 @@ class ProgressStep(BaseModel):
     )
 
 
-class ToolEventDetails(BaseModel):
-    """Describe a tool invocation happening within the streaming pipeline."""
+class HeartbeatDetails(BaseModel):
+    """Metadata attached to heartbeat events keeping the SSE channel alive."""
 
-    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    model_config = ConfigDict(extra="forbid")
 
-    tool: str = Field(..., min_length=1)
-    name: str | None = Field(default=None, min_length=1)
-    latest: Dict[str, float] | None = None
-    symbol: str | None = Field(default=None, min_length=3, max_length=20)
-    timeframe: str | None = Field(default=None, min_length=1)
-    rows: int | None = Field(default=None, ge=0)
+    ts: int = Field(..., description="Epoch timestamp in milliseconds when the ping was emitted.")
 
 
-class ToolStreamPayload(BaseModel):
-    """Envelope emitted when a MCP/REST tool starts or finishes."""
+class HeartbeatStreamPayload(BaseModel):
+    """Envelope emitted on a fixed cadence to prevent intermediaries from timing out."""
 
-    type: Literal["tool"]
-    payload: ToolEventDetails
+    type: Literal["heartbeat"]
+    payload: HeartbeatDetails
+
+
+class StepEventDetails(BaseModel):
+    """Structured description of a pipeline stage lifecycle event."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    stage: Literal["ohlcv", "indicators", "levels", "patterns", "summary"]
+    description: str | None = Field(default=None, min_length=1)
+    elapsed_ms: float | None = Field(
+        default=None,
+        ge=0.0,
+        description="Elapsed processing time for the stage in milliseconds.",
+    )
+    metadata: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Free-form diagnostic payload (e.g. rows fetched, indicator count).",
+    )
+
+
+class StepStartStreamPayload(BaseModel):
+    """Envelope published whenever a pipeline stage begins execution."""
+
+    type: Literal["step:start"]
+    payload: StepEventDetails
+
+
+class StepEndStreamPayload(BaseModel):
+    """Envelope published when a pipeline stage completes."""
+
+    type: Literal["step:end"]
+    payload: StepEventDetails
 
 
 class TokenPayload(BaseModel):
@@ -82,6 +111,7 @@ class LevelPreview(BaseModel):
 
     kind: str = Field(..., min_length=1)
     strength: float = Field(..., ge=0.0)
+    label: Literal["fort", "général"]
     price: float | None = None
 
 
@@ -200,7 +230,9 @@ class DoneStreamPayload(BaseModel):
 
 StreamPayload = Annotated[
     Union[
-        ToolStreamPayload,
+        HeartbeatStreamPayload,
+        StepStartStreamPayload,
+        StepEndStreamPayload,
         TokenStreamPayload,
         ResultPartialStreamPayload,
         ResultFinalStreamPayload,
@@ -223,8 +255,11 @@ class StreamEvent(BaseModel):
 
 __all__ = [
     "EventType",
-    "ToolEventDetails",
-    "ToolStreamPayload",
+    "HeartbeatDetails",
+    "HeartbeatStreamPayload",
+    "StepEventDetails",
+    "StepStartStreamPayload",
+    "StepEndStreamPayload",
     "TokenPayload",
     "TokenStreamPayload",
     "LevelPreview",

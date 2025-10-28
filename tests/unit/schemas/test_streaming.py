@@ -8,29 +8,44 @@ from pydantic import ValidationError
 from chart_mcp.schemas.streaming import (
     DoneStreamPayload,
     ErrorStreamPayload,
+    HeartbeatStreamPayload,
     ResultFinalStreamPayload,
     ResultPartialStreamPayload,
+    StepEndStreamPayload,
+    StepStartStreamPayload,
     StreamEvent,
     TokenStreamPayload,
-    ToolStreamPayload,
 )
 
 
-def test_tool_payload_accepts_optional_fields() -> None:
-    """Ensure the tool payload validates optional metadata while enforcing bounds."""
-    payload = ToolStreamPayload(
-        type="tool",
+def test_step_events_enforce_stage_vocabulary() -> None:
+    """Step events should constrain the stage names while accepting metadata."""
+    start = StepStartStreamPayload(
+        type="step:start",
         payload={
-            "tool": "compute_indicator",
-            "name": "sma",
-            "latest": {"value": 42.0},
-            "rows": 12,
+            "stage": "ohlcv",
+            "description": "Fetching OHLCV rows",
+        },
+    )
+    end = StepEndStreamPayload(
+        type="step:end",
+        payload={
+            "stage": "ohlcv",
+            "elapsed_ms": 12.5,
+            "metadata": {"rows": 500},
         },
     )
 
-    assert payload.type == "tool"
-    assert payload.payload.rows == 12
-    assert payload.payload.latest == {"value": 42.0}
+    assert start.payload.stage == "ohlcv"
+    assert end.payload.metadata == {"rows": 500}
+    assert end.payload.elapsed_ms == 12.5
+
+
+def test_heartbeat_payload_requires_timestamp() -> None:
+    """Heartbeat events must surface a monotonically increasing timestamp."""
+    payload = HeartbeatStreamPayload(type="heartbeat", payload={"ts": 1700000000000})
+
+    assert payload.payload.ts == 1700000000000
 
 
 def test_stream_event_roundtrip_serialises_payload() -> None:
@@ -40,7 +55,12 @@ def test_stream_event_roundtrip_serialises_payload() -> None:
         payload={
             "indicators": {"rsi": {"value": 55.5}},
             "levels": [
-                {"price": 123.4, "kind": "support", "strength": 0.5},
+                {
+                    "price": 123.4,
+                    "kind": "support",
+                    "strength": 0.5,
+                    "label": "fort",
+                },
             ],
         },
     )

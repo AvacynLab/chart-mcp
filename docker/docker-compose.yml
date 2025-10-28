@@ -1,0 +1,37 @@
+version: "3.9"
+
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    environment:
+      - API_TOKEN=
+      - EXCHANGE=binance
+      - ALLOWED_ORIGINS=
+      - LLM_PROVIDER=stub
+      - LLM_MODEL=heuristic-v1
+      - STREAM_HEARTBEAT_MS=5000
+      - LOG_LEVEL=INFO
+      - SEARXNG_BASE_URL=http://searxng:8080
+      - SEARXNG_TIMEOUT=10
+    ports:
+      - "8000:8000"
+    depends_on:
+      - searxng
+
+  searxng:
+    image: searxng/searxng:latest
+    environment:
+      - BASE_URL=http://localhost:8080
+      - SEARXNG_SECRET=change-me-in-prod
+      - UWSGI_WORKERS=2
+      - UWSGI_THREADS=2
+    volumes:
+      - searxng-data:/etc/searxng
+      - ./searxng/settings.yml:/etc/searxng/settings.yml:ro
+    ports:
+      - "8080:8080"
+
+volumes:
+  searxng-data:

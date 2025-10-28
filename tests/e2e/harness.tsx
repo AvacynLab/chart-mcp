@@ -6,7 +6,7 @@ import type { ChatArtifactBase } from "../../components/messages";
 import type {
   ChartArtifactResponse,
   ChartCandleDetails,
-} from "../../components/finance/finance-chart-artifact";
+} from "../../components/finance/ChartArtifact";
 import type { BacktestReportArtifactData } from "../../components/finance/backtest-report-artifact";
 import type {
   FundamentalsSnapshot,
@@ -209,6 +209,12 @@ function FinanceChatHarness(): JSX.Element {
     );
   }
 
+  if (!resolvedChart) {
+    return (
+      <div data-testid="harness-empty">Aucun graphique disponible pour cette session.</div>
+    );
+  }
+
   return (
     <main>
       <section data-testid="candle-controls" aria-label="Contrôles de sélection de bougie">
@@ -229,6 +235,18 @@ function FinanceChatHarness(): JSX.Element {
       </section>
 
       <Chat
+        /*
+         * Force a remount whenever the selected timestamp changes so the chat
+         * widget rehydrates its initial messages with the refreshed artefacts.
+         *
+         * The production chat keeps the finance artefact inside the assistant
+         * message payload. Because the component stores ``initialMessages`` in
+         * local state, updating the harness selection would otherwise leave the
+         * previous candle highlighted. Tying the React key to ``selectedTs``
+         * ensures Playwright observes the same behaviour as end users when they
+         * navigate between candles in the real application.
+         */
+        key={selectedTs ?? "initial"}
         initialMessages={[
           {
             id: "assistant-initial",

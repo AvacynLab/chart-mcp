@@ -1,0 +1,70 @@
+# Minimal SearxNG configuration tailored for the chart-mcp stack.
+use_default_settings: true
+
+instance_name: "chart-mcp searx"
+
+server:
+  base_url: http://searxng:8080/
+  bind_address: 0.0.0.0
+  port: 8080
+
+ui:
+  default_locale: fr
+  theme_args:
+    simple_style: true
+
+search:
+  safe_search: 0
+  language: fr
+  number_of_results: 30
+  default_categories:
+    - general
+    - news
+
+categories_as_tabs: true
+
+engines:
+  - name: gnews
+    engine: google_news
+    disabled: false
+  - name: duckduckgo_news
+    engine: duckduckgo_news
+    disabled: false
+  - name: reddit
+    engine: reddit
+    categories:
+      - news
+    disabled: false
+  - name: wikipedia
+    engine: wikipedia
+    languages:
+      - fr
+      - en
+    disabled: false
+  - name: github
+    engine: github
+    disabled: false
+  - name: stackoverflow
+    engine: stackoverflow
+    disabled: false
+  - name: coindesk
+    engine: rss
+    shortcut: cd
+    categories:
+      - news
+    disabled: false
+    config:
+      url: https://www.coindesk.com/arc/outboundfeeds/rss/
+  - name: cointelegraph
+    engine: rss
+    shortcut: ct
+    categories:
+      - news
+    disabled: false
+    config:
+      url: https://cointelegraph.com/rss
+
+outgoing:
+  request_timeout: 5.0
+  pool_connections: 100
+  pool_maxsize: 20

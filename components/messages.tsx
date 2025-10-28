@@ -5,14 +5,14 @@ import { Fragment, ReactNode, useEffect, useMemo, useState } from "react";
 import BacktestReportArtifact, {
   type BacktestReportArtifactData,
 } from "@components/finance/backtest-report-artifact";
-import FinanceChartArtifact, {
+import ChartArtifact, {
   type CandlestickSeriesApi,
   type ChartArtifactResponse,
   type ChartEventPayload,
-  type FinanceChartArtifactProps,
+  type ChartArtifactProps,
   type LineSeriesApi,
   type OverlaySeriesModel,
-} from "@components/finance/finance-chart-artifact";
+} from "@components/finance/ChartArtifact";
 import FundamentalsCard, {
   type FundamentalsSnapshot,
   type QuoteSnapshot,
@@ -114,10 +114,10 @@ function isChartArtifactData(data: unknown): data is ChartArtifactResponse {
 /**
  * Minimal chart factory used in unit/UI tests where the real charting library
  * is unavailable. The stub satisfies the imperative contract expected by
- * :component:`FinanceChartArtifact` without mutating the DOM beyond the
- * provided container element.
- */
-const createChartStub: FinanceChartArtifactProps["createChart"] = (container) => {
+ * :component:`ChartArtifact` without mutating the DOM beyond the provided
+ * container element.
+*/
+const createChartStub: ChartArtifactProps["createChart"] = (container) => {
   const overlaySeries = new Set<LineSeriesApi>();
 
   const candlestickSeries: CandlestickSeriesApi = {
@@ -243,7 +243,7 @@ function FinanceChartSection({ artifactId, title, payload }: FinanceChartSection
           })}
         </fieldset>
       ) : null}
-      <FinanceChartArtifact artifact={chartPayload} createChart={createChartStub} />
+      <ChartArtifact artifact={chartPayload} createChart={createChartStub} />
       {visibleOverlays.length > 0 ? (
         <ul data-testid="active-overlays" className="finance-chart__overlay-summary">
           {visibleOverlays.map((overlay) => (

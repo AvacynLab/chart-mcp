@@ -9,6 +9,8 @@ from chart_mcp.schemas.patterns import Pattern, PatternPoint, PatternsResponse
 from chart_mcp.services.data_providers.base import MarketDataProvider
 from chart_mcp.services.data_providers.ccxt_provider import normalize_symbol
 from chart_mcp.services.patterns import PatternsService
+from chart_mcp.utils.errors import BadRequest, UnprocessableEntity
+from chart_mcp.utils.logging import set_request_metadata
 from chart_mcp.utils.timeframes import parse_timeframe
 
 router = APIRouter(
@@ -23,7 +25,16 @@ def get_services(request: Request) -> tuple[MarketDataProvider, PatternsService]
     return request.app.state.provider, request.app.state.patterns_service
 
 
-@router.get("", response_model=PatternsResponse)
+@router.get(
+    "",
+    response_model=PatternsResponse,
+    summary="Detect chart patterns",
+    description=(
+        "Détecte les principales figures chartistes, y compris tête-épaules, triangles et"
+        " structures en chandeliers."
+    ),
+    response_description="Figures détectées avec score, confiance et points clefs.",
+)
 def list_patterns(
     symbol: str = Query(..., min_length=3, max_length=20),
     timeframe: str = Query(...),
@@ -32,7 +43,13 @@ def list_patterns(
 ) -> PatternsResponse:
     """Detect chart patterns for the provided symbol/timeframe."""
     provider, service = services
-    parse_timeframe(timeframe)
+    try:
+        # ``parse_timeframe`` normalises the alias and raises ``UnprocessableEntity``
+        # for unknown inputs. We convert that contract to a ``400`` so API clients
+        # receive the same classification as the other market/indicator routes.
+        parse_timeframe(timeframe)
+    except UnprocessableEntity as exc:
+        raise BadRequest(str(exc)) from exc
     normalized_symbol = normalize_symbol(symbol)
     frame = provider.get_ohlcv(normalized_symbol, timeframe, limit=limit)
     detected = service.detect(frame)
@@ -50,6 +67,7 @@ def list_patterns(
     # Comme pour les niveaux, expose l'exchange CCXT utilisé pour la détection.
     raw_source = getattr(getattr(provider, "client", None), "id", None)
     source = str(raw_source) if raw_source else "custom"
+    set_request_metadata(symbol=normalized_symbol, timeframe=timeframe)
     return PatternsResponse(
         symbol=normalized_symbol,
         timeframe=timeframe,

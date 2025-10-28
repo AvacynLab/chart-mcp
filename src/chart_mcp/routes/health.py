@@ -16,7 +16,12 @@ _router_start = time.time()
 router = APIRouter(tags=["health"])
 
 
-@router.get("/health")
+@router.get(
+    "/health",
+    summary="Report service health",
+    description="Expose l'état général du service, l'uptime et la configuration exchange.",
+    response_description="Statut courant du backend.",
+)
 def health() -> Dict[str, object]:
     """Return uptime, version and configured exchange."""
     uptime = time.time() - _router_start

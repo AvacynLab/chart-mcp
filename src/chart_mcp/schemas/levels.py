@@ -26,6 +26,7 @@ class Level(BaseModel):
     strength: float
     kind: Literal["support", "resistance"]
     ts_range: LevelRange
+    strength_label: Literal["fort", "général"]
 
 
 class LevelsResponse(BaseModel):
