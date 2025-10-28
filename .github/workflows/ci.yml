@@ -4,13 +4,8 @@
 name: CI
 
 on:
-  # Run on every push regardless of the branch. Leaving the filter empty keeps
-  # GitHub from silently skipping workflow execution due to pattern mismatches.
-  push:
-  # Validate all pull requests against the base branch defaults.
+  # Validate all pull requests regardless of the source branch.
   pull_request:
-  # Allow maintainers to trigger the workflow manually when needed.
-  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.ref }}
