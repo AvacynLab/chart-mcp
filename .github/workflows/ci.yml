@@ -144,6 +144,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: tests
+    env:
+      REGISTRY_URL: ${{ secrets.REGISTRY_URL }}
+      REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
+      REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
+      REGISTRY_IMAGE_NAME: ${{ secrets.IMAGE_NAME }}
     steps:
       - uses: actions/checkout@v4
       - name: Set up Docker Buildx
@@ -155,22 +160,22 @@ jobs:
           key: buildx-${{ runner.os }}-${{ github.sha }}
           restore-keys: |
             buildx-${{ runner.os }}-
-      - name: Log in to registry
-        if: ${{ secrets.REGISTRY_URL != '' && secrets.REGISTRY_USERNAME != '' && secrets.REGISTRY_PASSWORD != '' }}
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ secrets.REGISTRY_URL }}
-          username: ${{ secrets.REGISTRY_USERNAME }}
-          password: ${{ secrets.REGISTRY_PASSWORD }}
-      - name: Build Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: docker/Dockerfile
-          push: ${{ secrets.REGISTRY_URL != '' && secrets.REGISTRY_USERNAME != '' && secrets.REGISTRY_PASSWORD != '' && secrets.IMAGE_NAME != '' }}
-          tags: |
-            chart-mcp:${{ github.sha }}
-            ${{ secrets.REGISTRY_URL != '' && secrets.IMAGE_NAME != '' && format('{0}/{1}:{2}', secrets.REGISTRY_URL, secrets.IMAGE_NAME, github.sha) || '' }}
+        - name: Log in to registry
+          if: ${{ env.REGISTRY_URL != '' && env.REGISTRY_USERNAME != '' && env.REGISTRY_PASSWORD != '' }}
+          uses: docker/login-action@v3
+          with:
+            registry: ${{ env.REGISTRY_URL }}
+            username: ${{ env.REGISTRY_USERNAME }}
+            password: ${{ env.REGISTRY_PASSWORD }}
+        - name: Build Docker image
+          uses: docker/build-push-action@v5
+          with:
+            context: .
+            file: docker/Dockerfile
+            push: ${{ env.REGISTRY_URL != '' && env.REGISTRY_USERNAME != '' && env.REGISTRY_PASSWORD != '' && env.REGISTRY_IMAGE_NAME != '' }}
+            tags: |
+              chart-mcp:${{ github.sha }}
+              ${{ env.REGISTRY_URL != '' && env.REGISTRY_IMAGE_NAME != '' && format('{0}/{1}:{2}', env.REGISTRY_URL, env.REGISTRY_IMAGE_NAME, github.sha) || '' }}
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
       - name: Move Docker cache
