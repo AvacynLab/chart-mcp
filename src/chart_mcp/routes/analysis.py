@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import Annotated, Dict, List, Tuple, cast
 
 from fastapi import APIRouter, Depends, Request
-from typing_extensions import Literal
 
 from chart_mcp.routes.auth import require_regular_user, require_token
 from chart_mcp.schemas.analysis import (
@@ -109,7 +108,7 @@ def summary(
     level_models = (
         [
             Level(
-                kind=cast(Literal["support", "resistance"], lvl.kind),
+                kind=lvl.kind,
                 price=float(lvl.price),
                 strength=float(lvl.strength),
                 ts_range=LevelRange(

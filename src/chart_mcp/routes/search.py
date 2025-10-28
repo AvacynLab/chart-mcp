@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, List, cast
+from typing import Annotated, cast
 
 from fastapi import APIRouter, Depends, Query, Request
 
@@ -64,13 +64,15 @@ def search(
         raise BadRequest(str(exc)) from exc
     except UpstreamError:
         raise
-    response_items: List[search_schema.SearchResult] = [
-        search_schema.SearchResult(
-            title=item.title,
-            url=item.url,
-            snippet=item.snippet,
-            source=item.source,
-            score=item.score,
+    response_items = [
+        search_schema.SearchResult.model_validate(
+            {
+                "title": item.title,
+                "url": item.url,
+                "snippet": item.snippet,
+                "source": item.source,
+                "score": item.score,
+            }
         )
         for item in results
     ]
@@ -81,7 +83,7 @@ def search(
     )
 
 
-def _parse_categories(raw: str | None) -> List[str]:
+def _parse_categories(raw: str | None) -> list[str]:
     """Split and clean the comma-separated categories string."""
     if raw is None:
         return []
@@ -89,7 +91,7 @@ def _parse_categories(raw: str | None) -> List[str]:
     cleaned = [candidate.lower() for candidate in parts if candidate]
     # Preserve order while removing duplicates.
     seen: set[str] = set()
-    unique: List[str] = []
+    unique: list[str] = []
     for category in cleaned:
         if category not in seen:
             seen.add(category)

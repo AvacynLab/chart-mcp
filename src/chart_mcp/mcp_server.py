@@ -10,10 +10,12 @@ from chart_mcp.schemas.mcp import (
     MCPAnalysisResponse,
     MCPIndicatorRequest,
     MCPLevelPayload,
+    MCPLevelRange,
     MCPLevelsParams,
     MCPLevelsRequest,
     MCPOhlcvPoint,
     MCPPatternPayload,
+    MCPPatternPoint,
     MCPPatternsParams,
     MCPPatternsRequest,
     MCPWebSearchRequest,
@@ -145,11 +147,12 @@ def compute_indicator(
     limit: int = 500,
 ) -> List[Dict[str, float | int]]:
     """Compute a technical indicator and serialise the resulting series."""
+    numeric_params = {str(key): float(value) for key, value in params.items()} if params else {}
     request = MCPIndicatorRequest(
         symbol=symbol,
         timeframe=timeframe,
         indicator=indicator,
-        params=params or {},
+        params=numeric_params,
         limit=limit,
     )
     frame = _fetch_frame(request)
@@ -196,18 +199,31 @@ def identify_support_resistance(
         contract aligned with the REST API.
 
     """
-    request = MCPLevelsRequest(symbol=symbol, timeframe=timeframe, limit=limit, params=params)
+    params_model = MCPLevelsParams.model_validate(dict(params)) if params is not None else None
+    request = MCPLevelsRequest(
+        symbol=symbol,
+        timeframe=timeframe,
+        limit=limit,
+        params=params_model,
+    )
     frame = _fetch_frame(request)
     levels_service = _get_levels_service()
     params_obj = request.params or MCPLevelsParams()
-    detection_kwargs = {
-        "max_levels": params_obj.max_levels if params_obj.max_levels is not None else 10,
-        "distance": params_obj.distance,
-        "prominence": params_obj.prominence,
-        "merge_threshold": params_obj.merge_threshold or 0.0025,
-        "min_touches": params_obj.min_touches or 2,
-    }
-    levels = levels_service.detect_levels(frame, **detection_kwargs)
+    max_levels_value = params_obj.max_levels if params_obj.max_levels is not None else 10
+    distance_value = params_obj.distance
+    prominence_value = params_obj.prominence
+    merge_threshold_value = (
+        params_obj.merge_threshold if params_obj.merge_threshold is not None else 0.0025
+    )
+    min_touches_value = params_obj.min_touches if params_obj.min_touches is not None else 2
+    levels = levels_service.detect_levels(
+        frame,
+        max_levels=max_levels_value,
+        distance=distance_value,
+        prominence=prominence_value,
+        merge_threshold=merge_threshold_value,
+        min_touches=min_touches_value,
+    )
     sorted_levels = sorted(levels, key=lambda lvl: lvl.strength, reverse=True)
     if params_obj.max_levels is not None:
         sorted_levels = sorted_levels[: params_obj.max_levels]
@@ -218,7 +234,10 @@ def identify_support_resistance(
             strength=float(level.strength),
             strength_label=level.strength_label,
             kind=level.kind,
-            ts_range={"start_ts": int(level.ts_range[0]), "end_ts": int(level.ts_range[1])},
+            ts_range=MCPLevelRange(
+                start_ts=int(level.ts_range[0]),
+                end_ts=int(level.ts_range[1]),
+            ),
         )
         results.append(payload.model_dump())
     return results
@@ -247,7 +266,13 @@ def detect_chart_patterns(
         :class:`~chart_mcp.schemas.mcp.MCPPatternsRequest` before being applied.
 
     """
-    request = MCPPatternsRequest(symbol=symbol, timeframe=timeframe, limit=limit, params=params)
+    params_model = MCPPatternsParams.model_validate(dict(params)) if params is not None else None
+    request = MCPPatternsRequest(
+        symbol=symbol,
+        timeframe=timeframe,
+        limit=limit,
+        params=params_model,
+    )
     frame = _fetch_frame(request)
     patterns_service = _get_patterns_service()
     patterns = patterns_service.detect(frame)
@@ -264,7 +289,9 @@ def detect_chart_patterns(
             start_ts=int(pattern.start_ts),
             end_ts=int(pattern.end_ts),
             confidence=float(pattern.confidence),
-            points=[{"ts": int(ts), "price": float(price)} for ts, price in pattern.points],
+            points=[
+                MCPPatternPoint(ts=int(ts), price=float(price)) for ts, price in pattern.points
+            ],
             metadata=pattern.metadata,
         )
         serialized.append(payload.model_dump())
@@ -339,18 +366,34 @@ def generate_analysis_summary(
     levels_service = _get_levels_service()
     patterns_service = _get_patterns_service()
 
-    levels_params = request.levels_params
-    level_kwargs = {}
-    if levels_params is not None:
-        level_kwargs = {
-            "max_levels": levels_params.max_levels if levels_params.max_levels is not None else 10,
-            "distance": levels_params.distance,
-            "prominence": levels_params.prominence,
-            "merge_threshold": levels_params.merge_threshold or 0.0025,
-            "min_touches": levels_params.min_touches or 2,
-        }
-
-    levels = levels_service.detect_levels(frame, **level_kwargs) if request.include_levels else []
+    if request.include_levels:
+        levels_params = request.levels_params
+        levels_max = 10
+        levels_distance: int | None = None
+        levels_prominence: float | None = None
+        levels_merge_threshold = 0.0025
+        levels_min_touches = 2
+        if levels_params is not None:
+            if levels_params.max_levels is not None:
+                levels_max = levels_params.max_levels
+            if levels_params.distance is not None:
+                levels_distance = levels_params.distance
+            if levels_params.prominence is not None:
+                levels_prominence = levels_params.prominence
+            if levels_params.merge_threshold is not None:
+                levels_merge_threshold = levels_params.merge_threshold
+            if levels_params.min_touches is not None:
+                levels_min_touches = levels_params.min_touches
+        levels = levels_service.detect_levels(
+            frame,
+            max_levels=levels_max,
+            distance=levels_distance,
+            prominence=levels_prominence,
+            merge_threshold=levels_merge_threshold,
+            min_touches=levels_min_touches,
+        )
+    else:
+        levels = []
 
     patterns_params = request.patterns_params
     patterns = patterns_service.detect(frame) if request.include_patterns else []
@@ -381,9 +424,20 @@ def web_search(
     language: str = "fr",
 ) -> Dict[str, object]:
     """Proxy a search request to SearxNG and normalise the response."""
+    if categories is None:
+        categories_payload: list[str] = []
+    elif isinstance(categories, str):
+        categories_payload = [
+            candidate.strip() for candidate in categories.split(",") if candidate.strip()
+        ]
+    else:
+        categories_payload = [
+            str(candidate).strip() for candidate in categories if str(candidate).strip()
+        ]
+
     request = MCPWebSearchRequest(
         query=query,
-        categories=categories,
+        categories=categories_payload,
         time_range=time_range,
         language=language,
     )

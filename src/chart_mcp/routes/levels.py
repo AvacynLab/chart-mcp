@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Literal, cast
-
 from fastapi import APIRouter, Depends, Query, Request
 
 from chart_mcp.routes.auth import require_regular_user, require_token
@@ -94,7 +92,7 @@ def list_levels(
     )[:max_levels]
     levels = [
         Level(
-            kind=cast(Literal["support", "resistance"], candidate.kind),
+            kind=candidate.kind,
             price=float(candidate.price),
             strength=float(candidate.strength),
             strength_label=candidate.strength_label,
