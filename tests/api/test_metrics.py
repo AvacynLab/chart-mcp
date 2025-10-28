@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from prometheus_client import CONTENT_TYPE_LATEST  # type: ignore[import-not-found]
-
 from chart_mcp.services.metrics import metrics
+from prometheus_client import CONTENT_TYPE_LATEST  # type: ignore[import-not-found]
 
 
 def test_metrics_endpoint_exposes_counters(client) -> None:
