@@ -4,14 +4,11 @@
 name: CI
 
 on:
+  # Run on every push regardless of the branch. Leaving the filter empty keeps
+  # GitHub from silently skipping workflow execution due to pattern mismatches.
   push:
-    # Run on every branch so feature work is validated before opening a PR.
-    branches:
-      - '**'
+  # Validate all pull requests against the base branch defaults.
   pull_request:
-    # Keep PR checks available for any base branch (defaults to all).
-    branches:
-      - '**'
   # Allow maintainers to trigger the workflow manually when needed.
   workflow_dispatch:
 
