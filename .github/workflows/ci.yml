@@ -199,8 +199,13 @@ jobs:
       - name: Run container healthcheck
         env:
           API_TOKEN: testingtoken
+          ALLOWED_ORIGINS: http://localhost:3000
         run: |
-          docker run -d --rm -p 8000:8000 -e API_TOKEN="$API_TOKEN" --name chart-mcp-ci ${{ steps.image-meta.outputs.local-tag }}
+          docker run -d --rm -p 8000:8000 \
+            -e API_TOKEN="$API_TOKEN" \
+            -e ALLOWED_ORIGINS="$ALLOWED_ORIGINS" \
+            --name chart-mcp-ci \
+            ${{ steps.image-meta.outputs.local-tag }}
           trap 'docker stop chart-mcp-ci' EXIT
           python docker/healthcheck.py
 
