@@ -18,7 +18,9 @@ from chart_mcp.schemas.patterns import Pattern
 class RequestedIndicator(BaseModel):
     """Indicator requested by the client for inclusion in analysis."""
 
-    name: str = Field(..., min_length=2, max_length=48, description="Indicator identifier (ema, rsi, ...).")
+    name: str = Field(
+        ..., min_length=2, max_length=48, description="Indicator identifier (ema, rsi, ...)."
+    )
     params: Dict[str, float] = Field(
         default_factory=dict,
         description="Optional parameter mapping forwarded to the indicator service.",
@@ -41,13 +43,19 @@ class RequestedIndicator(BaseModel):
 class AnalysisRequest(BaseModel):
     """Full analysis request payload."""
 
-    symbol: str = Field(..., min_length=3, max_length=20, description="Symbol to analyse (case-insensitive).")
-    timeframe: str = Field(..., min_length=2, max_length=6, description="Timeframe identifier for OHLCV candles.")
+    symbol: str = Field(
+        ..., min_length=3, max_length=20, description="Symbol to analyse (case-insensitive)."
+    )
+    timeframe: str = Field(
+        ..., min_length=2, max_length=6, description="Timeframe identifier for OHLCV candles."
+    )
     indicators: List[RequestedIndicator] = Field(
         default_factory=list,
         description="Optional set of indicators to compute alongside the analysis.",
     )
-    include_levels: bool = Field(True, description="Request detection of support/resistance levels.")
+    include_levels: bool = Field(
+        True, description="Request detection of support/resistance levels."
+    )
     include_patterns: bool = Field(True, description="Request detection of chart patterns.")
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
@@ -67,7 +75,9 @@ class AnalysisRequest(BaseModel):
 class IndicatorSnapshot(BaseModel):
     """Key indicator values summarised for the analysis response."""
 
-    name: str = Field(..., min_length=2, max_length=48, description="Indicator identifier exposed to clients.")
+    name: str = Field(
+        ..., min_length=2, max_length=48, description="Indicator identifier exposed to clients."
+    )
     latest: Dict[str, float] = Field(
         ..., description="Mapping containing the most recent indicator highlights."
     )
@@ -89,8 +99,12 @@ class IndicatorSnapshot(BaseModel):
 class AnalysisResponse(BaseModel):
     """Full analysis output payload."""
 
-    symbol: str = Field(..., min_length=3, max_length=20, description="Analysed trading symbol (uppercase).")
-    timeframe: str = Field(..., min_length=2, max_length=6, description="Timeframe used to generate the analysis.")
+    symbol: str = Field(
+        ..., min_length=3, max_length=20, description="Analysed trading symbol (uppercase)."
+    )
+    timeframe: str = Field(
+        ..., min_length=2, max_length=6, description="Timeframe used to generate the analysis."
+    )
     indicators: List[IndicatorSnapshot] = Field(
         ..., description="Indicator highlights surfaced to the client."
     )

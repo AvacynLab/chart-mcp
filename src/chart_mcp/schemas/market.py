@@ -15,7 +15,9 @@ class OhlcvRow(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    ts: int = Field(..., ge=0, description="Candle open timestamp expressed in seconds since epoch.")
+    ts: int = Field(
+        ..., ge=0, description="Candle open timestamp expressed in seconds since epoch."
+    )
     o: float = Field(..., description="Opening price for the candle.")
     h: float = Field(..., description="Highest traded price during the candle.")
     l: float = Field(..., description="Lowest traded price during the candle.")  # noqa: E741
@@ -53,9 +55,15 @@ class MarketDataResponse(BaseModel):
 
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
-    symbol: str = Field(..., min_length=3, max_length=20, description="Symbol requested by the client (uppercase).")
-    timeframe: str = Field(..., min_length=2, max_length=6, description="Timeframe used to aggregate the candles.")
-    source: str = Field(..., description="Identifier of the upstream exchange or market data provider.")
+    symbol: str = Field(
+        ..., min_length=3, max_length=20, description="Symbol requested by the client (uppercase)."
+    )
+    timeframe: str = Field(
+        ..., min_length=2, max_length=6, description="Timeframe used to aggregate the candles."
+    )
+    source: str = Field(
+        ..., description="Identifier of the upstream exchange or market data provider."
+    )
     rows: List[OhlcvRow] = Field(..., description="Chronologically ordered candle records.")
     fetched_at: datetime = Field(
         default_factory=datetime.utcnow,
@@ -74,10 +82,16 @@ class OhlcvQuery(BaseModel):
 
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
-    symbol: str = Field(..., min_length=3, max_length=20, description="Symbol requested (case-insensitive).")
-    timeframe: str = Field(..., min_length=2, max_length=6, description="Timeframe identifier such as 1m/1h/1d.")
+    symbol: str = Field(
+        ..., min_length=3, max_length=20, description="Symbol requested (case-insensitive)."
+    )
+    timeframe: str = Field(
+        ..., min_length=2, max_length=6, description="Timeframe identifier such as 1m/1h/1d."
+    )
     limit: int = Field(500, ge=1, le=5000, description="Maximum number of candles to retrieve.")
-    start: int | None = Field(None, ge=0, description="Optional inclusive start timestamp (seconds).")
+    start: int | None = Field(
+        None, ge=0, description="Optional inclusive start timestamp (seconds)."
+    )
     end: int | None = Field(None, ge=0, description="Optional exclusive end timestamp (seconds).")
     range: DatetimeRange | None = Field(
         None,

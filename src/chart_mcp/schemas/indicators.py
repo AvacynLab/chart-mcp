@@ -22,14 +22,25 @@ class IndicatorRequest(BaseModel):
 
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
-    symbol: str = Field(..., min_length=3, max_length=25, description="Trading pair requested for the indicator.")
-    timeframe: str = Field(..., min_length=2, max_length=6, description="Timeframe associated with the OHLCV series.")
-    indicator: str = Field(..., min_length=2, max_length=48, description="Canonical indicator identifier (ema, rsi...).")
+    symbol: str = Field(
+        ..., min_length=3, max_length=25, description="Trading pair requested for the indicator."
+    )
+    timeframe: str = Field(
+        ..., min_length=2, max_length=6, description="Timeframe associated with the OHLCV series."
+    )
+    indicator: str = Field(
+        ...,
+        min_length=2,
+        max_length=48,
+        description="Canonical indicator identifier (ema, rsi...).",
+    )
     params: Dict[str, float] = Field(
         default_factory=dict,
         description="Optional numeric parameters forwarded to the indicator implementation.",
     )
-    limit: int = Field(500, ge=50, le=2000, description="Maximum number of OHLCV rows to sample from the provider.")
+    limit: int = Field(
+        500, ge=50, le=2000, description="Maximum number of OHLCV rows to sample from the provider."
+    )
 
     @field_validator("symbol")
     @classmethod
@@ -60,7 +71,9 @@ class IndicatorValue(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    ts: int = Field(..., ge=0, description="Timestamp in seconds associated with the indicator value.")
+    ts: int = Field(
+        ..., ge=0, description="Timestamp in seconds associated with the indicator value."
+    )
     values: Dict[str, float] = Field(
         ..., description="Mapping between indicator output labels and their float values."
     )
@@ -77,9 +90,15 @@ class IndicatorMeta(BaseModel):
 
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
-    symbol: str = Field(..., min_length=3, max_length=25, description="Symbol used to fetch OHLCV candles.")
-    timeframe: str = Field(..., min_length=2, max_length=6, description="Timeframe that generated the candle series.")
-    indicator: str = Field(..., min_length=2, max_length=48, description="Canonical indicator identifier.")
+    symbol: str = Field(
+        ..., min_length=3, max_length=25, description="Symbol used to fetch OHLCV candles."
+    )
+    timeframe: str = Field(
+        ..., min_length=2, max_length=6, description="Timeframe that generated the candle series."
+    )
+    indicator: str = Field(
+        ..., min_length=2, max_length=48, description="Canonical indicator identifier."
+    )
     params: Dict[str, float] = Field(
         default_factory=dict,
         description="Effective parameter set applied during computation.",

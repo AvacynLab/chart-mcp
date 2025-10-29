@@ -13,7 +13,9 @@ class LevelRange(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    start_ts: int = Field(..., ge=0, description="Inclusive timestamp of the first touch (seconds).")
+    start_ts: int = Field(
+        ..., ge=0, description="Inclusive timestamp of the first touch (seconds)."
+    )
     end_ts: int = Field(..., ge=0, description="Inclusive timestamp of the last touch (seconds).")
 
 
@@ -32,7 +34,9 @@ class Level(BaseModel):
     kind: Literal["support", "resistance"] = Field(
         ..., description="Indicates whether the level acts as support or resistance."
     )
-    ts_range: LevelRange = Field(..., description="Timestamp interval covering the touches considered.")
+    ts_range: LevelRange = Field(
+        ..., description="Timestamp interval covering the touches considered."
+    )
     strength_label: Literal["fort", "général"] = Field(
         ..., description="Human-readable label derived from the strength score."
     )
@@ -43,10 +47,16 @@ class LevelsResponse(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    symbol: str = Field(..., min_length=3, max_length=20, description="Symbol analysed for the levels detection.")
-    timeframe: str = Field(..., min_length=2, max_length=6, description="Timeframe used to compute the levels.")
+    symbol: str = Field(
+        ..., min_length=3, max_length=20, description="Symbol analysed for the levels detection."
+    )
+    timeframe: str = Field(
+        ..., min_length=2, max_length=6, description="Timeframe used to compute the levels."
+    )
     source: str = Field(..., description="Exchange identifier from which candles were fetched.")
-    levels: List[Level] = Field(..., description="Detected support/resistance levels sorted by strength.")
+    levels: List[Level] = Field(
+        ..., description="Detected support/resistance levels sorted by strength."
+    )
 
 
 __all__ = ["LevelRange", "Level", "LevelsResponse"]

@@ -134,7 +134,9 @@ class StreamingService:
         self.finance_service = finance_service or FinanceDataService()
 
     @staticmethod
-    def _build_overlay_requests(indicator_specs: Iterable[Dict[str, object]]) -> List[OverlayRequest]:
+    def _build_overlay_requests(
+        indicator_specs: Iterable[Dict[str, object]],
+    ) -> List[OverlayRequest]:
         """Translate indicator specifications into overlay descriptors."""
         overlays: List[OverlayRequest] = []
         for spec in indicator_specs:
@@ -156,13 +158,22 @@ class StreamingService:
         return overlays
 
     @staticmethod
-    def _overlay_payloads(series_list: Iterable[OverlaySeriesSnapshot]) -> List[OverlaySeriesPayload]:
+    def _overlay_payloads(
+        series_list: Iterable[OverlaySeriesSnapshot],
+    ) -> List[OverlaySeriesPayload]:
         """Convert overlay snapshots into stream payload models."""
         payloads: List[OverlaySeriesPayload] = []
         for series in series_list:
-            points = [OverlayPointPayload(ts=point.ts, value=point.value) for point in series.points]
+            points = [
+                OverlayPointPayload(ts=point.ts, value=point.value) for point in series.points
+            ]
             payloads.append(
-                OverlaySeriesPayload(identifier=series.identifier, kind=series.kind, window=series.window, points=points)
+                OverlaySeriesPayload(
+                    identifier=series.identifier,
+                    kind=series.kind,
+                    window=series.window,
+                    points=points,
+                )
             )
         return payloads
 
@@ -219,14 +230,19 @@ class StreamingService:
         await streamer.publish("ohlcv", ohlcv_payload.model_dump(by_alias=True))
 
         if summary.range is not None:
-            range_payload = RangeStreamPayload(type="range", payload=cls._range_payload(summary.range))
+            range_payload = RangeStreamPayload(
+                type="range", payload=cls._range_payload(summary.range)
+            )
             await streamer.publish("range", range_payload.model_dump(by_alias=True))
 
         if summary.details:
             selected_snapshot = summary.selected or summary.details[-1]
             selected_payload = {
                 "selected": cls._candle_payload(selected_snapshot).model_dump(by_alias=True),
-                "details": [cls._candle_payload(detail).model_dump(by_alias=True) for detail in summary.details],
+                "details": [
+                    cls._candle_payload(detail).model_dump(by_alias=True)
+                    for detail in summary.details
+                ],
             }
             await streamer.publish(
                 "selected",
@@ -365,8 +381,11 @@ class StreamingService:
                     chart_summary = self.finance_service.build_chart_artifact(
                         rows,
                         overlays=overlay_requests,
+                        skip_overlay_errors=True,
                     )
-                    await self._publish_chart_basics(streamer, normalized_symbol, timeframe, rows, chart_summary)
+                    await self._publish_chart_basics(
+                        streamer, normalized_symbol, timeframe, rows, chart_summary
+                    )
                     overlay_payloads = self._overlay_payloads(chart_summary.overlays)
                     stages["ohlcv"].mark_completed()
                     elapsed_data = time.perf_counter() - start_data
@@ -514,7 +533,9 @@ class StreamingService:
                 ]
                 await streamer.publish(
                     "levels",
-                    LevelsStreamPayload(type="levels", payload={"levels": level_models}).model_dump(by_alias=True),
+                    LevelsStreamPayload(type="levels", payload={"levels": level_models}).model_dump(
+                        by_alias=True
+                    ),
                 )
 
                 patterns: List[PatternResult] = []
@@ -585,7 +606,9 @@ class StreamingService:
                 ]
                 await streamer.publish(
                     "patterns",
-                    PatternsStreamPayload(type="patterns", payload={"patterns": pattern_models}).model_dump(by_alias=True),
+                    PatternsStreamPayload(
+                        type="patterns", payload={"patterns": pattern_models}
+                    ).model_dump(by_alias=True),
                 )
                 progress, step_snapshots = _progress_snapshot()
                 await streamer.publish(
