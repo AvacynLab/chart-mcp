@@ -1,21 +1,22 @@
-"""Schemas describing the Server-Sent Events payloads.
-
-These models are consumed both by the FastAPI streaming route and by the test
-suite.  They enforce non-empty textual tokens, non-negative metrics and expose
-typed envelopes so frontend and MCP clients receive predictable structures.
-"""
-
 from __future__ import annotations
 
 from typing import Annotated, Any, Dict, List, Literal, Tuple, Union
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from chart_mcp.schemas.market import OhlcvRow
+
 EventType = Literal[
     "heartbeat",
+    "ohlcv",
+    "range",
+    "selected",
     "step:start",
     "step:end",
     "token",
+    "indicators",
+    "levels",
+    "patterns",
     "result_partial",
     "result_final",
     "metric",
@@ -55,6 +56,89 @@ class HeartbeatStreamPayload(BaseModel):
 
     type: Literal["heartbeat"]
     payload: HeartbeatDetails
+
+
+class OhlcvRowPayload(BaseModel):
+    """Single OHLCV row streamed to initialise the finance chart."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    ts: int
+    open: float
+    high: float
+    low: float
+    close: float
+    volume: float
+
+    @classmethod
+    def from_ohlcv(cls, row: OhlcvRow) -> "OhlcvRowPayload":
+        """Build a payload from a canonical :class:`~chart_mcp.schemas.market.OhlcvRow`."""
+        return cls(ts=row.ts, open=row.o, high=row.h, low=row.l, close=row.c, volume=row.v)
+
+
+class OhlcvStreamDetails(BaseModel):
+    """Bundle the OHLCV series metadata expected by the front-end artifact."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    symbol: str
+    timeframe: str
+    rows: List[OhlcvRowPayload]
+
+
+class OhlcvStreamPayload(BaseModel):
+    """Envelope emitted once the OHLCV dataset is available."""
+
+    type: Literal["ohlcv"]
+    payload: OhlcvStreamDetails
+
+
+class ChartRangePayload(BaseModel):
+    """Aggregate boundaries for the rendered window."""
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    first_ts: int = Field(..., alias="firstTs")
+    last_ts: int = Field(..., alias="lastTs")
+    high: float
+    low: float
+    total_volume: float = Field(..., alias="totalVolume")
+
+
+class RangeStreamPayload(BaseModel):
+    """Envelope describing the aggregated OHLCV range."""
+
+    type: Literal["range"]
+    payload: ChartRangePayload
+
+
+class ChartCandlePayload(BaseModel):
+    """Detailed analytics for a single candle used by the chart artifact."""
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    ts: int
+    open: float
+    high: float
+    low: float
+    close: float
+    volume: float
+    previous_close: float = Field(..., alias="previousClose")
+    change_abs: float = Field(..., alias="changeAbs")
+    change_pct: float = Field(..., alias="changePct")
+    trading_range: float = Field(..., alias="range")
+    body: float
+    body_pct: float = Field(..., alias="bodyPct")
+    upper_wick: float = Field(..., alias="upperWick")
+    lower_wick: float = Field(..., alias="lowerWick")
+    direction: Literal["bullish", "bearish", "neutral"]
+
+
+class SelectedStreamPayload(BaseModel):
+    """Envelope streaming the currently selected candle and metadata."""
+
+    type: Literal["selected"]
+    payload: Dict[str, Any]
 
 
 class StepEventDetails(BaseModel):
@@ -104,6 +188,42 @@ class TokenStreamPayload(BaseModel):
     payload: TokenPayload
 
 
+class OverlayPointPayload(BaseModel):
+    """Single point composing a streamed overlay series."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    ts: int
+    value: float | None
+
+
+class OverlaySeriesPayload(BaseModel):
+    """Overlay series descriptor matching the finance artifact contract."""
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    identifier: str = Field(..., alias="id")
+    kind: Literal["sma", "ema"] = Field(..., alias="type")
+    window: int
+    points: List[OverlayPointPayload]
+
+
+class IndicatorsStreamDetails(BaseModel):
+    """Combine overlay descriptors and latest indicator values."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    latest: Dict[str, Dict[str, float]]
+    overlays: List[OverlaySeriesPayload]
+
+
+class IndicatorsStreamPayload(BaseModel):
+    """Envelope emitted when indicator computations complete."""
+
+    type: Literal["indicators"]
+    payload: IndicatorsStreamDetails
+
+
 class LevelPreview(BaseModel):
     """Compact snapshot of a detected level for partial updates."""
 
@@ -133,6 +253,25 @@ class ResultPartialStreamPayload(BaseModel):
     payload: ResultPartialDetails
 
 
+class LevelStreamModel(BaseModel):
+    """Level representation streamed to the finance artifact."""
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    price: float | None
+    kind: str
+    strength: float
+    label: str
+    ts_range: Tuple[int, int] = Field(..., alias="tsRange")
+
+
+class LevelsStreamPayload(BaseModel):
+    """Envelope containing the detected support/resistance levels."""
+
+    type: Literal["levels"]
+    payload: Dict[str, List[LevelStreamModel]]
+
+
 class LevelDetail(LevelPreview):
     """Full description of a level used in final payloads."""
 
@@ -152,6 +291,27 @@ class PatternDetail(BaseModel):
     end_ts: int
     points: List[Tuple[int, float]] = Field(default_factory=list)
     confidence: float = Field(..., ge=0.0)
+
+
+class PatternStreamModel(BaseModel):
+    """Pattern metadata aligned with the finance artifact contract."""
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    name: str
+    score: float
+    confidence: float
+    start_ts: int = Field(..., alias="startTs")
+    end_ts: int = Field(..., alias="endTs")
+    points: List[Tuple[int, float]] = Field(default_factory=list)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+
+class PatternsStreamPayload(BaseModel):
+    """Envelope containing detected chart patterns."""
+
+    type: Literal["patterns"]
+    payload: Dict[str, List[PatternStreamModel]]
 
 
 class ResultFinalDetails(BaseModel):
@@ -231,9 +391,15 @@ class DoneStreamPayload(BaseModel):
 StreamPayload = Annotated[
     Union[
         HeartbeatStreamPayload,
+        OhlcvStreamPayload,
+        RangeStreamPayload,
+        SelectedStreamPayload,
         StepStartStreamPayload,
         StepEndStreamPayload,
         TokenStreamPayload,
+        IndicatorsStreamPayload,
+        LevelsStreamPayload,
+        PatternsStreamPayload,
         ResultPartialStreamPayload,
         ResultFinalStreamPayload,
         MetricStreamPayload,
@@ -257,17 +423,32 @@ __all__ = [
     "EventType",
     "HeartbeatDetails",
     "HeartbeatStreamPayload",
+    "OhlcvRowPayload",
+    "OhlcvStreamDetails",
+    "OhlcvStreamPayload",
+    "ChartRangePayload",
+    "RangeStreamPayload",
+    "ChartCandlePayload",
+    "SelectedStreamPayload",
     "StepEventDetails",
     "StepStartStreamPayload",
     "StepEndStreamPayload",
     "TokenPayload",
     "TokenStreamPayload",
+    "OverlayPointPayload",
+    "OverlaySeriesPayload",
+    "IndicatorsStreamDetails",
+    "IndicatorsStreamPayload",
     "LevelPreview",
     "ProgressStep",
     "ResultPartialDetails",
     "ResultPartialStreamPayload",
+    "LevelStreamModel",
+    "LevelsStreamPayload",
     "LevelDetail",
     "PatternDetail",
+    "PatternStreamModel",
+    "PatternsStreamPayload",
     "ResultFinalDetails",
     "ResultFinalStreamPayload",
     "MetricDetails",

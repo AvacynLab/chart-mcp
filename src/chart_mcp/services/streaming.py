@@ -7,25 +7,41 @@ import contextlib
 import time
 from dataclasses import dataclass
 from enum import Enum
-from typing import AsyncIterator, Dict, Iterable, List, Mapping, SupportsFloat, cast
+from typing import AsyncIterator, Dict, Iterable, List, Literal, Mapping, SupportsFloat, cast
 
 from loguru import logger
 
+from chart_mcp.schemas.market import OhlcvRow
 from chart_mcp.schemas.streaming import (
+    ChartCandlePayload,
+    ChartRangePayload,
     DoneDetails,
     DoneStreamPayload,
     ErrorDetails,
     ErrorStreamPayload,
+    IndicatorsStreamDetails,
+    IndicatorsStreamPayload,
     LevelDetail,
     LevelPreview,
+    LevelsStreamPayload,
+    LevelStreamModel,
     MetricDetails,
     MetricStreamPayload,
+    OhlcvRowPayload,
+    OhlcvStreamDetails,
+    OhlcvStreamPayload,
+    OverlayPointPayload,
+    OverlaySeriesPayload,
     PatternDetail,
+    PatternsStreamPayload,
+    PatternStreamModel,
     ProgressStep,
+    RangeStreamPayload,
     ResultFinalDetails,
     ResultFinalStreamPayload,
     ResultPartialDetails,
     ResultPartialStreamPayload,
+    SelectedStreamPayload,
     StepEndStreamPayload,
     StepEventDetails,
     StepStartStreamPayload,
@@ -35,10 +51,19 @@ from chart_mcp.schemas.streaming import (
 from chart_mcp.services.analysis_llm import AnalysisLLMService, AnalysisSummary
 from chart_mcp.services.data_providers.base import MarketDataProvider
 from chart_mcp.services.data_providers.ccxt_provider import normalize_symbol
+from chart_mcp.services.finance import (
+    ChartArtifactSummary,
+    ChartCandleSnapshot,
+    ChartRangeSnapshot,
+    FinanceDataService,
+    OverlayRequest,
+    OverlaySeriesSnapshot,
+)
 from chart_mcp.services.indicators import IndicatorService
 from chart_mcp.services.levels import LevelCandidate, LevelsService
 from chart_mcp.services.metrics import metrics
 from chart_mcp.services.patterns import PatternResult, PatternsService
+from chart_mcp.utils.data_adapter import normalize_ohlcv_frame
 from chart_mcp.utils.errors import ApiError, BadRequest
 from chart_mcp.utils.logging import log_stage, set_request_metadata
 from chart_mcp.utils.sse import SseStreamer
@@ -95,12 +120,142 @@ class StreamingService:
         levels_service: LevelsService,
         patterns_service: PatternsService,
         analysis_service: AnalysisLLMService,
+        *,
+        finance_service: FinanceDataService | None = None,
     ) -> None:
         self.provider = provider
         self.indicator_service = indicator_service
         self.levels_service = levels_service
         self.patterns_service = patterns_service
         self.analysis_service = analysis_service
+        # The finance service synthesises chart artefacts (range, overlays,
+        # candle analytics) so the SSE layer can stay thin while emitting the
+        # structure expected by the front-end component.
+        self.finance_service = finance_service or FinanceDataService()
+
+    @staticmethod
+    def _build_overlay_requests(
+        indicator_specs: Iterable[Dict[str, object]],
+    ) -> List[OverlayRequest]:
+        """Translate indicator specifications into overlay descriptors."""
+        overlays: List[OverlayRequest] = []
+        for spec in indicator_specs:
+            name_raw = spec.get("name")
+            params_raw = spec.get("params")
+            name = str(name_raw).lower().strip() if name_raw is not None else ""
+            if name not in {"ema", "sma"}:
+                continue
+
+            params: Mapping[str, object] = params_raw if isinstance(params_raw, Mapping) else {}
+            window_raw = params.get("window")
+            window: int | None
+            if isinstance(window_raw, (int, float)):
+                window = int(window_raw)
+            elif isinstance(window_raw, str):
+                try:
+                    window = int(float(window_raw))
+                except ValueError:
+                    window = None
+            else:
+                window = None
+            if window is None or window <= 0:
+                continue
+            identifier = f"{name}-{window}"
+            kind_literal = cast(Literal["sma", "ema"], name)
+            overlays.append(OverlayRequest(identifier=identifier, kind=kind_literal, window=window))
+        return overlays
+
+    @staticmethod
+    def _overlay_payloads(
+        series_list: Iterable[OverlaySeriesSnapshot],
+    ) -> List[OverlaySeriesPayload]:
+        """Convert overlay snapshots into stream payload models."""
+        payloads: List[OverlaySeriesPayload] = []
+        for series in series_list:
+            points = [
+                OverlayPointPayload(ts=point.ts, value=point.value) for point in series.points
+            ]
+            payloads.append(
+                OverlaySeriesPayload(
+                    id=series.identifier,
+                    type=series.kind,
+                    window=series.window,
+                    points=points,
+                )
+            )
+        return payloads
+
+    @staticmethod
+    def _candle_payload(snapshot: ChartCandleSnapshot) -> ChartCandlePayload:
+        """Convert a chart candle snapshot to the streaming schema."""
+        return ChartCandlePayload(
+            ts=snapshot.ts,
+            open=snapshot.open,
+            high=snapshot.high,
+            low=snapshot.low,
+            close=snapshot.close,
+            volume=snapshot.volume,
+            previousClose=snapshot.previous_close,
+            changeAbs=snapshot.change_abs,
+            changePct=snapshot.change_pct,
+            range=snapshot.trading_range,
+            body=snapshot.body,
+            bodyPct=snapshot.body_pct,
+            upperWick=snapshot.upper_wick,
+            lowerWick=snapshot.lower_wick,
+            direction=snapshot.direction,
+        )
+
+    @staticmethod
+    def _range_payload(summary_range: ChartRangeSnapshot) -> ChartRangePayload:
+        """Convert a chart range snapshot to its streaming representation."""
+        return ChartRangePayload(
+            firstTs=summary_range.first_ts,
+            lastTs=summary_range.last_ts,
+            high=summary_range.high,
+            low=summary_range.low,
+            totalVolume=summary_range.total_volume,
+        )
+
+    @classmethod
+    async def _publish_chart_basics(
+        cls,
+        streamer: SseStreamer,
+        symbol: str,
+        timeframe: str,
+        rows: List[OhlcvRow],
+        summary: ChartArtifactSummary,
+    ) -> None:
+        """Emit the foundational OHLCV, range and candle detail events."""
+        ohlcv_payload = OhlcvStreamPayload(
+            type="ohlcv",
+            payload=OhlcvStreamDetails(
+                symbol=symbol,
+                timeframe=timeframe,
+                rows=[OhlcvRowPayload.from_ohlcv(row) for row in rows],
+            ),
+        )
+        await streamer.publish("ohlcv", ohlcv_payload.model_dump(by_alias=True))
+
+        if summary.range is not None:
+            range_payload = RangeStreamPayload(
+                type="range", payload=cls._range_payload(summary.range)
+            )
+            await streamer.publish("range", range_payload.model_dump(by_alias=True))
+
+        if summary.details:
+            selected_snapshot = summary.selected or summary.details[-1]
+            selected_payload = {
+                "selected": cls._candle_payload(selected_snapshot).model_dump(by_alias=True),
+                "details": [
+                    cls._candle_payload(detail).model_dump(by_alias=True)
+                    for detail in summary.details
+                ],
+            }
+            await streamer.publish(
+                "selected",
+                SelectedStreamPayload(type="selected", payload=selected_payload).model_dump(),
+            )
 
     async def stream_analysis(
         self,
@@ -206,6 +361,7 @@ class StreamingService:
 
         async def _run_pipeline() -> None:
             """Execute the streaming pipeline while guarding against crashes."""
+            overlay_payloads: List[OverlaySeriesPayload] = []
             try:
                 with log_stage("ohlcv"):
                     await streamer.publish(
@@ -228,6 +384,17 @@ class StreamingService:
                     frame = await asyncio.to_thread(
                         self.provider.get_ohlcv, normalized_symbol, timeframe, limit=limit
                     )
+                    rows = normalize_ohlcv_frame(frame)
+                    overlay_requests = self._build_overlay_requests(indicator_specs)
+                    chart_summary = self.finance_service.build_chart_artifact(
+                        rows,
+                        overlays=overlay_requests,
+                        skip_overlay_errors=True,
+                    )
+                    await self._publish_chart_basics(
+                        streamer, normalized_symbol, timeframe, rows, chart_summary
+                    )
+                    overlay_payloads = self._overlay_payloads(chart_summary.overlays)
                     stages["ohlcv"].mark_completed()
                     elapsed_data = time.perf_counter() - start_data
                     await _publish_metric("ohlcv", elapsed_data)
@@ -293,6 +460,17 @@ class StreamingService:
                             ),
                         ).model_dump(),
                     )
+                    indicators_payload = IndicatorsStreamPayload(
+                        type="indicators",
+                        payload=IndicatorsStreamDetails(
+                            latest=indicator_values,
+                            overlays=overlay_payloads,
+                        ),
+                    )
+                    await streamer.publish(
+                        "indicators",
+                        indicators_payload.model_dump(by_alias=True),
+                    )
 
                 levels: List[LevelCandidate] = []
                 if include_levels:
@@ -351,6 +529,22 @@ class StreamingService:
                             ),
                         ).model_dump(),
                     )
+                level_models = [
+                    LevelStreamModel(
+                        price=float(lvl.price) if lvl.price is not None else None,
+                        kind=lvl.kind,
+                        strength=float(lvl.strength),
+                        label=lvl.strength_label,
+                        tsRange=(int(lvl.ts_range[0]), int(lvl.ts_range[1])),
+                    )
+                    for lvl in levels
+                ]
+                await streamer.publish(
+                    "levels",
+                    LevelsStreamPayload(type="levels", payload={"levels": level_models}).model_dump(
+                        by_alias=True
+                    ),
+                )
 
                 patterns: List[PatternResult] = []
                 if include_patterns:
@@ -406,6 +600,24 @@ class StreamingService:
                             ),
                         ).model_dump(),
                     )
+                pattern_models = [
+                    PatternStreamModel(
+                        name=p.name,
+                        score=float(p.score),
+                        confidence=float(p.confidence),
+                        startTs=int(p.start_ts),
+                        endTs=int(p.end_ts),
+                        points=[(int(ts), float(price)) for ts, price in p.points],
+                        metadata=dict(p.metadata),
+                    )
+                    for p in patterns
+                ]
+                await streamer.publish(
+                    "patterns",
+                    PatternsStreamPayload(
+                        type="patterns", payload={"patterns": pattern_models}
+                    ).model_dump(by_alias=True),
+                )
                 progress, step_snapshots = _progress_snapshot()
                 await streamer.publish(
                     "result_partial",

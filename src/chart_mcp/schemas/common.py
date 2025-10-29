@@ -1,4 +1,4 @@
-"""Common helper schemas shared across endpoints."""
+"""Common schema helpers shared across REST and MCP payloads."""
 
 from __future__ import annotations
 
@@ -10,6 +10,9 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validat
 from chart_mcp.types import JSONValue
 from chart_mcp.utils.timeframes import SUPPORTED_TIMEFRAMES
 
+# NOTE: ``SymbolNormalized`` is used to signal that a symbol string already
+# passed through the canonicalisation process.  Keeping it as a ``NewType``
+# allows static checkers to distinguish raw user input from validated values.
 SymbolNormalized = NewType("SymbolNormalized", str)
 
 
@@ -18,7 +21,12 @@ class Symbol(BaseModel):
 
     model_config = ConfigDict(extra="forbid", populate_by_name=True, str_strip_whitespace=True)
 
-    value: str = Field(..., min_length=3, max_length=20)
+    value: str = Field(
+        ...,
+        min_length=3,
+        max_length=20,
+        description="Trading symbol (BTC/USDT, AAPL, etc.) normalised to uppercase.",
+    )
 
     @field_validator("value", mode="before")
     @classmethod
@@ -32,7 +40,12 @@ class Timeframe(BaseModel):
 
     model_config = ConfigDict(extra="forbid", populate_by_name=True, str_strip_whitespace=True)
 
-    value: str = Field(..., min_length=2, max_length=6)
+    value: str = Field(
+        ...,
+        min_length=2,
+        max_length=6,
+        description="Timeframe identifier (1m, 1h, 1d...) validated against the registry.",
+    )
 
     @field_validator("value", mode="before")
     @classmethod
@@ -48,8 +61,14 @@ class DatetimeRange(BaseModel):
 
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
-    start: datetime | None = None
-    end: datetime | None = None
+    start: datetime | None = Field(
+        default=None,
+        description="Inclusive start datetime bound (UTC).",
+    )
+    end: datetime | None = Field(
+        default=None,
+        description="Exclusive end datetime bound (UTC).",
+    )
 
     @field_validator("end", mode="before")
     @classmethod
@@ -66,10 +85,13 @@ class ApiErrorPayload(BaseModel):
 
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
-    code: str
-    message: str
-    details: JSONValue = Field(default_factory=dict)
-    trace_id: str
+    code: str = Field(..., description="Stable error code used by clients for branching.")
+    message: str = Field(..., description="Human-friendly error description.")
+    details: JSONValue = Field(
+        default_factory=dict,
+        description="Optional structured metadata providing additional context.",
+    )
+    trace_id: str = Field(..., description="Request identifier propagated through the stack.")
 
 
 class Paged(BaseModel):
@@ -77,8 +99,12 @@ class Paged(BaseModel):
 
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
-    limit: int
-    remaining: int
+    limit: int = Field(..., ge=1, description="Maximum number of records returned in the page.")
+    remaining: int = Field(
+        ...,
+        ge=0,
+        description="How many records are still available after this page is consumed.",
+    )
 
 
 __all__ = [

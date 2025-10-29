@@ -6,6 +6,7 @@ import pytest
 
 from chart_mcp import mcp_server
 from chart_mcp.services.search.searxng_client import SearchResult
+from chart_mcp.utils.errors import UpstreamError
 
 
 class SpySearchClient:
@@ -48,6 +49,27 @@ class SpySearchClient:
             }
         )
         return self._results
+
+
+class FailingSearchClient(SpySearchClient):
+    """Spy variant raising ``UpstreamError`` to simulate SearxNG outages."""
+
+    def search(
+        self,
+        *,
+        query: str,
+        categories: Iterable[str] | None = None,
+        time_range: str | None = None,
+        language: str = "fr",
+    ) -> List[SearchResult]:
+        """Raise :class:`UpstreamError` instead of returning canned results."""
+        super().search(
+            query=query,
+            categories=categories,
+            time_range=time_range,
+            language=language,
+        )
+        raise UpstreamError("searxng unavailable", details={"query": query})
 
 
 @pytest.fixture
@@ -120,3 +142,21 @@ def test_web_search_rejects_blank_query(spy_search_client: SpySearchClient) -> N
     with pytest.raises(ValueError):
         mcp_server.web_search("   ")
     assert spy_search_client.calls == []
+
+
+def test_web_search_wraps_upstream_errors(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Upstream failures should surface as ``RuntimeError`` with context."""
+    failing_client = FailingSearchClient()
+    monkeypatch.setattr(mcp_server, "_search_client", failing_client)
+
+    with pytest.raises(RuntimeError, match="SearxNG request failed"):
+        mcp_server.web_search("btc breakout")
+
+    assert failing_client.calls == [
+        {
+            "query": "btc breakout",
+            "categories": [],
+            "time_range": None,
+            "language": "fr",
+        }
+    ]

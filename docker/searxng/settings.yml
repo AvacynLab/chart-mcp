@@ -20,32 +20,51 @@ search:
   default_categories:
     - general
     - news
+    - science
+    - it
 
 categories_as_tabs: true
 
 engines:
   - name: gnews
     engine: google_news
+    categories:
+      - news
     disabled: false
   - name: duckduckgo_news
     engine: duckduckgo_news
+    categories:
+      - news
     disabled: false
   - name: reddit
     engine: reddit
     categories:
       - news
+      - it
     disabled: false
   - name: wikipedia
     engine: wikipedia
     languages:
       - fr
       - en
+    categories:
+      - general
+      - science
+    disabled: false
+  - name: arxiv
+    engine: arxiv
+    categories:
+      - science
     disabled: false
   - name: github
     engine: github
+    categories:
+      - it
     disabled: false
   - name: stackoverflow
     engine: stackoverflow
+    categories:
+      - it
     disabled: false
   - name: coindesk
     engine: rss

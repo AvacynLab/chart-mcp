@@ -1,4 +1,10 @@
-"""Detection of simple chart patterns."""
+"""Pattern detection heuristics shared between the API and SSE layers.
+
+The service favours deterministic heuristics with explicit thresholds rather
+than machine-learning black boxes so the front-end can confidently render the
+results to users.  Each helper documents the maths used to rank the detected
+structures and the metadata exposed to downstream consumers.
+"""
 
 from __future__ import annotations
 
@@ -11,7 +17,31 @@ import pandas as pd
 
 @dataclass
 class PatternResult:
-    """Result of a detected pattern."""
+    """Result of a detected pattern.
+
+    Attributes
+    ----------
+    name:
+        Identifier describing the pattern family (``head_shoulders`` for
+        instance).
+    score:
+        Relative quality score normalised in ``[0, 1]`` so the UI can order the
+        candidates.
+    start_ts / end_ts:
+        Timestamp range covering the detected structure.  The interval is used
+        to draw overlays on charts.
+    points:
+        Sequence of anchor points (timestamp, price) illustrating the
+        underlying geometry.  They give downstream renderers enough context to
+        highlight the formation without recomputing the heuristic.
+    confidence:
+        Confidence ratio derived from the stability checks implemented by each
+        detector.  Values closer to ``1`` indicate high quality matches.
+    metadata:
+        Extra machine-readable hints such as ``direction`` or specific candle
+        indices.
+
+    """
 
     name: str
     score: float

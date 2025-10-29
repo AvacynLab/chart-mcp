@@ -230,6 +230,7 @@ class FinanceDataService:
         *,
         selected_ts: int | None = None,
         overlays: Sequence[OverlayRequest] | None = None,
+        skip_overlay_errors: bool = False,
     ) -> ChartArtifactSummary:
         """Summarise normalized OHLCV rows for the finance chart artefact.
 
@@ -246,6 +247,11 @@ class FinanceDataService:
             Optional collection of overlay descriptors (e.g. SMA/EMA) requested
             by the caller. Each descriptor is converted into a numeric series so
             the UI can toggle the overlays without fetching additional data.
+        skip_overlay_errors:
+            When ``True`` the method skips overlays that fail validation instead
+            of raising. Streaming flows use this escape hatch to bubble
+            validation errors from downstream indicator services instead of
+            aborting while preparing overlays.
 
         Notes
         -----
@@ -350,10 +356,20 @@ class FinanceDataService:
             # duplicating moving-average logic. The pandas Series aligns with
             # the candle timestamps so the UI can map points 1:1 with rows.
             for overlay in overlays:
-                if overlay.kind == "sma":
-                    series = simple_moving_average(frame, overlay.window)
-                else:
-                    series = exponential_moving_average(frame, overlay.window)
+                try:
+                    if overlay.kind == "sma":
+                        series = simple_moving_average(frame, overlay.window)
+                    else:
+                        series = exponential_moving_average(frame, overlay.window)
+                except BadRequest:
+                    if not skip_overlay_errors:
+                        raise
+                    # Skipping overlays that cannot be computed with the available data points
+                    # keeps the SSE pipeline aligned with the indicator tool contracts. The
+                    # streaming service is then free to surface the original indicator error
+                    # (e.g. invalid parameters) instead of failing early while preparing chart
+                    # overlays. REST flows keep validation strict by using the default ``False``.
+                    continue
 
                 points = tuple(
                     OverlayPointSnapshot(

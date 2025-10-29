@@ -1,356 +1,428 @@
-Remet à zero le fichier AGENTS.md et importe la liste des taches fournit ci dessous ainsi que les informations (au mot près) dans le fichier. Une fois effectué, commence l’implementation, et prend ton temps. 
+Remet à zero le fichier AGENTS.md et importe la liste des taches fournit ci dessous ainsi que les informations (au mot près) dans le fichier. Une fois effectué, commence l'implementation, et prend ton temps. 
 
 ----------
-Parfait. Voici une **liste de tâches exhaustive à cocher** (avec sous-étapes) **à destination de l’agent IA**. Elle consolide : (1) le cahier des charges PDF, (2) l’état actuel du code, (3) nos audits précédents. Chaque point précise **quoi corriger/ajouter/supprimer/modifier**, **où (fichier par fichier)**, et **ce qu’il faut savoir pour les tests & le build**.
-
-> Références d’exigences issues du cahier des charges (MCP, CCXT, SSE, indicateurs, figures chartistes, front Next.js, etc.).     
+Parfait. Voici une **liste de tâches exhaustive à cocher** (avec sous-étapes et sous-sous-étapes) **à destination de l’agent IA**. Elle consolide : (1) le cahier des charges, (2) l’état actuel du back (MCP/SSE/CCXT/SearxNG), (3) l’intégration demandée du **template Vercel AI Chatbot** comme front **copié strictement**, et (4) la mise en place d’une **instance SearxNG** maison.
+Chaque point précise **quoi corriger/ajouter/supprimer/modifier**, **où (fichier par fichier)**, **les attentes**, ainsi que **les règles tests & build**.
 
 ---
 
-# 🎯 Brief (objectifs & consignes)
+# 🎯 Brief pour toi, l’agent
 
-**À toi, l’agent :**
-Ton objectif est d’aligner parfaitement l’alpha sur le cahier des charges crypto/MCP. Tu dois :
+**Objectifs attendus (résultat final)**
 
-* **Exposer proprement les outils MCP** (données, indicateurs, S/R, figures, résumés pédagogiques). 
-* **Fournir un flux temps réel** par **SSE** (événements d’étapes + texte IA tokenisé). 
-* **Calculer les indicateurs classiques** (SMA/EMA/RSI/MACD/Bollinger…) et **détecter les niveaux S/R** (pics + regroupement). 
-* **Détecter les figures chartistes clés** (incluant **tête-épaules** explicitement). 
-* **Brancher un front minimal Next.js** consommant SSE + charting (Lightweight Charts). 
-* **Prévoir et intégrer une instance SearxNG autohébergée** (recherche actus/docu crypto locale et privée) et l’exposer proprement côté back.
-* **Fiabiliser build & déploiement Docker Compose**, configurer CORS, secrets, healthcheck.
-* **Couvrir par des tests** (unitaires, intégration API, e2e SSE), plus **CI** (lint/typecheck/tests/build).
+* Le front **Vercel AI Chatbot** est **importé tel quel** dans `frontend/ai-chatbot/` (copie stricte, sans altérer l’ossature du template), et **étendu** avec **2 artefacts** supplémentaires :
 
-**Règles tests & build à respecter** (global) :
+  1. `finance` (analyse marché via notre SSE + rendu chart + niveaux/patterns + résumé tokenisé)
+  2. `search` (résultats de notre SearxNG autohébergé).
+* Le back FastAPI + MCP expose proprement les **tools** attendus (y compris `web_search`) et le **flux SSE** conforme (événements bien mappés).
+* **SearxNG** tourne **chez nous** (Compose), intégrée côté back (`/api/v1/search`) et côté MCP (`web_search`).
+* **Tests** unitaires/intégration/E2E verts.
+* **Build** Docker/CI reproductible, avec healthcheck, CORS, secrets, et docs à jour.
 
-* Tests Python via **pytest** ; types via **mypy** ; lint via **ruff**.
-* Front tests via **Vitest**/**Playwright** si présent.
-* **CI** : pipeline unique (lint → typecheck → tests → build images Docker → artefacts).
-* **Build Docker** : images reproductibles, **HEALTHCHECK** qui tape `/health`, variables `.env` **non commitées**.
-* **SSE** : vérifier **heartbeats**, **annulation client**, **ordre des événements** et **buffering off** (headers). 
+**Règles générales (tests & build)**
+
+* **Python (back)** : `ruff` (lint), `mypy` (types stricts), `pytest -q` (unit/intégration), couverture ≥ 80% sur services critiques (indicateurs, levels, patterns, SSE parse/emit, search client).
+* **Node/Front** : `pnpm lint` + `tsc --noEmit`, `vitest run` (unitaires), `playwright test` (E2E), build `pnpm build`.
+* **CI** : pipeline séquentiel `lint → typecheck → tests → build images → e2e`.
+* **Docker** : healthcheck appelle `/health`, variables **depuis `.env`** (ne pas commiter `.env`), CORS fermé en prod, ouvert pour localhost en dev.
+* **SSE** : pas de buffering, heartbeats réguliers, `request.is_disconnected()` géré, **ordre d’événements stable**.
 
 ---
 
 # ✅ Backlog détaillé (à cocher), avec sous-étapes et fichiers
 
-## 1) MCP : outils & contrat I/O
+## 0) Pré-intégration & arborescence
 
-* [x] **Vérifier/normaliser les outils MCP exposés**
-  **Fichiers :** `src/chart_mcp/mcp_main.py`, `src/chart_mcp/mcp_server.py`
+* [x] **Créer le sous-projet front**
 
-  * [x] S’assurer que les tools suivants existent et valident leurs schémas :
-
-    * [x] `get_crypto_data(symbol, timeframe, limit)` → OHLCV normalisé
-    * [x] `compute_indicator(symbol, timeframe, name, params)` → séries indicateurs
-    * [x] `identify_support_resistance(symbol, timeframe, params)` → niveaux + score
-    * [x] `detect_chart_patterns(symbol, timeframe, params)` → liste patterns (incl. **tête-épaules**)
-    * [x] `generate_analysis_summary(payload)` → texte pédagogique
-  * [x] **Valider les types MCP** (entrées/sorties) : pydantic `schemas/*` cohérents et documentés.
-  * [x] **Tests** : `tests/mcp/test_tools_contract.py` (mocks fournisseurs & snapshots de payload).
-
-  > Le cahier exige l’exposition d’outils côté serveur MCP pour data + TA. 
-
-* [x] **Documenter l’usage MCP (README)**
-  **Fichier :** `README.md`
-
-  * [x] Section “Server MCP (stdio)”, commande d’exécution, exemples d’appels, liste des tools.
-  * [x] Lien vers spec MCP & FastMCP (réf).
+  * [x] Copier **strictement** le repo Vercel dans `frontend/ai-chatbot/` (tous fichiers, `LICENSE`, `README.md`, workflows, etc.).
+  * [x] (Option monorepo) À la racine : `package.json` avec `"workspaces": ["frontend/ai-chatbot"]`.
 
 ---
 
-## 2) Acquisition données (CCXT) & timeframes
+## 1) Backend — MCP & SSE (FastAPI)
 
-* [x] **Provider CCXT : robustesse & normalisation symbole**
-  **Fichiers :** `src/chart_mcp/services/data_providers/ccxt_provider.py`, `src/chart_mcp/utils/timeframes.py`
+### 1.1 Outils MCP (contrat & enregistrement)
 
-  * [x] Mapper strict `timeframe` (1m/5m/1h/1d…) → formats CCXT ; lever `422` si invalide. 
-  * [x] Normaliser `symbol` (e.g., `BTC/USDT`) ; gestion exchange configurable (`EXCHANGE`).
-  * [x] **Tests** : `tests/providers/test_ccxt_provider.py` (table de timeframes + erreurs réseau/ratelimit).
-  * [x] Optionnel : **cache OHLC** (mémoire/SQLite/Mongo) avec TTL. (Optimisation recommandée)
+* [x] **Vérifier/compléter l’enregistrement de tous les tools**
+  **Fichier :** `src/chart_mcp/mcp_main.py`
 
----
-
-## 3) Indicateurs techniques
-
-* [x] **Implémentations SMA / EMA / RSI / MACD / Bollinger** (pandas/ta-lib/ta)
-  **Fichier :** `src/chart_mcp/services/indicators.py`
-
-  * [x] Paramètres par défaut documentés (ex : périodes EMA 12/26, RSI 14…).
-  * [x] Retour unifié : colonnes nommées (`ema_12`, `ema_26`, `macd`, `macd_signal`, `bb_upper`, `bb_lower`, etc.).
-  * [x] **Tests** : `tests/indicators/test_indicators_values.py` (golden values sur séries connues + cas bords).
-
----
-
-## 4) Supports/Résistances (pics SciPy + regroupement)
-
-* [x] **Détection S/R via pics**
-  **Fichier :** `src/chart_mcp/services/levels.py`
-
-  * [x] `scipy.signal.find_peaks` -> extraire **maxima/minima** ; **clusteriser** niveaux proches ; scorer “fort” vs “général”.
-  * [x] Paramètres exposés (`distance`, `prominence`, `merge_threshold`).
-  * [x] **Tests** : `tests/levels/test_levels_detection.py` (séries synthétiques + cas bruités).
-
----
-
-## 5) Figures chartistes (incl. **tête-épaules**)
-
-* [x] **Ajouter la figure “Head & Shoulders”**
-  **Fichier :** `src/chart_mcp/services/patterns.py`
-
-  * [x] Heuristique : trois sommets, épaule G ≈ épaule D, tête plus haute, “neckline” détectée, tolérances %.
-  * [x] Déjà couverts : doubles sommets/fonds, triangles, chandeliers (marteau/étoile/engulfing).
-  * [x] **Sortie** : `type`, `confidence`, `indices` (iL, iHead, iR, iNeckline1, iNeckline2), `direction` (bearish/bullish).
-  * [x] **Tests** : `tests/patterns/test_head_shoulders.py` (séries synthétiques + faux positifs).
-
-  > Le cahier cite explicitement “tête-épaules” comme motif attendu. 
-
----
-
-## 6) API FastAPI : routes & sécurité
-
-* [x] **Routes marché/TA/stream**
-  **Fichiers :** `src/chart_mcp/app.py`, `src/chart_mcp/routes/market.py`, `routes/indicators.py`, `routes/levels.py`, `routes/patterns.py`, `routes/analysis.py`, `routes/stream.py`, `routes/auth.py`
-
-  * [x] **Auth** : header `Authorization: Bearer <API_TOKEN>` requis ; **403** si absent/invalid.
-  * [x] **Rôle** : `X-Session-User: regular` exigé si applicable (garde).
-  * [x] **OpenAPI** : tags/summary/params ; exemples `curl`/`httpie` dans `README.md`.
-  * [x] **Tests** : `tests/api/test_auth.py`, `tests/api/test_routes_ok_ko.py`.
-
-* [x] **CORS**
-  **Fichier :** `src/chart_mcp/app.py`, `.env`
-
-  * [x] Renseigner `ALLOWED_ORIGINS` (ex : `http://localhost:3000` pour Next).
-  * [x] **Tests** : `tests/api/test_cors.py` (prévol CORS, headers).
-
----
-
-## 7) SSE : pipeline d’événements + **streaming tokenisé du texte IA**
-
-* [x] **Événements SSE**
-  **Fichiers :** `src/chart_mcp/routes/stream.py`, `src/chart_mcp/services/streaming.py`, `src/chart_mcp/utils/sse.py`, `src/chart_mcp/schemas/streaming.py`
-
-  * [x] Émettre : `heartbeat`, `step:start`/`step:end` (ohlcv, indicators, levels, patterns), `token` (texte IA **token par token**), `result_partial`, `done`.
-  * [x] Headers : `Content-Type: text/event-stream`, `Cache-Control: no-cache`, `Connection: keep-alive`, **désactiver buffering** côté proxy.
-  * [x] Annulation client : respecter `request.is_disconnected()` ; couper proprement.
-  * [x] **Tests intégration** : `tests/stream/test_sse_flow.py` (client SSE → ordre d’événements, timeouts, annulation).
-
-* [x] **Service de résumé IA**
-  **Fichier :** `src/chart_mcp/services/analysis_llm.py`
-
-  * [x] Exposer un mode **génération tokenisée** (simulateur si pas d’API IA) -> “flush” par `yield`.
-  * [x] **Tests** : `tests/analysis/test_streaming_text.py` (reconstruction du texte, flux partiel).
-
----
-
-## 8) Front minimal **Next.js** + **Lightweight Charts** (recommandé par le cahier)
-
-* [x] **Créer un front Next.js (apps dir)**
-  **Dossier :** `frontend/` (nouveau)
-
-  * [x] Page `/chart` avec formulaire (symbol, timeframe, indicateurs), chart **Lightweight Charts** et **EventSource** sur `/stream/analysis`.
-  * [x] Rendu progressif : appliquer les overlays (EMA/RSI/MACD/BB) au fil des `step:end`.
-  * [x] Tokenisation texte IA : afficher flux `token` en direct (zone d’analyse).
-  * [x] **Tests** : `components/chart/chart-analysis.test.tsx` (Vitest) + `tests/e2e/chart-analysis.spec.ts` (Playwright : vérifie arrivée d’events SSE).
-
----
-
-## 9) **SearxNG** autohébergé et intégré
-
-**Objectif :** disposer d’un moteur de recherche privé (actu crypto, docs techniques), accessible par le back et par l’agent.
-
-* [x] **Ajouter service SearxNG au Compose**
-  **Fichiers :** `docker/docker-compose.dev.yml`, `docker/docker-compose.yml`
-
-  * [x] Service `searxng` (image officielle), ports `8080:8080`, volume config `searxng:/etc/searxng`.
-  * [x] Var env : `BASE_URL=http://searxng:8080`, `SEARXNG_SECRET=…`, `UWsgi`/`workers` raisonnables.
-
-* [x] **Configuration SearxNG**
-  **Fichiers :** `docker/searxng/settings.yml` (nouveau)
-
-  * [x] Activer moteurs pertinents : news (GNews/Bing si clés), GitHub, Reddit (si clé), Wikipedia, crypto-news RSS, docs techniques.
-  * [x] Forcer **safesearch=Off**, langue par défaut `fr`, `max_results` 20–50.
-
-* [x] **Client back pour SearxNG**
-  **Fichiers :** `src/chart_mcp/services/search/searxng_client.py`, `src/chart_mcp/routes/search.py` (nouveau)
-
-  * [x] Endpoint : `GET /api/v1/search?q=...&categories=news,science` → agrège `title,url,snippet,source,score`.
-  * [x] **Tests** : `tests/search/test_searxng_client.py` (contract HTTP, erreurs réseau) ; `tests/api/test_search_route.py`.
-
-* [x] **Intégration agent**
+  * [x] Ajouter **explicitement** `"web_search"` dans la liste des tools enregistrés.
+  * [x] Ajouter le bloc `server.tool("web_search")(...)` mappé vers `mcp_server.web_search`.
+* [x] **Côté implémentation**
   **Fichier :** `src/chart_mcp/mcp_server.py`
 
-  * [x] Tool MCP `web_search(query, categories, time_range)` → s’appuie sur client SearxNG.
-  * [x] **Tests** : `tests/mcp/test_web_search_tool.py`.
+  * [x] Confirmer la signature `web_search(query, categories=None, time_range=None, language="fr")` et la **normalisation** de sortie `{title,url,snippet,source,score}`.
+* [x] **Schemas**
+  **Fichier :** `src/chart_mcp/schemas/*.py`
 
-*(Le cahier ne l’exige pas explicitement, mais c’est un besoin projet. On l’intègre en option autonome et documentée.)*
+  * [x] S’assurer que les I/O des tools (data, indicators, levels, patterns, summary, search) sont typées et documentées.
+* [x] **Tests**
+  **Fichiers :**
 
----
+  * `tests/mcp/test_tools_contract.py` (appel de chaque tool avec mocks)
+  * `tests/mcp/test_web_search_tool.py` (chemin heureux + erreurs réseau SearxNG)
 
-## 10) Config, secrets, CORS, **Healthcheck Docker**
+### 1.2 Flux SSE (pipeline & mapping)
 
-* [x] **Config Pydantic**
-  **Fichier :** `src/chart_mcp/config.py`, `.env.example`
+* [x] **Événements et headers**
+  **Fichiers :** `src/chart_mcp/routes/stream.py`, `src/chart_mcp/utils/sse.py`
 
-  * [x] Variables : `API_TOKEN`, `EXCHANGE`, `ALLOWED_ORIGINS`, `FEATURE_FINANCE`, `SEARXNG_BASE_URL`.
-  * [x] `.env.example` = valeurs fictives, commentées ; **ne pas commiter `.env`**.
+  * [x] Valider l’émission : `heartbeat`, `step:start|end`, `ohlcv`, `indicators`, `levels`, `patterns`, `range`, `selected`, **`token`** (texte IA), `done`, `error`.
+  * [x] Headers `text/event-stream`, `Cache-Control: no-cache`, `Connection: keep-alive`, **désactivation du buffering** (ex: `X-Accel-Buffering: no`).
+  * [x] **Annulation** : couper proprement si le client se déconnecte.
+* [x] **Résumé IA tokenisé**
+  **Fichier :** `src/chart_mcp/services/analysis_llm.py`
 
-* [x] **Healthcheck Docker**
-  **Fichiers :** `docker/Dockerfile`, `docker/healthcheck.py` (nouveau)
+  * [x] Implémenter le **yield** token par token → évènements `token` réguliers.
+* [x] **Tests intégration SSE**
+  **Fichiers :**
 
-  * [x] `HEALTHCHECK --interval=30s --timeout=5s --retries=3 CMD ["python","docker/healthcheck.py"]`
-  * [x] Script : requête `GET http://localhost:8000/health` → exit 0/1.
-  * [x] **Tests** : `tests/docker/test_healthcheck_script.py` (simule 200/500).
+  * `tests/stream/test_sse_flow.py` (ordre d’événements, timeouts, annulation)
+  * `tests/analysis/test_streaming_text.py` (reconstruction texte à partir de `token`)
+  * [x] Cas négatifs supplémentaires : dataset OHLCV vide, échec provider → vérifier `error` + `done`.
 
+### 1.3 Indicateurs / Niveaux / Patterns
+
+* [x] **Indicateurs (SMA/EMA/RSI/MACD/Bollinger)**
+  **Fichier :** `src/chart_mcp/services/indicators.py`
+
+  * [x] Paramètres par défaut documentés + noms de colonnes normalisés.
+  * [x] **Tests** : `tests/indicators/test_indicators_values.py` (golden values + cas bords).
+* [x] **Supports/Résistances (find_peaks + clustering)**
+  **Fichier :** `src/chart_mcp/services/levels.py`
+
+  * [x] Paramètres exposés (`distance`, `prominence`, `merge_threshold`).
+  * [x] **Tests** : `tests/levels/test_levels_detection.py`.
+* [x] **Figures chartistes (incl. tête-épaules)**
+  **Fichier :** `src/chart_mcp/services/patterns.py`
+
+  * [x] Heuristique robuste + `confidence`, `indices`, `direction`.
+  * [x] **Tests** : `tests/patterns/test_head_shoulders.py`.
+
+### 1.4 Provider marché (CCXT) & timeframes
+
+* [x] **Provider**
+  **Fichier :** `src/chart_mcp/services/data_providers/ccxt_provider.py`
+
+  * [x] Normalisation symboles, mapping TF, retry ratelimit, **(option) cache OHLC** mémoire/SQLite.
+  * [x] **Tests** : `tests/providers/test_ccxt_provider.py` (mapping TF + erreurs réseau).
+* [x] **Timeframes**
+  **Fichier :** `src/chart_mcp/utils/timeframes.py`
+
+  * [x] Lever `422` si TF invalide (tests inclus ci-dessus).
+
+### 1.5 API, Auth, CORS, Metrics
+
+* [x] **Routes**
+  **Fichiers :** `src/chart_mcp/routes/*.py`
+
+  * [x] Auth Bearer obligatoire, `X-Session-User: regular` si requis.
+  * [x] `/api/v1/search` (SearxNG) présent et renvoie `{results:[...]}` avec `source, score`.
 * [x] **CORS**
   **Fichier :** `src/chart_mcp/app.py`
 
-  * [x] Charger `ALLOWED_ORIGINS` depuis env ; refuser si vide **en prod** ; autoriser localhost en dev.
-  * [x] **Test** : cf. §6.
+  * [x] Lire `ALLOWED_ORIGINS` depuis env ; **refuser vide en prod** ; autoriser localhost en dev/tests.
+  * [x] **Test** : `tests/api/test_cors.py`.
+* [x] **Metrics/Logs**
+  **Fichiers :** `src/chart_mcp/routes/metrics.py`, `src/chart_mcp/utils/logging.py`
+
+  * [x] Latences par étape SSE, erreurs provider, nb events.
+  * [x] **Test** : `tests/api/test_metrics.py`.
+
+### 1.6 Docker/Config
+
+* [x] **Healthcheck**
+  **Fichiers :** `docker/Dockerfile`, `docker/healthcheck.py`
+
+  * [x] `HEALTHCHECK ... CMD ["python","docker/healthcheck.py"]` → GET `/health`.
+  * [x] **Test script** : `tests/docker/test_healthcheck_script.py`.
+* [x] **Config**
+  **Fichiers :** `src/chart_mcp/config.py`, `.env.example`
+
+  * [x] Ajouter `SEARXNG_BASE_URL`, `API_TOKEN`, `ALLOWED_ORIGINS`, `EXCHANGE`, `FEATURE_FINANCE`.
+  * [x] **Ne pas** commiter `.env`.
 
 ---
 
-## 11) Finance (feature flag) – si présent dans le repo
+## 2) SearxNG — Instance autohébergée & intégration
 
-* [x] **Feature flag**
-  **Fichiers :** `src/chart_mcp/app.py`, `src/chart_mcp/routes/finance/*.py`
+### 2.1 Service Docker
 
-  * [x] Monter/démonter le router si `FEATURE_FINANCE=true`.
-  * [x] **Tests** : `tests/api/test_finance_flag.py`.
+* [x] **Compose**
+  **Fichier :** `docker/docker-compose.yml`
 
----
+  * [x] Ajouter service `searxng` (image officielle), ports `8080:8080`, volume `./docker/searxng/settings.yml:/etc/searxng/settings.yml`.
+  * [x] Réseau partagé avec l’API.
+* [x] **Settings**
+  **Fichier :** `docker/searxng/settings.yml` (nouveau)
 
-## 12) Observabilité & logs
+  * [x] Catégories activées : `news`, `science`, `it`, + moteurs pertinents (si clés dispo : GNews/Bing/Reddit/GitHub/RSS crypto).
+  * [x] Langue par défaut `fr`, `safesearch: off`, `max_results: 20–50`.
 
-* [x] **Logs structurés**
-  **Fichier :** `src/chart_mcp/utils/logging.py`
+### 2.2 Intégration back
 
-  * [x] Inclure `request_id`, `stage`, `latency_ms`, `symbol`, `timeframe`.
-  * [x] **Tests** : `tests/utils/test_logging_context.py` (enrichissement MDC/ctx).
+* [x] **Client**
+  **Fichier :** `src/chart_mcp/services/search/searxng_client.py`
 
-* [x] **/metrics Prometheus** (optionnel)
-  **Fichiers :** `src/chart_mcp/routes/metrics.py`
+  * [x] Timeout, erreurs réseau → 502, filtrage/normalisation champs.
+  * [x] **Tests** : `tests/search/test_searxng_client.py`.
+* [x] **Route**
+  **Fichier :** `src/chart_mcp/routes/search.py`
 
-  * [x] Compteurs : erreurs provider, latence par étape SSE, nb d’events envoyés.
-  * [x] **Tests** : `tests/api/test_metrics.py`.
+  * [x] `GET /api/v1/search?q=...&categories=...` → `{results:[{title,url,snippet,source,score}]}`.
+  * [x] **Tests** : `tests/api/test_search_route.py`.
+* [x] **MCP tool**
+  **Fichiers :** `src/chart_mcp/mcp_server.py`, `src/chart_mcp/mcp_main.py`
 
----
-
-## 13) Documentation développeur
-
-* [x] **README**
-  **Fichier :** `README.md`
-
-  * [x] Sections : **Architecture**, **MCP usage**, **API endpoints**, **SSE client snippet**, **SearxNG** (démarrage + variables), **Docker/Compose**, **Tests/CI**, **Sécurité**.
-  * [x] Exemples `curl` : `/api/v1/market/ohlcv`, `/api/v1/indicators/compute`, `/api/v1/levels`, `/api/v1/patterns`, `/stream/analysis`, `/api/v1/search`.
-  * [x] **Badge CI** + matrice versions (Py 3.11/3.12).
+  * [x] `web_search` branché + **enregistré** (cf. §1.1).
+  * [x] **Test** : `tests/mcp/test_web_search_tool.py`.
 
 ---
 
-## 14) Pipelines CI/CD
+## 3) Frontend — Vercel AI Chatbot (copie stricte + artefacts)
 
-* [x] **GitHub Actions**
-  **Fichiers :** `.github/workflows/ci.yml`
+### 3.1 Variables d’environnement (front)
 
-  * [x] Jobs : `lint (ruff)`, `typecheck (mypy)`, `test (pytest -q)`, `build-backend (docker build)`, `build-frontend`, `playwright-e2e`.
-  * [x] Cache pip/pytest ; artefacts coverage/**junit** ; push image `:sha` sur registry si secrets fournis.
+* [x] **Exemple d’env**
+  **Fichier :** `frontend/ai-chatbot/.env.example`
+
+  * [x] Ajouter :
+
+    ```
+    MCP_API_BASE=http://localhost:8000
+    MCP_API_TOKEN=dev-token
+    MCP_SESSION_USER=regular
+    ```
+
+    (et **SEARXNG_BASE_URL** uniquement si tu appelles SearxNG en direct côté front — sinon tout passe par l’API back)
+
+### 3.2 Nouveaux artefacts **client**
+
+* [x] **Artefact finance**
+  **Fichier :** `frontend/ai-chatbot/artifacts/finance/client.tsx` (nouveau)
+
+  * [x] Gérer `onStreamPart` pour les types :
+    `data-finance:step|ohlcv|indicators|levels|patterns|range|selected|token`, `data-finish`, `data-error`.
+  * [x] Rendu : réutiliser notre composant de chart (cf. §3.6).
+* [x] **Artefact search**
+  **Fichier :** `frontend/ai-chatbot/artifacts/search/client.tsx` (nouveau)
+
+  * [x] Rendu d’une liste de résultats (titre/source/snippet/score) depuis `data-search:batch`.
+
+### 3.3 Nouveaux artefacts **serveur**
+
+* [x] **Finance (SSE)**
+  **Fichier :** `frontend/ai-chatbot/artifacts/finance/server.ts` (nouveau)
+
+  * [x] `onCreateDocument` → `fetch` `GET ${MCP_API_BASE}/stream/analysis` (headers `Authorization`, `X-Session-User`).
+  * [x] Parser SSE (`event:`/`data:`), router vers `dataStream.write({type:"data-finance:*", ...})`, terminer par `data-finish`.
+  * [x] **Robustesse** : découpe des chunks sur `\n\n`, bufferiser la dernière trame incomplète.
+* [x] **Search (HTTP)**
+  **Fichier :** `frontend/ai-chatbot/artifacts/search/server.ts` (nouveau)
+
+  * [x] `onCreateDocument` → `GET ${MCP_API_BASE}/api/v1/search?q=...`, puis `data-search:batch` + `data-finish`.
+
+### 3.4 Enregistrement des artefacts (UI & serveur)
+
+* [x] **UI**
+  **Fichier :** `frontend/ai-chatbot/components/artifact.tsx`
+
+  * [x] Importer et **ajouter** `financeArtifact` et `searchArtifact` dans `artifactDefinitions`.
+* [x] **Serveur**
+  **Fichier :** `frontend/ai-chatbot/lib/artifacts/server.ts`
+
+  * [x] Importer et **ajouter** `financeDocumentHandler` et `searchDocumentHandler` dans `documentHandlersByArtifactKind`.
+  * [x] Étendre `artifactKinds` avec `"finance"`, `"search"`.
+
+### 3.5 Tools (AI SDK) — création d’artefacts depuis `/api/chat`
+
+* [x] **Tools**
+  **Fichiers :**
+
+  * `frontend/ai-chatbot/lib/ai/tools/create-finance-artifact.ts` (nouveau)
+  * `frontend/ai-chatbot/lib/ai/tools/create-search-artifact.ts` (nouveau)
+  * [x] Chaque tool invoque `documentHandlersByArtifactKind.find(...).onCreateDocument(...)` et pousse dans `dataStream`.
+* [x] **Route /api/chat**
+  **Fichier :** `frontend/ai-chatbot/app/(chat)/api/chat/route.ts`
+
+  * [x] Enregistrer `createFinanceArtifact(...)` et `createSearchArtifact(...)` dans `tools:` de `streamText`.
+  * [x] (Si Edge bufferise) ajouter `export const runtime = "nodejs"`.
+
+### 3.6 Réutilisation de nos composants chart
+
+* [x] **Copie des composants**
+  **Dossier :** `frontend/ai-chatbot/thirdparty/chart-components/` (nouveau)
+
+  * [x] Copier depuis notre repo : `components/finance/finance-chart-artifact.tsx` (+ optionnels : `backtest-report-artifact.tsx`, `news-list.tsx`).
+* [x] **Alias TS**
+  **Fichier :** `frontend/ai-chatbot/tsconfig.json`
+
+  * [x] Ajouter :
+
+    ```json
+    "paths": {
+      "~~/chart-components/*": ["thirdparty/chart-components/*"]
+    }
+    ```
+* [x] **Dépendances**
+  **Fichier :** `frontend/ai-chatbot/package.json`
+
+  * [x] Ajouter si absent : `lightweight-charts`, `@microsoft/fetch-event-source`.
+  * [x] `pnpm i`.
+
+### 3.7 Types de stream UI
+
+* [x] **Types UI**
+  **Fichier :** `frontend/ai-chatbot/lib/types.ts` (ou fichier équivalent des `CustomUIDataTypes`)
+
+  * [x] Ajouter :
+    `data-finance:*`, `data-search:batch`, `data-finish`, `error`.
+
+### 3.8 Prompt système (orchestration des tools)
+
+* [x] **Instruction au modèle**
+  **Fichier :** `frontend/ai-chatbot/lib/ai/prompts.ts`
+
+  * [x] Ajouter une note claire :
+
+    * “Pour toute demande d’analyse de marché/chart, **appeler le tool `createFinanceArtifact`**.”
+    * “Pour toute demande d’actualité/docu/recherche, **appeler le tool `createSearchArtifact`**.”
+
+### 3.9 Tests Front
+
+* [ ] **E2E Playwright**
+  **Fichiers :**
+
+  * `frontend/ai-chatbot/tests/e2e/finance-artifact.spec.ts`
+
+    * Prompt “Analyse BTC/USDT 1h EMA/RSI” → attendre artefact visible, réception d’au moins un `data-finance:token` et `data-finish`.
+  * `frontend/ai-chatbot/tests/e2e/search-artifact.spec.ts`
+
+    * Prompt “Recherche actus halving bitcoin 24h” → cartes de résultats.
+  * `frontend/ai-chatbot/tests/e2e/chat-tools-routing.spec.ts`
+
+    * Vérifie que l’IA choisit le **tool** attendu selon le prompt.
+* [x] **Unit/Route**
+  **Fichiers :**
+
+  * `frontend/ai-chatbot/tests/routes/tools-finance.spec.ts` (mock SSE back)
+  * `frontend/ai-chatbot/tests/routes/tools-search.spec.ts` (mock `/api/v1/search`)
 
 ---
 
-## 15) Nettoyage & cohérence
+## 4) Nettoyages & cohérence
 
-* [x] **Supprimer code mort / renommer incohérences**
-  **Fichiers :** `src/chart_mcp/**`
+* [ ] **Ancienne harness de composants**
 
-  * [x] Éliminer utilitaires non utilisés, uniformiser noms (`finance-chart-artifact` ↔ `frontend/components/ChartArtifact.tsx`).
-  * [x] **Tests** : adapter snapshots/imports.
+  * [ ] S’assurer qu’aucun ancien point d’entrée front (démos internes) ne se compile en plus du chatbot (isoler dans `thirdparty` ou supprimer si redondant).
+* [x] **AGENTS.md / README**
 
-* [x] **Conventions**
-  **Fichiers :** `pyproject.toml` / `ruff.toml` / `mypy.ini`
+  * [x] Nettoyer les phrases résiduelles non pertinentes ; pointer vers l’usage du chatbot + artefacts.
 
-  * [x] Règles strictes : `no-redefined-builtin`, `no-implicit-optional`, `warn-redundant-casts`.
-  * [x] **CI** échoue si lints échouent.
+* [ ] **Nommages**
 
----
+  * [ ] Uniformiser les libellés “finance/search” (artefacts, routes, tools) dans les logs, tests, UI.
 
-# 🧪 Plan de tests (récapitulatif)
+* [x] **Assets binaires**
 
-* **Unitaires** :
+  * [x] Remplacer les fixtures Playwright par une image inline pour éviter les blobs binaires non gérés par la plateforme.
 
-  * `tests/indicators/*` (SMA/EMA/RSI/MACD/BB — valeurs attendues) 
-  * `tests/levels/*` (pics + clustering) 
-  * `tests/patterns/*` (**tête-épaules**) 
-  * `tests/providers/*` (CCXT + erreurs)
-  * `tests/analysis/*` (streaming tokenisé) 
+* [x] **Métadonnées sociales**
 
-* **Intégration API** :
-
-  * `tests/api/test_routes_ok_ko.py` (200/4xx), `test_auth.py`, `test_cors.py`, `test_search_route.py` (SearxNG).
-
-* **SSE** :
-
-  * `tests/stream/test_sse_flow.py`: ordre, heartbeat, annulation, `token` puis `done`. 
-
-* **E2E Front (Playwright)** :
-
-  * chargement `/chart`, saisie symbol/timeframe, réception d’events SSE, rendu chart, rendu du texte tokenisé.
+  * [x] Générer dynamiquement favicon/OpenGraph/Twitter via `next/og` pour éliminer les derniers fichiers binaires.
 
 ---
 
-# 🏗️ Build & run (contrôles)
+## 5) Documentation
 
-* **Backend** :
+* [x] **README (racine)**
 
-* [x] `make setup && make dev`
-  * [ ] Docker : `docker compose up --build` (services : `api`, `searxng`).
-  * [ ] `HEALTHCHECK` OK (`/health`).
+  * [x] **Architecture** : Back MCP/SSE, Front Chatbot + artefacts, SearxNG.
+  * [x] **Démarrage dev** :
 
-* **Frontend** :
-
-* [x] `pnpm i && pnpm dev` (Next sur 3000), `EventSource` vers `http://localhost:8000/stream/analysis`.
-
-* **SearxNG** :
-
-  * [ ] accessible `http://localhost:8080`, route back `/api/v1/search` opérationnelle.
-
-* **CI** :
-
-  * [ ] lint/typecheck/tests passent ; images Docker construites ; e2e vert.
-    * ✅ 2025-10-28 — Déclenchement corrigé : la workflow `CI` s'exécute maintenant sur toutes les branches (`push`/`pull_request`) et peut être lancée manuellement via `workflow_dispatch`.
-    * Playwright `pnpm test:e2e` démarre désormais automatiquement Next.js et injecte un état de session, mais il reste à valider le pipeline complet (lint → build images).
+    * Back : `make setup && make dev`
+    * SearxNG : `docker compose up searxng`
+    * Front : `cd frontend/ai-chatbot && pnpm i && pnpm dev`
+  * [x] **Env** : variables requises côté back/front.
+  * [x] **API** : exemples `curl` (`/api/v1/market/ohlcv`, `/api/v1/indicators/compute`, `/api/v1/search`, `/stream/analysis`).
+  * [x] **SSE** : exemple de client minimal Node (`fetch` + parse SSE).
+  * [x] **Tests/CI** : commandes et badges.
+  * [x] **Sécurité** : secrets, CORS, tokens.
 
 ---
 
-## Notes finales
+## 6) CI/CD
 
-* Le **tête-épaules** et le **texte tokenisé** sont les compléments majeurs pour coller au cahier.  
-* L’**instance SearxNG** ajoute de la valeur (recherches actus/docu crypto) sans complexifier le cœur.
-* Le front **Next.js + Lightweight Charts** est recommandé par le cahier pour une expérience réactive. 
+* [ ] **Back CI**
+  **Fichier :** `.github/workflows/ci-back.yml` (nouveau si séparé)
 
-Si tu veux, je peux enchaîner par des **patches prêts à appliquer** (diffs) pour chaque fichier listé.
+  * [ ] Jobs : `lint(ruff)`, `typecheck(mypy)`, `pytest`, `docker build`, publier image si secrets présents.
+* [ ] **Front CI**
+  **Fichier :** `frontend/ai-chatbot/.github/workflows/ci.yml` (ou étendre celui fourni)
+
+  * [ ] Steps : `pnpm i`, `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`, `playwright test` (spécifier `SERVER_URL` ou mocker back).
+* [ ] **Artefacts CI**
+
+  * [ ] Conserver **junit/coverage** (pytest & vitest/playwright) comme artefacts.
+* [ ] **Matrice**
+
+  * [ ] Python 3.11/3.12 ; Node LTS.
+
+---
+
+# 🧪 Récap tests minimum attendus
+
+* **Back** :
+
+  * Providers (CCXT) ✔, Indicateurs ✔, Levels ✔, Patterns (tête-épaules) ✔
+  * SSE (ordre, tokenisation, annulation) ✔
+  * Search client & route ✔
+  * MCP tools (incl. web_search) ✔
+* **Front** :
+
+  * E2E : artefact finance + search, routing tools ✔
+  * Unit/Route : mocks SSE & HTTP ✔
+  * Types & lint : sans erreurs ✔
+
+---
+
+# 🏗️ Récap build & run
+
+* **Back** : `make setup && make dev` (ou `docker compose up api`), health `/health`.
+* **SearxNG** : `docker compose up searxng`, accessible sur `http://localhost:8080`.
+* **Front** : `cd frontend/ai-chatbot && pnpm i && pnpm dev` ([http://localhost:3000](http://localhost:3000)).
+* **Prod** : build images, variables `.env` injectées, CORS restreint, healthcheck OK.
+* **Edge/Node** : si Edge bufferise, forcer `export const runtime = "nodejs"` dans `/api/chat`.
+
+---
+
+## ✔ Derniers contrôles de conformité (cocher à la fin)
+
+* [x] `web_search` bien **enregistré** dans `mcp_main.py`.
+* [x] Événements SSE finance → **mappés** vers `data-finance:*` côté front.
+* [x] Artefacts `finance` & `search` **affichent** correctement les données streamées.
+* [x] Les **tools** `createFinanceArtifact` & `createSearchArtifact` sont **appelés** automatiquement par le modèle selon le prompt.
+* [x] **SearxNG** répond via `/api/v1/search` et via MCP `web_search`.
+* [ ] **CI** tout vert (lint/typecheck/tests/build/e2e).
+* [ ] **README** à jour (dév / prod / sécurité).
 
 ---
 
 ## Historique
 
-- 2025-10-27T19:21:05+00:00 — gpt-5-codex : Implémentation de la détection tête-épaules (classique + inversée), ajout des métadonnées direction/indices, extension du dataclass `PatternResult` et création des tests unitaires dédiés.
+- 2025-02-14T10:15:00Z — gpt-5-codex : Enregistrement du tool MCP `web_search` dans `mcp_main.py` et mise à jour des cases correspondantes.
+- 2025-02-14T12:30:00Z — gpt-5-codex : Import du template Vercel AI Chatbot dans `frontend/ai-chatbot/` et ajout du workspace pnpm racine.
+- 2025-02-14T14:55:00Z — gpt-5-codex : Extension du flux SSE finance (payloads ohlcv/range/selected, indicateurs, niveaux, patterns, tokens) + annulation propre, schémas et tests mis à jour (`tests/stream/test_sse_flow.py`, `tests/analysis/test_streaming_text.py`).
+- 2025-10-29T02:37:45Z — gpt-5-codex : Ajout des artefacts finance/search côté front (clients & serveurs SSE/HTTP), nouveaux tools IA, types enrichis, prompts mis à jour, dépendances pnpm ajustées et tests Vitest (`tests/routes/tools-finance.spec.ts`, `tests/routes/tools-search.spec.ts`) pour valider les handlers.
+- 2025-10-29T03:34:16Z — gpt-5-codex : Normalisation des événements d'erreur en `data-error`, alignement des `CustomUIDataTypes`, correction des handlers finance/search et exécution des checks `pnpm --filter ai-chatbot exec tsc --noEmit` + `pnpm --filter ai-chatbot exec vitest run tests/routes/tools-finance.spec.ts tests/routes/tools-search.spec.ts`.
+- 2025-10-29T04:05:00Z — gpt-5-codex : Ajout des tests SSE négatifs pour datasets vides et erreurs provider (`tests/stream/test_sse_flow.py`) couvrant les événements `error`/`done`.
+- 2025-10-29T05:45:00Z — gpt-5-codex : Extension des tests MCP `web_search` pour couvrir les erreurs réseau SearxNG (`tests/mcp/test_web_search_tool.py`) et vérifications de normalisation.
+- 2025-10-29T07:10:00Z — gpt-5-codex : Finalisation du rendu client finance/search (`data-finish` → statut idle) et validation Vitest ciblée (`pnpm --filter ai-chatbot exec vitest run tests/routes/tools-finance.spec.ts tests/routes/tools-search.spec.ts`).
+- 2025-10-29T09:50:00Z — gpt-5-codex : Ajout du `.env.example` front (MCP_*), typage détaillé des flux `data-finance:*` dans `lib/types.ts`, enrichissement de `docker/searxng/settings.yml` (catégories news/science/it + moteurs) et tentative `pnpm --filter ai-chatbot exec tsc --noEmit` échouée faute de dépendances Radix/Lucide présentes dans le template.
+- 2025-10-29T11:45:00Z — gpt-5-codex : Documenté les heuristiques `PatternsService`, ajouté la suite `tests/patterns/test_head_shoulders.py` couvrant les variantes haussières/baissières et exécuté `pytest tests/indicators/test_indicators_values.py tests/levels/test_levels_detection.py tests/patterns/test_head_shoulders.py -q`.
+- 2025-10-29T13:45:00Z — gpt-5-codex : Finalisation des tâches provider/timeframes + tests dédiés, correction du montage Compose SearxNG, refonte du README (archi/dev/tests/SSE/sécurité) et ajout du test `tests/utils/test_timeframes.py`.
+- 2025-10-29T15:05:00Z — gpt-5-codex : Documentation complète des schémas MCP/REST (market, indicators, levels, patterns, analysis, common), ajout du jeu de tests `tests/schemas/test_tool_io_models.py` et exécution de `pytest tests/schemas/test_tool_io_models.py -q`.
+- 2025-10-29T16:40:00Z — gpt-5-codex : Suppression des images binaires du template front, injection d'un buffer PNG inline pour les tests Playwright et exécution de `pnpm --filter ai-chatbot exec vitest run tests/routes/tools-finance.spec.ts`.
+- 2025-10-29T18:05:00Z — gpt-5-codex : Remplacement des assets favicon/OG/Twitter par des générateurs `next/og` afin d'éliminer les binaires restants et éviter les blocages de PR (`pnpm --filter ai-chatbot exec vitest run tests/routes/tools-finance.spec.ts`, `pnpm --filter ai-chatbot exec tsc --noEmit`).
 
-- 2025-10-27T19:32:07Z — gpt-5-codex : Normalisation stricte des timeframes (422 en cas d'erreur), enrichissement du provider CCXT (retries, mapping symboles) et ajout des tests unitaires `tests/providers/test_ccxt_provider.py` + ajustements lint.
-- 2025-10-27T19:42:17+00:00 — gpt-5-codex : Refonte de la détection supports/résistances (clustering tolérant, scoring fort/général, paramètres exposés) + mise à jour des schémas/streams et création des tests `tests/levels/test_levels_detection.py`.
-- 2025-10-27T20:10:00+00:00 — gpt-5-codex : Uniformisation des indicateurs (alias SMA/MA, colonnes `ema_<window>`, `macd_signal`, `bb_upper`...), documentation des paramètres par défaut, ajout des validations RSI/MACD et création de `tests/indicators/test_indicators_values.py` + corrections API analysis (strength_label & bad_request timeframe).
-- 2025-10-27T20:55:00+00:00 — gpt-5-codex : Refonte du pipeline SSE (événements `step:start`/`step:end`, heartbeat horodaté, arrêt via `request.is_disconnected`), génération IA tokenisée et nouveaux tests `tests/analysis/test_streaming_text.py` & `tests/stream/test_sse_flow.py` couvrant ordre, heartbeat et annulation.
-- 2025-10-27T21:35:00+00:00 — gpt-5-codex : Harmonisation des gardes d'authentification (`X-Session-User`), durcissement CORS (fallback dev + erreur en prod) et ajout des tests `tests/integration/test_auth_guards.py`, `test_market_routes.py`, `test_cors.py` après mise à jour des fixtures/env.
-- 2025-10-27T22:20:00+00:00 — gpt-5-codex : Normalisation complète du serveur MCP (schémas Pydantic dédiés, tests `tests/mcp/test_tools_contract.py` avec snapshots) et documentation README mise à jour (section MCP/stdio, lien spec, exemple FastMCP).
-- 2025-10-27T22:55:00+00:00 — gpt-5-codex : Intégration SearxNG (services Compose + settings), ajout du client HTTP + route `/api/v1/search`, extension de la config `.env` et création des tests `tests/search/test_searxng_client.py` & `tests/api/test_search_route.py`.
-- 2025-10-27T22:03:41Z — gpt-5-codex : Ajout du tool MCP `web_search` (validation Pydantic + client SearxNG partagé), nouveaux schémas de réponse et tests `tests/mcp/test_web_search_tool.py`, mise à jour des contrats existants.
-- 2025-10-27T23:40:00Z — gpt-5-codex : Externalisation du probe Docker vers `docker/healthcheck.py`, ajout du HEALTHCHECK Dockerfile et création de `tests/docker/test_healthcheck_script.py` pour couvrir succès, retries et échecs verbalisés.
-
-- 2025-10-28T00:25:00Z — gpt-5-codex : Documentation OpenAPI (tags & summaries), ajout du test `tests/integration/test_openapi_docs.py` et refonte README (sections architecture, SearxNG, SSE, badge CI, exemples curl).
-- 2025-10-28T01:45:00Z — gpt-5-codex : Implémentation de la page `/chart` (formulaire, Lightweight Charts, flux SSE via fetch-event-source), ajout des tests Vitest `components/chart/chart-analysis.test.tsx` et Playwright `tests/e2e/chart-analysis.spec.ts`, documentation README/ENV mise à jour et ajout des variables `NEXT_PUBLIC_API_*`.
-- 2025-10-28T02:40:00Z — gpt-5-codex : Instrumentation des logs structurés (contextvars, `log_stage`, enrichissement symbol/timeframe), intégration aux routes/SSE, création de `tests/utils/test_logging_context.py` et validation via `tests/stream/test_sse_flow.py`.
-- 2025-10-28T03:30:00Z — gpt-5-codex : Ajout du registre Prometheus (compteurs provider, histogrammes SSE, compteur d'événements), création du endpoint `/metrics`, instrumentation CCXT/SSE, renforcement Ruff (`A`), documentation README et nouveaux tests `tests/api/test_metrics.py` + `tests/services/test_metrics_registry.py`.
-- 2025-10-28T04:20:00Z — gpt-5-codex : Ajout du cache OHLCV en mémoire (LRU + TTL configurables), extension de la config `.env`, documentation README et nouveaux tests `tests/providers/test_ccxt_provider.py` couvrant hit/expiration/éviction.
-- 2025-10-28T05:10:00Z — gpt-5-codex : Renommage de `finance-chart-artifact` en `ChartArtifact`, mise à jour des imports/tests (Playwright, Vitest, harness) et ajustement des `data-testid`; exécution de `pnpm vitest --run components/finance/ChartArtifact.test.tsx components/messages.test.tsx`.
-- 2025-10-28T06:45:00Z — gpt-5-codex : Correction de l'indentation Makefile (tabs), ajout de la documentation backend (`make setup` + `ALLOWED_ORIGINS`) et validation de `make setup` + `make dev`.
-- 2025-10-28T07:55:00Z — gpt-5-codex : Stabilisation de l'espace Next.js (dépendances `next`/`lightweight-charts` figées, scripts `pnpm` documentés, typage SSE ajusté), ajout d'un stub TypeScript pour `@vitejs/plugin-react` et conversion de Vitest en import dynamique. Vérification via `pnpm lint`, `pnpm typecheck`, `pnpm vitest --run`.
-- 2025-10-28T08:45:00Z — gpt-5-codex : Automatisation du serveur Next.js pour Playwright (`webServer` + session JSON), mise à jour de `tests/setup/auth.setup.ts`, ajout du root layout App Router et documentation README/`.gitignore`. Tests : `pnpm typecheck`, `pnpm exec playwright test tests/e2e/chart-analysis.spec.ts --reporter=list`.
-- 2025-10-28T09:30:00Z — gpt-5-codex : Correction du déclenchement CI (workflow sur toutes les branches + déclenchement manuel `workflow_dispatch`) pour que les jobs démarrent sur les branches de travail.

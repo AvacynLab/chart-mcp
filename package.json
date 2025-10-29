@@ -14,7 +14,10 @@
   "engines": {
     "node": ">=20.10"
   },
-  "packageManager": "pnpm@8.15.4",
+  "packageManager": "pnpm@8.15.7",
+  "workspaces": [
+    "frontend/ai-chatbot"
+  ],
   "scripts": {
     "dev": "next dev",
     "build": "next build",

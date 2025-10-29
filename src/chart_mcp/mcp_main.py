@@ -17,6 +17,7 @@ REGISTERED_TOOL_NAMES = (
     "identify_support_resistance",
     "detect_chart_patterns",
     "generate_analysis_summary",
+    "web_search",
 )
 """Ordered tuple listing every tool exposed over the MCP transport."""
 
@@ -61,6 +62,9 @@ def register(server: MCPServer) -> None:
     server.tool("generate_analysis_summary")(
         lambda payload: tools.generate_analysis_summary(payload)
     )
+    # The web_search tool proxies our SearxNG integration so MCP clients can
+    # perform contextual research without leaving the stdio transport.
+    server.tool("web_search")(tools.web_search)
 
 
 async def main() -> None:
