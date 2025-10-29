@@ -18,8 +18,11 @@ from chart_mcp.schemas.patterns import Pattern
 class RequestedIndicator(BaseModel):
     """Indicator requested by the client for inclusion in analysis."""
 
-    name: str
-    params: Dict[str, float] = Field(default_factory=dict)
+    name: str = Field(..., min_length=2, max_length=48, description="Indicator identifier (ema, rsi, ...).")
+    params: Dict[str, float] = Field(
+        default_factory=dict,
+        description="Optional parameter mapping forwarded to the indicator service.",
+    )
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
     @field_validator("name")
@@ -38,11 +41,14 @@ class RequestedIndicator(BaseModel):
 class AnalysisRequest(BaseModel):
     """Full analysis request payload."""
 
-    symbol: str
-    timeframe: str
-    indicators: List[RequestedIndicator] = Field(default_factory=list)
-    include_levels: bool = True
-    include_patterns: bool = True
+    symbol: str = Field(..., min_length=3, max_length=20, description="Symbol to analyse (case-insensitive).")
+    timeframe: str = Field(..., min_length=2, max_length=6, description="Timeframe identifier for OHLCV candles.")
+    indicators: List[RequestedIndicator] = Field(
+        default_factory=list,
+        description="Optional set of indicators to compute alongside the analysis.",
+    )
+    include_levels: bool = Field(True, description="Request detection of support/resistance levels.")
+    include_patterns: bool = Field(True, description="Request detection of chart patterns.")
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
     @field_validator("symbol")
@@ -61,8 +67,10 @@ class AnalysisRequest(BaseModel):
 class IndicatorSnapshot(BaseModel):
     """Key indicator values summarised for the analysis response."""
 
-    name: str
-    latest: Dict[str, float]
+    name: str = Field(..., min_length=2, max_length=48, description="Indicator identifier exposed to clients.")
+    latest: Dict[str, float] = Field(
+        ..., description="Mapping containing the most recent indicator highlights."
+    )
     model_config = ConfigDict(extra="forbid")
 
     @field_validator("name")
@@ -81,16 +89,28 @@ class IndicatorSnapshot(BaseModel):
 class AnalysisResponse(BaseModel):
     """Full analysis output payload."""
 
-    symbol: str
-    timeframe: str
-    indicators: List[IndicatorSnapshot]
-    levels: Optional[List[Level]] = None
-    patterns: Optional[List[Pattern]] = None
-    summary: str
-    disclaimer: str = Field(
-        "Analyse à vocation informative uniquement, pas de conseil d'investissement."
+    symbol: str = Field(..., min_length=3, max_length=20, description="Analysed trading symbol (uppercase).")
+    timeframe: str = Field(..., min_length=2, max_length=6, description="Timeframe used to generate the analysis.")
+    indicators: List[IndicatorSnapshot] = Field(
+        ..., description="Indicator highlights surfaced to the client."
     )
-    limits: List[str] = Field(default_factory=list)
+    levels: Optional[List[Level]] = Field(
+        default=None,
+        description="Optional list of detected support and resistance levels.",
+    )
+    patterns: Optional[List[Pattern]] = Field(
+        default=None,
+        description="Optional list of detected chart patterns.",
+    )
+    summary: str = Field(..., max_length=400, description="Token-limited natural language summary.")
+    disclaimer: str = Field(
+        "Analyse à vocation informative uniquement, pas de conseil d'investissement.",
+        description="Regulatory disclaimer appended to every analysis.",
+    )
+    limits: List[str] = Field(
+        default_factory=list,
+        description="List of caveats (data gaps, rate limits, etc.) to surface in the UI.",
+    )
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
     @field_validator("symbol")
@@ -104,14 +124,6 @@ class AnalysisResponse(BaseModel):
     def normalize_timeframe(cls, value: str) -> str:
         """Expose timeframe values in lowercase."""
         return value.lower()
-
-    @field_validator("summary")
-    @classmethod
-    def enforce_summary_length(cls, value: str) -> str:
-        """Keep summaries below 400 characters as mandated by the stub."""
-        if len(value) > 400:
-            raise ValueError("summary must not exceed 400 characters")
-        return value
 
     @field_validator("limits")
     @classmethod

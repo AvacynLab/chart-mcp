@@ -140,8 +140,18 @@ def create_app() -> FastAPI:
     patterns_service = PatternsService()
     analysis_service = AnalysisLLMService()
     backtest_service = BacktestService()
+    finance_feature_enabled = settings.feature_finance
+    reference_now = (
+        PLAYWRIGHT_REFERENCE_TIME if settings.playwright_mode else datetime.now(tz=timezone.utc)
+    )
+    base_finance_service = default_finance_service(now=reference_now)
     streaming_service = StreamingService(
-        provider, indicator_service, levels_service, patterns_service, analysis_service
+        provider,
+        indicator_service,
+        levels_service,
+        patterns_service,
+        analysis_service,
+        finance_service=base_finance_service,
     )
     # The optional search client proxies aggregation requests to the companion
     # SearxNG container. When operators omit the base URL the HTTP route will
@@ -160,18 +170,11 @@ def create_app() -> FastAPI:
     app.state.streaming_service = streaming_service
     app.state.search_client = search_client
 
-    finance_feature_enabled = settings.feature_finance
     # The finance feature flag lets operators disable advanced artefacts without
     # touching routing code elsewhere. When disabled the dedicated router is not
     # mounted and the state entry is set to ``None`` so dependency injection will
     # fail fast if referenced by mistake during tests.
-    reference_now = (
-        PLAYWRIGHT_REFERENCE_TIME if settings.playwright_mode else datetime.now(tz=timezone.utc)
-    )
-    finance_service = (
-        default_finance_service(now=reference_now) if finance_feature_enabled else None
-    )
-    app.state.finance_service = finance_service
+    app.state.finance_service = base_finance_service if finance_feature_enabled else None
 
     app.include_router(health.router)
     app.include_router(market.router)

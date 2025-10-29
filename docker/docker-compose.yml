@@ -29,7 +29,7 @@ services:
       - UWSGI_THREADS=2
     volumes:
       - searxng-data:/etc/searxng
-      - ./searxng/settings.yml:/etc/searxng/settings.yml:ro
+      - ./docker/searxng/settings.yml:/etc/searxng/settings.yml:ro
     ports:
       - "8080:8080"
 

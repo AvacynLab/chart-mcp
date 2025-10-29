@@ -18,6 +18,7 @@ export default defineConfig(async () => {
         "app/**/*.test.{ts,tsx}",
         "components/**/*.test.{ts,tsx}",
         "lib/**/*.test.ts",
+        "tests/routes/**/*.spec.ts",
       ],
       coverage: {
         reporter: ["text", "lcov"],
@@ -29,6 +30,7 @@ export default defineConfig(async () => {
     },
     resolve: {
       alias: {
+        "@": resolve(rootDir, "frontend/ai-chatbot"),
         "@app": resolve(rootDir, "app"),
         "@components": resolve(rootDir, "components"),
         "@lib": resolve(rootDir, "lib"),
