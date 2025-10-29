@@ -7,7 +7,7 @@ import contextlib
 import time
 from dataclasses import dataclass
 from enum import Enum
-from typing import AsyncIterator, Dict, Iterable, List, Mapping, SupportsFloat, cast
+from typing import AsyncIterator, Dict, Iterable, List, Literal, Mapping, SupportsFloat, cast
 
 from loguru import logger
 
@@ -145,16 +145,24 @@ class StreamingService:
             name = str(name_raw).lower().strip() if name_raw is not None else ""
             if name not in {"ema", "sma"}:
                 continue
+
             params: Mapping[str, object] = params_raw if isinstance(params_raw, Mapping) else {}
             window_raw = params.get("window")
-            try:
-                window = int(float(window_raw)) if window_raw is not None else None
-            except (TypeError, ValueError):
+            window: int | None
+            if isinstance(window_raw, (int, float)):
+                window = int(window_raw)
+            elif isinstance(window_raw, str):
+                try:
+                    window = int(float(window_raw))
+                except ValueError:
+                    window = None
+            else:
                 window = None
             if window is None or window <= 0:
                 continue
             identifier = f"{name}-{window}"
-            overlays.append(OverlayRequest(identifier=identifier, kind=name, window=window))
+            kind_literal = cast(Literal["sma", "ema"], name)
+            overlays.append(OverlayRequest(identifier=identifier, kind=kind_literal, window=window))
         return overlays
 
     @staticmethod
@@ -169,8 +177,8 @@ class StreamingService:
             ]
             payloads.append(
                 OverlaySeriesPayload(
-                    identifier=series.identifier,
-                    kind=series.kind,
+                    id=series.identifier,
+                    type=series.kind,
                     window=series.window,
                     points=points,
                 )
@@ -187,14 +195,14 @@ class StreamingService:
             low=snapshot.low,
             close=snapshot.close,
             volume=snapshot.volume,
-            previous_close=snapshot.previous_close,
-            change_abs=snapshot.change_abs,
-            change_pct=snapshot.change_pct,
-            trading_range=snapshot.trading_range,
+            previousClose=snapshot.previous_close,
+            changeAbs=snapshot.change_abs,
+            changePct=snapshot.change_pct,
+            range=snapshot.trading_range,
             body=snapshot.body,
-            body_pct=snapshot.body_pct,
-            upper_wick=snapshot.upper_wick,
-            lower_wick=snapshot.lower_wick,
+            bodyPct=snapshot.body_pct,
+            upperWick=snapshot.upper_wick,
+            lowerWick=snapshot.lower_wick,
             direction=snapshot.direction,
         )
 
@@ -202,11 +210,11 @@ class StreamingService:
     def _range_payload(summary_range: ChartRangeSnapshot) -> ChartRangePayload:
         """Convert a chart range snapshot to its streaming representation."""
         return ChartRangePayload(
-            first_ts=summary_range.first_ts,
-            last_ts=summary_range.last_ts,
+            firstTs=summary_range.first_ts,
+            lastTs=summary_range.last_ts,
             high=summary_range.high,
             low=summary_range.low,
-            total_volume=summary_range.total_volume,
+            totalVolume=summary_range.total_volume,
         )
 
     @classmethod
@@ -527,7 +535,7 @@ class StreamingService:
                         kind=lvl.kind,
                         strength=float(lvl.strength),
                         label=lvl.strength_label,
-                        ts_range=(int(lvl.ts_range[0]), int(lvl.ts_range[1])),
+                        tsRange=(int(lvl.ts_range[0]), int(lvl.ts_range[1])),
                     )
                     for lvl in levels
                 ]
@@ -597,8 +605,8 @@ class StreamingService:
                         name=p.name,
                         score=float(p.score),
                         confidence=float(p.confidence),
-                        start_ts=int(p.start_ts),
-                        end_ts=int(p.end_ts),
+                        startTs=int(p.start_ts),
+                        endTs=int(p.end_ts),
                         points=[(int(ts), float(price)) for ts, price in p.points],
                         metadata=dict(p.metadata),
                     )
