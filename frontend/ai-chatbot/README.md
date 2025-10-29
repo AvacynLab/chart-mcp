@@ -67,4 +67,12 @@ pnpm install
 pnpm dev
 ```
 
+If you plan to run the Playwright test suite locally, download the required browsers manually after install:
+
+```bash
+pnpm exec playwright install --with-deps
+```
+
+> The repository disables automatic browser downloads during `pnpm install` to keep CI environments without external network access green.
+
 Your app template should now be running on [localhost:3000](http://localhost:3000).
