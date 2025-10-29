@@ -29,7 +29,7 @@ def _build_frame(*, closes: Iterable[float], highs: Iterable[float], lows: Itera
 
 
 def _pick_metadata(result: PatternResult) -> dict[str, object]:
-    """Convenience accessor returning a shallow copy of the metadata."""
+    """Return a shallow copy of the pattern metadata."""
     return dict(result.metadata)
 
 

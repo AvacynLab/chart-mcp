@@ -40,6 +40,7 @@ class PatternResult:
     metadata:
         Extra machine-readable hints such as ``direction`` or specific candle
         indices.
+
     """
 
     name: str

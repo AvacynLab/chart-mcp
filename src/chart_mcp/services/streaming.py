@@ -21,20 +21,20 @@ from chart_mcp.schemas.streaming import (
     ErrorStreamPayload,
     IndicatorsStreamDetails,
     IndicatorsStreamPayload,
-    OverlayPointPayload,
-    OverlaySeriesPayload,
     LevelDetail,
     LevelPreview,
-    LevelStreamModel,
     LevelsStreamPayload,
+    LevelStreamModel,
     MetricDetails,
     MetricStreamPayload,
     OhlcvRowPayload,
     OhlcvStreamDetails,
     OhlcvStreamPayload,
+    OverlayPointPayload,
+    OverlaySeriesPayload,
     PatternDetail,
-    PatternStreamModel,
     PatternsStreamPayload,
+    PatternStreamModel,
     ProgressStep,
     RangeStreamPayload,
     ResultFinalDetails,
@@ -56,7 +56,6 @@ from chart_mcp.services.finance import (
     ChartCandleSnapshot,
     ChartRangeSnapshot,
     FinanceDataService,
-    OverlayPointSnapshot,
     OverlayRequest,
     OverlaySeriesSnapshot,
 )
@@ -64,9 +63,9 @@ from chart_mcp.services.indicators import IndicatorService
 from chart_mcp.services.levels import LevelCandidate, LevelsService
 from chart_mcp.services.metrics import metrics
 from chart_mcp.services.patterns import PatternResult, PatternsService
+from chart_mcp.utils.data_adapter import normalize_ohlcv_frame
 from chart_mcp.utils.errors import ApiError, BadRequest
 from chart_mcp.utils.logging import log_stage, set_request_metadata
-from chart_mcp.utils.data_adapter import normalize_ohlcv_frame
 from chart_mcp.utils.sse import SseStreamer
 
 
@@ -137,7 +136,6 @@ class StreamingService:
     @staticmethod
     def _build_overlay_requests(indicator_specs: Iterable[Dict[str, object]]) -> List[OverlayRequest]:
         """Translate indicator specifications into overlay descriptors."""
-
         overlays: List[OverlayRequest] = []
         for spec in indicator_specs:
             name_raw = spec.get("name")
@@ -160,7 +158,6 @@ class StreamingService:
     @staticmethod
     def _overlay_payloads(series_list: Iterable[OverlaySeriesSnapshot]) -> List[OverlaySeriesPayload]:
         """Convert overlay snapshots into stream payload models."""
-
         payloads: List[OverlaySeriesPayload] = []
         for series in series_list:
             points = [OverlayPointPayload(ts=point.ts, value=point.value) for point in series.points]
@@ -172,7 +169,6 @@ class StreamingService:
     @staticmethod
     def _candle_payload(snapshot: ChartCandleSnapshot) -> ChartCandlePayload:
         """Convert a chart candle snapshot to the streaming schema."""
-
         return ChartCandlePayload(
             ts=snapshot.ts,
             open=snapshot.open,
@@ -194,7 +190,6 @@ class StreamingService:
     @staticmethod
     def _range_payload(summary_range: ChartRangeSnapshot) -> ChartRangePayload:
         """Convert a chart range snapshot to its streaming representation."""
-
         return ChartRangePayload(
             first_ts=summary_range.first_ts,
             last_ts=summary_range.last_ts,
@@ -213,7 +208,6 @@ class StreamingService:
         summary: ChartArtifactSummary,
     ) -> None:
         """Emit the foundational OHLCV, range and candle detail events."""
-
         ohlcv_payload = OhlcvStreamPayload(
             type="ohlcv",
             payload=OhlcvStreamDetails(
@@ -341,11 +335,9 @@ class StreamingService:
             ]
             return ratio, step_snapshots
 
-        chart_summary: ChartArtifactSummary | None = None
-        overlay_payloads: List[OverlaySeriesPayload] = []
-
         async def _run_pipeline() -> None:
             """Execute the streaming pipeline while guarding against crashes."""
+            overlay_payloads: List[OverlaySeriesPayload] = []
             try:
                 with log_stage("ohlcv"):
                     await streamer.publish(

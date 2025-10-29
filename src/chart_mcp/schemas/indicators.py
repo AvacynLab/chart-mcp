@@ -1,7 +1,8 @@
 """Schemas shared by the indicator computation REST and MCP surfaces.
 
 The models centralise validation so REST, SSE and MCP callers benefit from the
-same guardrails when selecting indicator names and parameters."""
+same guardrails when selecting indicator names and parameters.
+"""
 
 from __future__ import annotations
 

@@ -29,7 +29,6 @@ def _parse_event_names(raw: str) -> List[str]:
 
 def _parse_events(raw: str) -> List[Tuple[str, Dict[str, Any]]]:
     """Return ``(event_name, payload)`` pairs parsed from an SSE string."""
-
     events: List[Tuple[str, Dict[str, Any]]] = []
     for block in raw.split("\n\n"):
         if not block or block.startswith(":"):
@@ -177,7 +176,6 @@ async def test_sse_flow_cancels_on_disconnect(client, monkeypatch):
 
 def test_sse_flow_handles_empty_dataset(client, monkeypatch):
     """Empty provider datasets should yield error + done events with context."""
-
     empty_frame = pd.DataFrame(columns=["ts", "o", "h", "l", "c", "v"])
 
     def _return_empty(self, *args, **kwargs):  # type: ignore[no-untyped-def]
@@ -206,7 +204,6 @@ def test_sse_flow_handles_empty_dataset(client, monkeypatch):
 
 def test_sse_flow_reports_provider_failure(client, monkeypatch):
     """Provider exceptions must be surfaced as upstream errors in the stream."""
-
     def _raise_upstream(self, *args, **kwargs):  # type: ignore[no-untyped-def]
         raise UpstreamError("exchange down", details={"provider": "ccxt"})
 
