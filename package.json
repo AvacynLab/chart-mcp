@@ -2,47 +2,9 @@
   "name": "chart-mcp",
   "version": "0.1.0",
   "private": true,
-  "description": "Frontend workspace for the chart-mcp Next.js dashboard",
-  "dependencies": {
-    "@microsoft/fetch-event-source": "^2.0.1",
-    "lightweight-charts": "^4.2.3",
-    "next": "14.2.5",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "zod": "^3.23.8"
-  },
-  "engines": {
-    "node": ">=20.10"
-  },
+  "description": "Workspace root for the chart-mcp project",
   "packageManager": "pnpm@8.15.7",
   "workspaces": [
     "frontend/ai-chatbot"
-  ],
-  "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "next lint",
-    "typecheck": "tsc --noEmit",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "test:e2e": "playwright test"
-  },
-  "devDependencies": {
-    "@playwright/test": "1.47.0",
-    "@testing-library/jest-dom": "^6.4.2",
-    "@testing-library/react": "^14.2.1",
-    "@testing-library/user-event": "^14.5.2",
-    "@types/node": "^20.11.30",
-    "@types/react": "^18.2.37",
-    "@types/react-dom": "^18.2.15",
-    "@vitejs/plugin-react": "^5.1.0",
-    "@vitest/coverage-v8": "1.4.0",
-    "esbuild": "^0.21.5",
-    "eslint": "^8.57.0",
-    "eslint-config-next": "14.2.5",
-    "jsdom": "^23.2.0",
-    "typescript": "5.4.5",
-    "vitest": "1.4.0"
-  }
+  ]
 }

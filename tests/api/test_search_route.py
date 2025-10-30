@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import pytest
 from fastapi.testclient import TestClient
 
 from chart_mcp.services.search import SearchResult
@@ -57,6 +58,31 @@ def test_search_route_returns_payload(client, test_app) -> None:
     assert payload["categories"] == ["news", "science"]
     assert payload["results"][0]["title"] == "Bitcoin rebounds"
     assert stub.calls == [("bitcoin breakout", ["news", "science"], "day")]
+
+
+def test_search_route_returns_enriched_results(client) -> None:
+    """The HTTP layer should normalise categories and expose result metadata."""
+
+    stub = StubSearchClient()
+    client.app.state.search_client = stub
+
+    response = client.get(
+        "/api/v1/search",
+        params={
+            "q": "ethereum merge",
+            "categories": "News,Tech,DeFi",
+            "time_range": "week",
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["query"] == "ethereum merge"
+    assert payload["categories"] == ["news", "tech", "defi"]
+    assert payload["time_range"] == "week"
+    result = payload["results"][0]
+    assert set(result.keys()) == {"title", "url", "snippet", "source", "score"}
+    assert result["score"] == pytest.approx(9.1)
 
 
 def test_search_route_requires_configuration(client) -> None:

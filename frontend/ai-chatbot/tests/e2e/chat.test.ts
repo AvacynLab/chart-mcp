@@ -1,6 +1,19 @@
 import { expect, test } from "../fixtures";
 import { ChatPage } from "../pages/chat";
 
+/**
+ * Narrow the nullable assistant message returned by the page object so the
+ * tests remain type-safe without relying on non-null assertions.
+ */
+function requireAssistantMessage(
+  message: Awaited<ReturnType<ChatPage["getRecentAssistantMessage"]>>
+) {
+  if (!message) {
+    throw new Error("Assistant message should be available after generation.");
+  }
+  return message;
+}
+
 test.describe("Chat activity", () => {
   let chatPage: ChatPage;
 
@@ -14,8 +27,7 @@ test.describe("Chat activity", () => {
     await chatPage.isGenerationComplete();
 
     const assistantMessage = await chatPage.getRecentAssistantMessage();
-    expect(assistantMessage).not.toBeNull();
-    const renderedAssistantMessage = assistantMessage!;
+    const renderedAssistantMessage = requireAssistantMessage(assistantMessage);
     expect(renderedAssistantMessage.content).toContain("It's just green duh!");
   });
 
@@ -24,8 +36,7 @@ test.describe("Chat activity", () => {
     await chatPage.isGenerationComplete();
 
     const assistantMessage = await chatPage.getRecentAssistantMessage();
-    expect(assistantMessage).not.toBeNull();
-    const renderedAssistantMessage = assistantMessage!;
+    const renderedAssistantMessage = requireAssistantMessage(assistantMessage);
     expect(renderedAssistantMessage.content).toContain("It's just green duh!");
     await chatPage.hasChatIdInUrl();
   });
@@ -35,8 +46,7 @@ test.describe("Chat activity", () => {
     await chatPage.isGenerationComplete();
 
     const assistantMessage = await chatPage.getRecentAssistantMessage();
-    expect(assistantMessage).not.toBeNull();
-    const renderedAssistantMessage = assistantMessage!;
+    const renderedAssistantMessage = requireAssistantMessage(assistantMessage);
     expect(renderedAssistantMessage.content).toContain(
       "With Next.js, you can ship fast!"
     );
@@ -69,8 +79,7 @@ test.describe("Chat activity", () => {
     await chatPage.isGenerationComplete();
 
     const assistantMessage = await chatPage.getRecentAssistantMessage();
-    expect(assistantMessage).not.toBeNull();
-    const renderedAssistantMessage = assistantMessage!;
+    const renderedAssistantMessage = requireAssistantMessage(assistantMessage);
     expect(renderedAssistantMessage.content).toContain("It's just green duh!");
 
     const userMessage = await chatPage.getRecentUserMessage();
@@ -79,9 +88,12 @@ test.describe("Chat activity", () => {
     await chatPage.isGenerationComplete();
 
     const updatedAssistantMessage = await chatPage.getRecentAssistantMessage();
-    expect(updatedAssistantMessage).not.toBeNull();
-    const renderedUpdatedAssistantMessage = updatedAssistantMessage!;
-    expect(renderedUpdatedAssistantMessage.content).toContain("It's just blue duh!");
+    const renderedUpdatedAssistantMessage = requireAssistantMessage(
+      updatedAssistantMessage
+    );
+    expect(renderedUpdatedAssistantMessage.content).toContain(
+      "It's just blue duh!"
+    );
   });
 
   test("Hide suggested actions after sending message", async () => {
@@ -105,8 +117,7 @@ test.describe("Chat activity", () => {
     await chatPage.isGenerationComplete();
 
     const assistantMessage = await chatPage.getRecentAssistantMessage();
-    expect(assistantMessage).not.toBeNull();
-    const renderedAssistantMessage = assistantMessage!;
+    const renderedAssistantMessage = requireAssistantMessage(assistantMessage);
     expect(renderedAssistantMessage.content).toBe("This painting is by Monet!");
   });
 
@@ -115,8 +126,7 @@ test.describe("Chat activity", () => {
     await chatPage.isGenerationComplete();
 
     const assistantMessage = await chatPage.getRecentAssistantMessage();
-    expect(assistantMessage).not.toBeNull();
-    const renderedAssistantMessage = assistantMessage!;
+    const renderedAssistantMessage = requireAssistantMessage(assistantMessage);
 
     expect(renderedAssistantMessage.content).toBe(
       "The current temperature in San Francisco is 17°C."
@@ -128,8 +138,7 @@ test.describe("Chat activity", () => {
     await chatPage.isGenerationComplete();
 
     const assistantMessage = await chatPage.getRecentAssistantMessage();
-    expect(assistantMessage).not.toBeNull();
-    const renderedAssistantMessage = assistantMessage!;
+    const renderedAssistantMessage = requireAssistantMessage(assistantMessage);
     await renderedAssistantMessage.upvote();
     await chatPage.isVoteComplete();
   });
@@ -139,8 +148,7 @@ test.describe("Chat activity", () => {
     await chatPage.isGenerationComplete();
 
     const assistantMessage = await chatPage.getRecentAssistantMessage();
-    expect(assistantMessage).not.toBeNull();
-    const renderedAssistantMessage = assistantMessage!;
+    const renderedAssistantMessage = requireAssistantMessage(assistantMessage);
     await renderedAssistantMessage.downvote();
     await chatPage.isVoteComplete();
   });
@@ -150,8 +158,7 @@ test.describe("Chat activity", () => {
     await chatPage.isGenerationComplete();
 
     const assistantMessage = await chatPage.getRecentAssistantMessage();
-    expect(assistantMessage).not.toBeNull();
-    const renderedAssistantMessage = assistantMessage!;
+    const renderedAssistantMessage = requireAssistantMessage(assistantMessage);
     await renderedAssistantMessage.upvote();
     await chatPage.isVoteComplete();
 
@@ -168,8 +175,7 @@ test.describe("Chat activity", () => {
     expect(userMessage.content).toBe("Why is the sky blue?");
 
     const assistantMessage = await chatPage.getRecentAssistantMessage();
-    expect(assistantMessage).not.toBeNull();
-    const renderedAssistantMessage = assistantMessage!;
+    const renderedAssistantMessage = requireAssistantMessage(assistantMessage);
     expect(renderedAssistantMessage.content).toContain("It's just blue duh!");
   });
 

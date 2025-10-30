@@ -79,6 +79,7 @@ def search(
     return search_schema.SearchResponse(
         query=q,
         categories=parsed_categories,
+        time_range=time_range,
         results=response_items,
     )
 

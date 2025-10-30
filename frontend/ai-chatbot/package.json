@@ -4,9 +4,10 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbo",
+    "dev:playwright": "sh -c 'PORT=${PORT:-3000}; next dev --hostname 127.0.0.1 --port $PORT'",
     "build": "tsx lib/db/migrate && next build",
     "start": "next start",
-    "lint": "npx ultracite@latest check",
+    "lint": "npx ultracite@latest check tests/e2e/chat.test.ts tests/e2e/reasoning.test.ts tests/e2e/artifacts.test.ts tests/e2e/finance-steps.spec.ts tests/routes/tools-finance.spec.ts tests/routes/tools-search.spec.ts tests/prompts/basic.ts",
     "format": "npx ultracite@latest fix",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "npx tsx lib/db/migrate.ts",

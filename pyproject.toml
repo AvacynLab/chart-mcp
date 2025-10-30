@@ -61,7 +61,7 @@ module = ["chart_mcp.*"]
 strict = true
 
 [tool.pytest.ini_options]
-addopts = "-q --cov=src --cov-report=xml"
+addopts = "-q --cov=src --cov=src/chart_mcp/services/streaming --cov=src/chart_mcp/services/search --cov-report=xml --cov-fail-under=80 --import-mode=importlib"
 asyncio_mode = "auto"
 testpaths = ["tests"]
 filterwarnings = ["ignore::DeprecationWarning"]

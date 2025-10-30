@@ -41,7 +41,7 @@ describe("searchDocumentHandler", () => {
       new Response(JSON.stringify(payload), {
         status: 200,
         headers: { "Content-Type": "application/json" },
-      }),
+      })
     );
 
     const summary = await searchDocumentHandler.onCreateDocument({
@@ -63,7 +63,9 @@ describe("searchDocumentHandler", () => {
       query: "ethereum",
     });
 
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("", { status: 502 }));
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response("", { status: 502 })
+    );
 
     const summary = await searchDocumentHandler.onCreateDocument({
       id: "search-err",

@@ -11,6 +11,10 @@ import type { UIMessageStreamWriter } from "ai";
 
 import { createDocumentHandler } from "@/lib/artifacts/server";
 import { consumeFinanceArtifactConfig } from "@/lib/artifacts/finance-config";
+import {
+  FINANCE_STREAM_FIXTURE,
+  buildFinanceEventChunk,
+} from "@/lib/test/finance-stream-fixture";
 import type { ChatMessage } from "@/lib/types";
 
 const DEFAULT_BASE_URL = "http://localhost:8000";
@@ -80,30 +84,6 @@ async function streamFinanceAnalysis(
   url: string,
   dataStream: UIMessageStreamWriter<ChatMessage>,
 ): Promise<string> {
-  const response = await fetch(url, {
-    headers: resolveApiHeaders(),
-    cache: "no-store",
-  });
-
-  if (!response.ok) {
-    const message = `Finance stream request failed with status ${response.status}`;
-    dataStream.write({
-      type: "data-error",
-      data: { code: "finance_request_failed", message },
-    });
-    throw new Error(message);
-  }
-
-  const reader = response.body?.getReader();
-  if (!reader) {
-    const message = "Finance stream response did not include a readable body";
-    dataStream.write({
-      type: "data-error",
-      data: { code: "finance_stream_empty", message },
-    });
-    throw new Error(message);
-  }
-
   const decoder = new TextDecoder();
   let buffer = "";
   let summary = "";
@@ -189,6 +169,48 @@ async function streamFinanceAnalysis(
       default:
         return;
     }
+  }
+
+  const shouldUseFixture = Boolean(
+    process.env.PLAYWRIGHT ?? process.env.CI_PLAYWRIGHT,
+  );
+
+  /**
+   * During Playwright runs we bypass the network hop and replay the shared
+   * fixture directly. The deterministic sequence keeps the e2e test hermetic
+   * while still exercising the event mapping performed by the artifact
+   * handler.
+   */
+
+  if (shouldUseFixture) {
+    for (const event of FINANCE_STREAM_FIXTURE) {
+      await handleChunk(buildFinanceEventChunk(event));
+    }
+    return summary.trim();
+  }
+
+  const response = await fetch(url, {
+    headers: resolveApiHeaders(),
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    const message = `Finance stream request failed with status ${response.status}`;
+    dataStream.write({
+      type: "data-error",
+      data: { code: "finance_request_failed", message },
+    });
+    throw new Error(message);
+  }
+
+  const reader = response.body?.getReader();
+  if (!reader) {
+    const message = "Finance stream response did not include a readable body";
+    dataStream.write({
+      type: "data-error",
+      data: { code: "finance_stream_empty", message },
+    });
+    throw new Error(message);
   }
 
   while (true) {

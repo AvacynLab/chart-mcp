@@ -26,23 +26,37 @@ export default function Page() {
   const { update: updateSession } = useSession();
 
   useEffect(() => {
+    /**
+     * Mirror the server response by surfacing a toast for every terminal
+     * status while refreshing the client-side session when the login succeeds.
+     * Including `updateSession` and `router` in the dependency list keeps the
+     * hook lint-friendly without triggering redundant refreshes because both
+     * references are stable across renders.
+     */
     if (state.status === "failed") {
       toast({
         type: "error",
         description: "Invalid credentials!",
       });
-    } else if (state.status === "invalid_data") {
+      return;
+    }
+
+    if (state.status === "invalid_data") {
       toast({
         type: "error",
         description: "Failed validating your submission!",
       });
-    } else if (state.status === "success") {
+      return;
+    }
+
+    if (state.status === "success") {
       setIsSuccessful(true);
-      updateSession();
+      updateSession().catch(() => {
+        // Session refresh failures should not block the UI update; ignore silently.
+      });
       router.refresh();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.status]);
+  }, [router, state.status, updateSession]);
 
   const handleSubmit = (formData: FormData) => {
     setEmail(formData.get("email") as string);

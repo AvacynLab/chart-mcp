@@ -59,8 +59,27 @@ def test_search_raises_upstream_error_on_server_failure() -> None:
 
     client = SearxNGClient("http://searx.local", transport=httpx.MockTransport(handler))
 
-    with pytest.raises(UpstreamError):
+    with pytest.raises(UpstreamError) as exc_info:
         client.search(query="btc", categories=None)
+
+    assert "503" in str(exc_info.value)
+
+
+def test_search_raises_upstream_error_on_timeout() -> None:
+    """Timeout exceptions must be wrapped so the API responds with a 502 error."""
+
+    def handler(request: httpx.Request) -> httpx.Response:  # pragma: no cover - executed via MockTransport
+        raise httpx.ReadTimeout("timeout", request=request)
+
+    client = SearxNGClient(
+        "http://searx.local",
+        transport=httpx.MockTransport(handler),
+    )
+
+    with pytest.raises(UpstreamError) as exc_info:
+        client.search(query="eth", categories=["crypto"], time_range="week")
+
+    assert "timeout" in str(exc_info.value).lower()
 
 
 def test_search_wraps_network_errors() -> None:

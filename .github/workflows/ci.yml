@@ -260,10 +260,23 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Install Playwright browsers
         run: pnpm exec playwright install --with-deps
+      - name: Start Next.js server
+        run: |
+          pnpm --dir frontend/ai-chatbot dev -- --hostname 0.0.0.0 --port 3000 &
+          NEXT_PID=$!
+          echo "NEXT_PID=$NEXT_PID" >> "$GITHUB_ENV"
+      - name: Wait for frontend availability
+        run: pnpm dlx wait-on http://127.0.0.1:3000 --timeout 60000
       - name: Run Playwright tests
         env:
           PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000
         run: pnpm exec playwright test --reporter=line
+      - name: Stop Next.js server
+        if: always()
+        run: |
+          if [ -n "${NEXT_PID:-}" ]; then
+            kill "$NEXT_PID" || true
+          fi
       - name: Upload Playwright report
         if: always()
         uses: actions/upload-artifact@v4

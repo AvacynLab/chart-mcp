@@ -83,9 +83,11 @@ class PatternsService:
         The implementation uses a lightweight heuristic based on three local
         extrema separated by at least one candle, ensuring that the middle
         extremum (the head) stands out from the shoulders while the neckline
-        remains reasonably flat.  Additional metadata describing the indices of
-        each key point is attached so downstream consumers can render the
-        structure on charts.
+        remains reasonably flat.  The head must exceed the shoulder average by
+        at least 2 % (or dip by 2 % for the inverse pattern) while shoulder
+        asymmetry is capped at 5 % and the neckline slope tolerance at 3 %.
+        Additional metadata describing the indices of each key point is
+        attached so downstream consumers can render the structure on charts.
         """
 
         def _build_metadata(

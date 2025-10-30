@@ -42,6 +42,10 @@ export const TEST_PROMPTS: Record<string, ModelMessage> = {
       },
     ],
   },
+  USER_FINANCE_STEPS: {
+    role: "user",
+    content: [{ type: "text", text: "Analyse BTC/USDT 1h avec EMA/RSI" }],
+  },
   CREATE_DOCUMENT_TEXT_CALL: {
     role: "user",
     content: [

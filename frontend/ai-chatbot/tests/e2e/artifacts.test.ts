@@ -2,6 +2,16 @@ import { expect, test } from "../fixtures";
 import { ArtifactPage } from "../pages/artifact";
 import { ChatPage } from "../pages/chat";
 
+/** Ensure artifact scenarios never dereference a nullable assistant message. */
+function requireAssistantMessage(
+  message: Awaited<ReturnType<ChatPage["getRecentAssistantMessage"]>>
+) {
+  if (!message) {
+    throw new Error("Assistant message should be available after generation.");
+  }
+  return message;
+}
+
 test.describe("Artifacts activity", () => {
   let chatPage: ChatPage;
   let artifactPage: ArtifactPage;
@@ -25,8 +35,7 @@ test.describe("Artifacts activity", () => {
     expect(artifactPage.artifact).toBeVisible();
 
     const assistantMessage = await chatPage.getRecentAssistantMessage();
-    expect(assistantMessage).not.toBeNull();
-    const renderedAssistantMessage = assistantMessage!;
+    const renderedAssistantMessage = requireAssistantMessage(assistantMessage);
     expect(renderedAssistantMessage.content).toBe(
       "A document was created and is now visible to the user."
     );
@@ -46,8 +55,7 @@ test.describe("Artifacts activity", () => {
     expect(artifactPage.artifact).toBeVisible();
 
     const assistantMessage = await chatPage.getRecentAssistantMessage();
-    expect(assistantMessage).not.toBeNull();
-    const renderedAssistantMessage = assistantMessage!;
+    const renderedAssistantMessage = requireAssistantMessage(assistantMessage);
     expect(renderedAssistantMessage.content).toBe(
       "A document was created and is now visible to the user."
     );
@@ -68,8 +76,7 @@ test.describe("Artifacts activity", () => {
     expect(artifactPage.artifact).toBeVisible();
 
     const assistantMessage = await artifactPage.getRecentAssistantMessage();
-    expect(assistantMessage).not.toBeNull();
-    const renderedAssistantMessage = assistantMessage!;
+    const renderedAssistantMessage = requireAssistantMessage(assistantMessage);
     expect(renderedAssistantMessage.content).toBe(
       "A document was created and is now visible to the user."
     );
@@ -78,8 +85,9 @@ test.describe("Artifacts activity", () => {
     await artifactPage.isGenerationComplete();
 
     const secondAssistantMessage = await chatPage.getRecentAssistantMessage();
-    expect(secondAssistantMessage).not.toBeNull();
-    const renderedSecondMessage = secondAssistantMessage!;
+    const renderedSecondMessage = requireAssistantMessage(
+      secondAssistantMessage
+    );
     expect(renderedSecondMessage.content).toBe("You're welcome!");
   });
 });

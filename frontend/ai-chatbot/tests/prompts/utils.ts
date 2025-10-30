@@ -76,6 +76,21 @@ const reasoningToDeltas = (text: string): LanguageModelV2StreamPart[] => {
   ];
 };
 
+/** Narrow an arbitrary stream part to the tool-result variant for a tool. */
+function isToolResultFor(
+  candidate: unknown,
+  toolName: string
+): candidate is { type: "tool-result"; toolName: string } {
+  return (
+    typeof candidate === "object" &&
+    candidate !== null &&
+    "type" in candidate &&
+    (candidate as any).type === "tool-result" &&
+    "toolName" in candidate &&
+    (candidate as any).toolName === toolName
+  );
+}
+
 export const getResponseChunksByPrompt = (
   prompt: ModelMessage[],
   isReasoningEnabled = false
@@ -166,6 +181,33 @@ export const getResponseChunksByPrompt = (
         type: "finish",
         finishReason: "stop",
         usage: { inputTokens: 3, outputTokens: 10, totalTokens: 13 },
+      },
+    ];
+  }
+
+  if (compareMessages(recentMessage, TEST_PROMPTS.USER_FINANCE_STEPS)) {
+    const toolCallId = generateId();
+
+    return [
+      {
+        type: "tool-call",
+        toolCallId,
+        toolName: "createFinanceArtifact",
+        input: JSON.stringify({
+          title: "Analyse BTC/USDT 1h",
+          symbol: "BTCUSDT",
+          timeframe: "1h",
+          indicators: ["ema:21", "rsi:14"],
+          limit: 250,
+          includeLevels: true,
+          includePatterns: true,
+          maxLevels: 5,
+        }),
+      },
+      {
+        type: "finish",
+        finishReason: "tool-calls",
+        usage: { inputTokens: 6, outputTokens: 2, totalTokens: 8 },
       },
     ];
   }
@@ -274,6 +316,23 @@ As we move forward, Silicon Valley continues to reinvent itself. While some pred
         type: "finish",
         finishReason: "stop",
         usage: { inputTokens: 3, outputTokens: 10, totalTokens: 13 },
+      },
+    ];
+  }
+
+  const financeToolResult = Array.isArray(recentMessage.content)
+    ? recentMessage.content.find((part) =>
+        isToolResultFor(part, "createFinanceArtifact")
+      )
+    : undefined;
+
+  if (financeToolResult) {
+    return [
+      ...textToDeltas("L'analyse financière est terminée."),
+      {
+        type: "finish",
+        finishReason: "stop",
+        usage: { inputTokens: 4, outputTokens: 9, totalTokens: 13 },
       },
     ];
   }

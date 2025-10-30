@@ -1,6 +1,19 @@
 import { expect, test } from "../fixtures";
 import { ChatPage } from "../pages/chat";
 
+/**
+ * Guard against nullable assistant messages so reasoning assertions do not
+ * rely on non-null assertions.
+ */
+function requireAssistantMessage(
+  message: Awaited<ReturnType<ChatPage["getRecentAssistantMessage"]>>
+) {
+  if (!message) {
+    throw new Error("Assistant message should be available after generation.");
+  }
+  return message;
+}
+
 test.describe("chat activity with reasoning", () => {
   let chatPage: ChatPage;
 
@@ -14,8 +27,7 @@ test.describe("chat activity with reasoning", () => {
     await chatPage.isGenerationComplete();
 
     const assistantMessage = await chatPage.getRecentAssistantMessage();
-    expect(assistantMessage).not.toBeNull();
-    const renderedAssistantMessage = assistantMessage!;
+    const renderedAssistantMessage = requireAssistantMessage(assistantMessage);
     expect(renderedAssistantMessage.content).toBe("It's just blue duh!");
 
     expect(renderedAssistantMessage.reasoning).toBe(
@@ -28,8 +40,7 @@ test.describe("chat activity with reasoning", () => {
     await chatPage.isGenerationComplete();
 
     const assistantMessage = await chatPage.getRecentAssistantMessage();
-    expect(assistantMessage).not.toBeNull();
-    const renderedAssistantMessage = assistantMessage!;
+    const renderedAssistantMessage = requireAssistantMessage(assistantMessage);
     const reasoningElement =
       renderedAssistantMessage.element.getByTestId("message-reasoning");
     expect(reasoningElement).toBeVisible();
@@ -46,8 +57,7 @@ test.describe("chat activity with reasoning", () => {
     await chatPage.isGenerationComplete();
 
     const assistantMessage = await chatPage.getRecentAssistantMessage();
-    expect(assistantMessage).not.toBeNull();
-    const renderedAssistantMessage = assistantMessage!;
+    const renderedAssistantMessage = requireAssistantMessage(assistantMessage);
     const reasoningElement =
       renderedAssistantMessage.element.getByTestId("message-reasoning");
     expect(reasoningElement).toBeVisible();
@@ -58,10 +68,13 @@ test.describe("chat activity with reasoning", () => {
     await chatPage.isGenerationComplete();
 
     const updatedAssistantMessage = await chatPage.getRecentAssistantMessage();
-    expect(updatedAssistantMessage).not.toBeNull();
-    const renderedUpdatedAssistantMessage = updatedAssistantMessage!;
+    const renderedUpdatedAssistantMessage = requireAssistantMessage(
+      updatedAssistantMessage
+    );
 
-    expect(renderedUpdatedAssistantMessage.content).toBe("It's just green duh!");
+    expect(renderedUpdatedAssistantMessage.content).toBe(
+      "It's just green duh!"
+    );
 
     expect(renderedUpdatedAssistantMessage.reasoning).toBe(
       "Grass is green because of chlorophyll absorption!"
