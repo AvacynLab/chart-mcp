@@ -262,7 +262,8 @@ jobs:
         run: pnpm --filter ai-chatbot exec playwright install --with-deps
       - name: Start Next.js server
         run: |
-          pnpm --dir frontend/ai-chatbot dev -- --hostname 0.0.0.0 --port 3000 &
+          cd frontend/ai-chatbot
+          PORT=3000 pnpm run dev:playwright &
           NEXT_PID=$!
           echo "NEXT_PID=$NEXT_PID" >> "$GITHUB_ENV"
       - name: Wait for frontend availability
