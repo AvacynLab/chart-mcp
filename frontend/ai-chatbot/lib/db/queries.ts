@@ -715,10 +715,18 @@ export async function getChatsByUserId({
     return memoryGetChatsByUserId({ id, limit, startingAfter, endingBefore });
   }
   try {
+    const sqlDb = db;
+    if (!sqlDb) {
+      throw new ChatSDKError(
+        "bad_request:database",
+        "Database connection unavailable for persistent queries",
+      );
+    }
+
     const extendedLimit = limit + 1;
 
     const query = (whereCondition?: SQL<any>) =>
-      db!
+      sqlDb
         .select()
         .from(chat)
         .where(
@@ -732,7 +740,7 @@ export async function getChatsByUserId({
     let filteredChats: Chat[] = [];
 
     if (startingAfter) {
-      const [selectedChat] = await db
+      const [selectedChat] = await sqlDb
         .select()
         .from(chat)
         .where(eq(chat.id, startingAfter))
@@ -747,7 +755,7 @@ export async function getChatsByUserId({
 
       filteredChats = await query(gt(chat.createdAt, selectedChat.createdAt));
     } else if (endingBefore) {
-      const [selectedChat] = await db
+      const [selectedChat] = await sqlDb
         .select()
         .from(chat)
         .where(eq(chat.id, endingBefore))

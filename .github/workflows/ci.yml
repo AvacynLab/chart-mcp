@@ -228,7 +228,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Typecheck frontend
-        run: pnpm exec tsc --noEmit
+        run: pnpm --filter ai-chatbot exec tsc --noEmit
       - name: Run Vitest
         run: |
           mkdir -p reports

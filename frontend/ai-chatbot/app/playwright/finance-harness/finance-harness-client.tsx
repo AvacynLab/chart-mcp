@@ -12,6 +12,20 @@ import {
 type FinanceDataPart = DataUIPart<CustomUIDataTypes>;
 
 /**
+ * Ensure an arbitrary value behaves like the record-of-arrays structure emitted
+ * by the finance pipeline for collections such as levels and patterns.
+ */
+function isRecordOfArray(value: unknown): value is Record<string, unknown[]> {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  return Object.values(value as Record<string, unknown>).every((entry) =>
+    Array.isArray(entry),
+  );
+}
+
+/**
  * Transform a single finance fixture event into the UI data parts emitted by
  * the production finance document handler. The helper mirrors the mapping in
  * `artifacts/finance/server.ts` so the Playwright harness exercises the same
@@ -43,7 +57,6 @@ function translateFinanceEvent(event: FinanceStreamEvent): FinanceDataPart[] {
         {
           type: "data-finance:token",
           data: tokenText,
-          transient: true,
         },
       ];
     }
@@ -52,20 +65,59 @@ function translateFinanceEvent(event: FinanceStreamEvent): FinanceDataPart[] {
       if (typeof payload.summary === "string" && payload.summary.length > 0) {
         parts.push({ type: "data-finance:token", data: payload.summary });
       }
-      if (payload.levels) {
-        parts.push({ type: "data-finance:levels", data: payload.levels });
+      if (isRecordOfArray(payload.levels)) {
+        parts.push({
+          type: "data-finance:levels",
+          data: payload.levels as CustomUIDataTypes["finance:levels"],
+        });
       }
-      if (payload.patterns) {
-        parts.push({ type: "data-finance:patterns", data: payload.patterns });
+      if (isRecordOfArray(payload.patterns)) {
+        parts.push({
+          type: "data-finance:patterns",
+          data: payload.patterns as CustomUIDataTypes["finance:patterns"],
+        });
       }
       return parts;
     }
+    case "ohlcv":
+      return [
+        {
+          type: "data-finance:ohlcv",
+          data: payload as CustomUIDataTypes["finance:ohlcv"],
+        },
+      ];
+    case "indicators":
+      return [
+        {
+          type: "data-finance:indicators",
+          data: payload as CustomUIDataTypes["finance:indicators"],
+        },
+      ];
+    case "levels":
+      if (!isRecordOfArray(payload)) {
+        return [];
+      }
+      return [
+        {
+          type: "data-finance:levels",
+          data: payload as CustomUIDataTypes["finance:levels"],
+        },
+      ];
+    case "patterns":
+      if (!isRecordOfArray(payload)) {
+        return [];
+      }
+      return [
+        {
+          type: "data-finance:patterns",
+          data: payload as CustomUIDataTypes["finance:patterns"],
+        },
+      ];
     case "done":
       return [
         {
           type: "data-finish",
           data: null,
-          transient: true,
         },
       ];
     case "error":
@@ -76,12 +128,7 @@ function translateFinanceEvent(event: FinanceStreamEvent): FinanceDataPart[] {
         },
       ];
     default:
-      return [
-        {
-          type: `data-finance:${event.event}` as FinanceDataPart["type"],
-          data: payload,
-        },
-      ];
+      return [];
   }
 }
 

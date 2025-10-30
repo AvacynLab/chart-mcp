@@ -73,6 +73,12 @@ export class ArtifactPage {
           .getByTestId("message-reasoning-toggle")
           .click();
       },
+      async upvote() {
+        await lastMessageElement.getByTestId("message-upvote").click();
+      },
+      async downvote() {
+        await lastMessageElement.getByTestId("message-downvote").click();
+      },
     };
   }
 
