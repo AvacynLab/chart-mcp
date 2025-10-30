@@ -270,15 +270,22 @@ jobs:
           echo "NEXT_LOG=$LOG_FILE" >> "$GITHUB_ENV"
       - name: Wait for frontend availability
         run: |
-          ATTEMPTS=60
+          # Poll the local harness until Next.js responds or we hit the guardrail.
+          ATTEMPTS=120
+          SLEEP_SECONDS=3
           for attempt in $(seq 1 "$ATTEMPTS"); do
             if curl -sf http://127.0.0.1:3000 >/dev/null; then
               echo "Frontend became ready after $attempt attempt(s)."
               exit 0
             fi
-            sleep 3
+            if [ -n "${NEXT_LOG:-}" ] && [ -f "$NEXT_LOG" ] && grep -q "Failed to start server" "$NEXT_LOG"; then
+              echo "Next.js reported a startup failure—dumping log:" >&2
+              cat "$NEXT_LOG" >&2
+              exit 1
+            fi
+            sleep "$SLEEP_SECONDS"
           done
-          echo "Frontend did not become ready within the allotted time." >&2
+          echo "Frontend did not become ready within $((ATTEMPTS * SLEEP_SECONDS)) seconds." >&2
           if [ -n "${NEXT_LOG:-}" ] && [ -f "$NEXT_LOG" ]; then
             echo "--- Next.js server log ---" >&2
             cat "$NEXT_LOG" >&2
