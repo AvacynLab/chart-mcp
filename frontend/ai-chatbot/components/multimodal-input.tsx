@@ -331,6 +331,12 @@ function PureMultimodalInput({
           ) : (
             <PromptInputSubmit
               className="size-8 rounded-full bg-primary text-primary-foreground transition-colors duration-200 hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground"
+              // The Playwright suites rely on this test identifier to drive the
+              // primary chat flow (typing a prompt then pressing "send").  The
+              // underlying button lives inside a composite prompt input, so we
+              // forward the attribute here instead of scattering data-testid
+              // hooks deeper in the shared UI primitives.
+              data-testid="send-button"
               disabled={!input.trim() || uploadQueue.length > 0}
               status={status}
             >
