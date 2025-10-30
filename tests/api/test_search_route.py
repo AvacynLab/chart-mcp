@@ -62,7 +62,6 @@ def test_search_route_returns_payload(client, test_app) -> None:
 
 def test_search_route_returns_enriched_results(client) -> None:
     """The HTTP layer should normalise categories and expose result metadata."""
-
     stub = StubSearchClient()
     client.app.state.search_client = stub
 

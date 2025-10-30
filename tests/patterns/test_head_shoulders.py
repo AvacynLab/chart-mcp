@@ -20,7 +20,6 @@ def _build_frame(highs: list[float], lows: list[float]) -> pd.DataFrame:
     therefore mirrors the high prices into the open/close series and keeps a
     flat volume placeholder so that the structure stays easy to reason about.
     """
-
     timestamps = np.arange(len(highs), dtype=np.int64)
     closes = np.array(highs, dtype=float)
     return pd.DataFrame(
@@ -37,7 +36,6 @@ def _build_frame(highs: list[float], lows: list[float]) -> pd.DataFrame:
 
 def test_detects_bearish_head_shoulders() -> None:
     """Ensure a classical head & shoulders pattern is detected reliably."""
-
     # Construct a sequence where peaks at indices 2, 4 and 6 model the
     # left/right shoulders and the head.  The neckline lows at indices 3 and 5
     # are aligned within 1 % to satisfy the flat-neckline rule enforced by the
@@ -65,7 +63,6 @@ def test_detects_bearish_head_shoulders() -> None:
 
 def test_detects_inverse_head_shoulders() -> None:
     """Validate the inverse (bullish) formation is detected with confidence."""
-
     # Mirror the previous structure to craft troughs representing an inverse
     # head & shoulders.  Troughs at indices 2, 4 and 6 create the geometry
     # whereas the highs around them offer a balanced neckline.
@@ -90,7 +87,6 @@ def test_detects_inverse_head_shoulders() -> None:
 
 def test_noise_does_not_produce_false_positive() -> None:
     """Random-like data should not trigger a head & shoulders detection."""
-
     # Generate a smooth upward trend without the three-peak structure.  The
     # heuristic should therefore return an empty list for head & shoulders
     # patterns to prevent noisy charts from surfacing false positives.
