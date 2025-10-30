@@ -294,6 +294,7 @@ jobs:
       - name: Run Playwright tests
         env:
           PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000
+          PLAYWRIGHT_SKIP_WEB_SERVER: "1"
         run: pnpm --filter ai-chatbot exec playwright test --reporter=line
       - name: Stop Next.js server
         if: always()

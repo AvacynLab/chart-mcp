@@ -102,6 +102,14 @@ export default defineConfig({
       // as well. The dual extension format mirrors Vitest defaults and removes
       // accidental friction when porting regression scenarios across runners.
       testMatch: /routes\/.*\.(test|spec)\.ts$/,
+      // The finance/search route mappers are exercised via Vitest because they
+      // rely on extensive request mocking and stream synthesis. Excluding them
+      // here prevents Playwright from attempting to require the Vitest runtime
+      // and failing with CommonJS import errors in CI.
+      testIgnore: [
+        /routes\/tools-finance\.spec\.ts$/,
+        /routes\/tools-search\.spec\.ts$/,
+      ],
       use: {
         ...devices["Desktop Chrome"],
       },
