@@ -259,7 +259,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Install Playwright browsers
-        run: pnpm exec playwright install --with-deps
+        run: pnpm --filter ai-chatbot exec playwright install --with-deps
       - name: Start Next.js server
         run: |
           pnpm --dir frontend/ai-chatbot dev -- --hostname 0.0.0.0 --port 3000 &
@@ -270,7 +270,7 @@ jobs:
       - name: Run Playwright tests
         env:
           PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000
-        run: pnpm exec playwright test --reporter=line
+        run: pnpm --filter ai-chatbot exec playwright test --reporter=line
       - name: Stop Next.js server
         if: always()
         run: |
