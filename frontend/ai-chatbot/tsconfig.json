@@ -22,7 +22,13 @@
       "@/*": ["./*"],
       "~~/chart-components/*": ["./thirdparty/chart-components/*"]
     },
-    "strictNullChecks": true
+    "strictNullChecks": true,
+    "types": [
+      "node",
+      "vitest",
+      "vitest/importMeta",
+      "vitest/globals"
+    ]
   },
   "include": [
     "next-env.d.ts",

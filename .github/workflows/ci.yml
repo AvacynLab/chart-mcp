@@ -232,7 +232,7 @@ jobs:
       - name: Run Vitest
         run: |
           mkdir -p reports
-          pnpm exec vitest run --coverage --reporter=junit --outputFile=reports/vitest-junit.xml
+          pnpm --filter ai-chatbot exec vitest run --coverage --reporter=junit --outputFile=reports/vitest-junit.xml
       - name: Upload Vitest artifacts
         uses: actions/upload-artifact@v4
         with:
