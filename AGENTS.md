@@ -174,3 +174,4 @@ Si tu veux, je te fournis maintenant les **squelettes de fichiers de test** (H&S
 - 2025-10-30T06:30:00+00:00 — gpt-5-codex : Suppression de l’UI Next.js legacy (dossiers `app`, `components`, `lib`, `types` et configs associées), simplification du `package.json` racine et mise à jour d’AGENTS.md.
 - 2025-10-30T07:30:00+00:00 — gpt-5-codex : Vérification finale de la disparition de l’ancienne UI (`git ls-files | rg '^(app|components|lib|types)/'`), contrôle du workspace PNPM et relances de `pytest -q`, `pnpm --filter ai-chatbot lint`.
 - 2025-10-30T08:15:00+00:00 — gpt-5-codex : Correction des avertissements Ruff D202 en retirant les lignes vides post-docstring, exécution de `ruff check .` et `pytest -q`.
+- 2025-10-30T09:05:00+00:00 — gpt-5-codex : Exécution de `pnpm exec tsc --noEmit` pour valider la compilation TypeScript (aucune modification requise).
