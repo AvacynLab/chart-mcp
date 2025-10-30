@@ -263,11 +263,27 @@ jobs:
       - name: Start Next.js server
         run: |
           cd frontend/ai-chatbot
-          PORT=3000 pnpm run dev:playwright &
+          LOG_FILE="$GITHUB_WORKSPACE/frontend/ai-chatbot/.next-dev.log"
+          PORT=3000 pnpm run dev:playwright > "$LOG_FILE" 2>&1 &
           NEXT_PID=$!
           echo "NEXT_PID=$NEXT_PID" >> "$GITHUB_ENV"
+          echo "NEXT_LOG=$LOG_FILE" >> "$GITHUB_ENV"
       - name: Wait for frontend availability
-        run: pnpm dlx wait-on http://127.0.0.1:3000 --timeout 60000
+        run: |
+          ATTEMPTS=60
+          for attempt in $(seq 1 "$ATTEMPTS"); do
+            if curl -sf http://127.0.0.1:3000 >/dev/null; then
+              echo "Frontend became ready after $attempt attempt(s)."
+              exit 0
+            fi
+            sleep 3
+          done
+          echo "Frontend did not become ready within the allotted time." >&2
+          if [ -n "${NEXT_LOG:-}" ] && [ -f "$NEXT_LOG" ]; then
+            echo "--- Next.js server log ---" >&2
+            cat "$NEXT_LOG" >&2
+          fi
+          exit 1
       - name: Run Playwright tests
         env:
           PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000
