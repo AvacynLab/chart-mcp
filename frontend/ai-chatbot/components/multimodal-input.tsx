@@ -467,6 +467,15 @@ function PureStopButton({
   stop: () => void;
   setMessages: UseChatHelpers<ChatMessage>["setMessages"];
 }) {
+  /**
+   * Mirror the semantic label expected by the Playwright smoke tests so
+   * assistive technology users can discover the control when the stream is
+   * active. The visible button uses an icon to reduce clutter, therefore the
+   * accessible name comes from the explicit label plus a visually hidden
+   * fallback.
+   */
+  const accessibleLabel = "Stop generating";
+
   return (
     <Button
       className="size-7 rounded-full bg-foreground p-1 text-background transition-colors duration-200 hover:bg-foreground/90 disabled:bg-muted disabled:text-muted-foreground"
@@ -476,8 +485,11 @@ function PureStopButton({
         stop();
         setMessages((messages) => messages);
       }}
+      aria-label={accessibleLabel}
+      title={accessibleLabel}
     >
       <StopIcon size={14} />
+      <span className="sr-only">{accessibleLabel}</span>
     </Button>
   );
 }

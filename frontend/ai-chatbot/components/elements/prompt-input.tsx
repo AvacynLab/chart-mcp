@@ -170,15 +170,27 @@ export const PromptInputSubmit = ({
     Icon = <XIcon className="size-4" />;
   }
 
+  /**
+   * Provide a stable accessible label for the submit control so Playwright and
+   * assistive technologies can reliably discover the primary chat action even
+   * though the visible content is icon-only. The button is intentionally kept
+   * succinct to preserve space on small screens, therefore we mirror the label
+   * via both `aria-label` and a visually hidden span.
+   */
+  const accessibleLabel = "Send message";
+
   return (
     <Button
+      aria-label={accessibleLabel}
       className={cn("gap-1.5 rounded-lg", className)}
       size={size}
       type="submit"
       variant={variant}
+      title={accessibleLabel}
       {...props}
     >
       {children ?? Icon}
+      <span className="sr-only">{accessibleLabel}</span>
     </Button>
   );
 };

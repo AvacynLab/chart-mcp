@@ -8,11 +8,14 @@ export class ChatPage {
   }
 
   get sendButton() {
-    return this.page.getByRole("button", { name: "Send message" });
+    // Anchor the lookup on the explicit test identifier so the suite remains
+    // resilient to future accessibility tweaks (e.g. aria-label vs. sr-only
+    // content) while still asserting the button stays visible.
+    return this.page.getByTestId("send-button");
   }
 
   get stopButton() {
-    return this.page.getByRole("button", { name: "Stop generating" });
+    return this.page.getByTestId("stop-button");
   }
 
   async createNewChat() {
@@ -27,9 +30,7 @@ export class ChatPage {
   }
 
   async sendUserMessageFromSuggestion() {
-    await this.page
-      .getByRole("button", { name: "How do you build apps?" })
-      .click();
+    await this.page.getByRole("button", { name: "How do you build apps?" }).click();
   }
 
   async getRecentUserMessage() {
@@ -89,7 +90,7 @@ export class ChatPage {
   async isGenerationComplete() {
     await this.page.waitForFunction(
       () => {
-        const stop = document.querySelector('[aria-label="Stop generating"]');
+        const stop = document.querySelector('[data-testid="stop-button"]');
         return !stop || getComputedStyle(stop).display === 'none';
       },
       null,
