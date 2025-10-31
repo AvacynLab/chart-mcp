@@ -208,6 +208,8 @@ export default defineConfig({
           MCP_API_TOKEN: process.env.MCP_API_TOKEN || "test-token",
           MCP_SESSION_USER: sessionUser,
           NEXT_PUBLIC_ENABLE_E2E_STREAM_DEBUG: streamDebugFlag,
+          NEXTAUTH_URL: baseURL,
+          NEXTAUTH_URL_INTERNAL: baseURL,
           // Auth.js refuses to start without a secret key. Provide a deterministic
           // fallback so local contributors are not forced to create an `.env` when
           // running the smoke suite.

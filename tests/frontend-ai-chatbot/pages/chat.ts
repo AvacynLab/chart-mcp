@@ -34,7 +34,9 @@ export class ChatPage {
   }
 
   async getRecentUserMessage() {
-    const messageItem = this.page.getByTestId("message-item").last();
+    const messageItem = this.page
+      .locator('[data-message-item="true"][data-role="user"]')
+      .last();
     const content = (await messageItem.getByTestId("message-content").innerText()) ?? "";
     const attachments = await messageItem.getByTestId("message-attachments").count();
 
@@ -51,8 +53,7 @@ export class ChatPage {
 
   async getRecentAssistantMessage() {
     const messageItem = this.page
-      .getByTestId("message-item")
-      .filter({ hasText: "Assistant" })
+      .locator('[data-message-item="true"][data-role="assistant"]')
       .last();
 
     if (!(await messageItem.isVisible())) {
@@ -91,7 +92,7 @@ export class ChatPage {
     await this.page.waitForFunction(
       () => {
         const stop = document.querySelector('[data-testid="stop-button"]');
-        return !stop || getComputedStyle(stop).display === 'none';
+        return !stop || getComputedStyle(stop).display === "none";
       },
       null,
       { timeout: 30000 }

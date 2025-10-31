@@ -8,6 +8,13 @@ export const isTestEnvironment = Boolean(
     process.env.CI_PLAYWRIGHT
 );
 
-export const guestRegex = /^guest-\d+$/;
+/**
+ * Match the ephemeral guest identifiers generated during Playwright runs.
+ * They follow the shape `guest-<timestamp>-<uuid>`, however older fixtures
+ * (and some unit tests) still rely on the shorter `guest-<timestamp>` form.
+ * Allowing both keeps the regex resilient while ensuring the UI continues to
+ * treat these synthetic accounts as guests.
+ */
+export const guestRegex = /^guest-\d+(?:-[a-z0-9-]+)?$/i;
 
 export const DUMMY_PASSWORD = generateDummyPassword();
