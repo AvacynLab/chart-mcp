@@ -82,6 +82,9 @@ def test_search_route_returns_enriched_results(client) -> None:
     result = payload["results"][0]
     assert set(result.keys()) == {"title", "url", "snippet", "source", "score"}
     assert result["score"] == pytest.approx(9.1)
+    # The underlying client must receive the normalised categories and time range
+    # so the upstream request remains deterministic in E2E scenarios.
+    assert stub.calls == [("ethereum merge", ["news", "tech", "defi"], "week")]
 
 
 def test_search_route_requires_configuration(client) -> None:

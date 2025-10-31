@@ -246,6 +246,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 40
     needs: build-frontend
+    env:
+      MCP_API_BASE: http://127.0.0.1:8000
+      MCP_API_TOKEN: ${{ secrets.MCP_API_TOKEN || 'playwright-token' }}
+      MCP_SESSION_USER: regular
+      PLAYWRIGHT: "1"
+      PLAYWRIGHT_TEST_BASE_URL: http://127.0.0.1:3000
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v3
@@ -260,47 +266,46 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Install Playwright browsers
         run: pnpm --filter ai-chatbot exec playwright install --with-deps
+      - name: Launch API and SearxNG containers
+        env:
+          API_TOKEN: ${{ secrets.MCP_API_TOKEN || 'playwright-token' }}
+          ALLOWED_ORIGINS: http://127.0.0.1:3000,http://localhost:3000
+          SEARXNG_BASE_URL: http://127.0.0.1:8080
+        run: |
+          docker compose -f docker/docker-compose.yml up -d api searxng
+      - name: Wait for backend healthcheck
+        run: |
+          ATTEMPTS=60
+          for attempt in $(seq 1 "$ATTEMPTS"); do
+            if curl -fsS http://127.0.0.1:8000/health >/dev/null; then
+              echo "Backend became healthy after $attempt attempt(s)."
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Backend failed to become healthy." >&2
+          docker compose -f docker/docker-compose.yml logs api >&2 || true
+          exit 1
       - name: Start Next.js server
+        working-directory: frontend/ai-chatbot
         env:
           PORT: 3000
-          PLAYWRIGHT: "1"
-          CI_PLAYWRIGHT: "1"
-          AUTH_SECRET: ${{ env.AUTH_SECRET || 'playwright-secret' }}
-          MCP_API_BASE: ${{ env.MCP_API_BASE || 'http://127.0.0.1:3000/api/test-backend' }}
-          MCP_SESSION_USER: ${{ env.MCP_SESSION_USER || 'playwright-e2e' }}
-          MCP_API_TOKEN: ${{ env.MCP_API_TOKEN || 'test-token' }}
-          NEXT_PUBLIC_API_BASE_URL: ${{ env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:3000/api/test-backend' }}
-          NEXT_PUBLIC_ENABLE_E2E_STREAM_DEBUG: ${{ env.NEXT_PUBLIC_ENABLE_E2E_STREAM_DEBUG || '1' }}
+          AUTH_SECRET: playwright-secret
+          MCP_API_BASE: http://127.0.0.1:8000
+          MCP_SESSION_USER: regular
+          MCP_API_TOKEN: ${{ secrets.MCP_API_TOKEN || 'playwright-token' }}
+          NEXT_PUBLIC_API_BASE_URL: http://127.0.0.1:8000
+          NEXT_PUBLIC_ENABLE_E2E_STREAM_DEBUG: "1"
         run: |
-          cd frontend/ai-chatbot
           LOG_FILE="$GITHUB_WORKSPACE/frontend/ai-chatbot/.next-dev.log"
-          pnpm run dev:playwright > "$LOG_FILE" 2>&1 &
+          pnpm dev > "$LOG_FILE" 2>&1 &
           NEXT_PID=$!
           echo "NEXT_PID=$NEXT_PID" >> "$GITHUB_ENV"
           echo "NEXT_LOG=$LOG_FILE" >> "$GITHUB_ENV"
       - name: Wait for frontend availability
+        working-directory: frontend/ai-chatbot
         run: |
-          # Poll the local harness until Next.js responds or we hit the guardrail.
-          ATTEMPTS=120
-          SLEEP_SECONDS=3
-          for attempt in $(seq 1 "$ATTEMPTS"); do
-            if curl -sf http://127.0.0.1:3000 >/dev/null; then
-              echo "Frontend became ready after $attempt attempt(s)."
-              exit 0
-            fi
-            if [ -n "${NEXT_LOG:-}" ] && [ -f "$NEXT_LOG" ] && grep -q "Failed to start server" "$NEXT_LOG"; then
-              echo "Next.js reported a startup failure—dumping log:" >&2
-              cat "$NEXT_LOG" >&2
-              exit 1
-            fi
-            sleep "$SLEEP_SECONDS"
-          done
-          echo "Frontend did not become ready within $((ATTEMPTS * SLEEP_SECONDS)) seconds." >&2
-          if [ -n "${NEXT_LOG:-}" ] && [ -f "$NEXT_LOG" ]; then
-            echo "--- Next.js server log ---" >&2
-            cat "$NEXT_LOG" >&2
-          fi
-          exit 1
+          npx wait-on http://127.0.0.1:3000
       - name: Run Playwright tests
         env:
           PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000
@@ -312,6 +317,10 @@ jobs:
           if [ -n "${NEXT_PID:-}" ]; then
             kill "$NEXT_PID" || true
           fi
+      - name: Shutdown containers
+        if: always()
+        run: |
+          docker compose -f docker/docker-compose.yml down
       - name: Upload Playwright report
         if: always()
         uses: actions/upload-artifact@v4
