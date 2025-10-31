@@ -1,4 +1,5 @@
 import { expect, test } from "../fixtures";
+import type { Page } from "@playwright/test";
 import { ChatPage } from "../pages/chat";
 
 /**
@@ -17,7 +18,7 @@ function requireAssistantMessage(
 test.describe("Chat activity", () => {
   let chatPage: ChatPage;
 
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async ({ page }: { page: Page }) => {
     chatPage = new ChatPage(page);
     await chatPage.createNewChat();
   });
@@ -166,7 +167,7 @@ test.describe("Chat activity", () => {
     await chatPage.isVoteComplete();
   });
 
-  test("Create message from url query", async ({ page }) => {
+  test("Create message from url query", async ({ page }: { page: Page }) => {
     await page.goto("/?query=Why is the sky blue?");
 
     await chatPage.isGenerationComplete();

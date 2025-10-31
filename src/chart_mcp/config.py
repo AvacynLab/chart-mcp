@@ -65,6 +65,13 @@ class Settings(BaseSettings):
         env_file=".env",
         env_file_encoding="utf-8",
         validate_by_name=True,
+        # Ignore unrelated environment variables that may be injected by
+        # surrounding tooling (e.g. Playwright / CI runners). Without this
+        # option Pydantic raises `Extra inputs are not permitted` when tests
+        # or the environment define auxiliary keys like `MCP_API_TOKEN` or
+        # `NEXT_PUBLIC_API_BASE_URL` which are intentionally scoped to the
+        # frontend test runner.
+        extra="ignore",
     )
 
     @field_validator("api_token", mode="before")

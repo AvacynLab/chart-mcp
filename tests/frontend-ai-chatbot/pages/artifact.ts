@@ -123,4 +123,4 @@ export class ArtifactPage {
   closeArtifact() {
     return this.page.getByTestId("artifact-close-button").click();
   }
-}
+  }

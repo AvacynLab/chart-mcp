@@ -4,12 +4,27 @@ import { ChatPage } from "../pages/chat";
 
 /** Ensure artifact scenarios never dereference a nullable assistant message. */
 function requireAssistantMessage(
-  message: Awaited<ReturnType<ChatPage["getRecentAssistantMessage"]>>
+  message:
+    | Awaited<ReturnType<ChatPage["getRecentAssistantMessage"]>>
+    | Awaited<ReturnType<ArtifactPage["getRecentAssistantMessage"]>>
 ) {
   if (!message) {
     throw new Error("Assistant message should be available after generation.");
   }
-  return message;
+
+  // Ensure content is non-null for downstream assertions
+  if (message.content == null) {
+    throw new Error("Assistant message content is null");
+  }
+
+  return message as {
+    element: any;
+    content: string;
+    reasoning?: string | null;
+    toggleReasoningVisibility?: () => Promise<void>;
+    upvote: () => Promise<void>;
+    downvote: () => Promise<void>;
+  };
 }
 
 test.describe("Artifacts activity", () => {

@@ -1,11 +1,11 @@
-import { getMessageByErrorCode } from "@/lib/errors";
 import { expect, test } from "../fixtures";
-import { generateRandomTestUser } from "../helpers";
+import type { Page, TestInfo, Browser } from "@playwright/test";
+import { generateRandomTestUser, DEFAULT_BASE_URL } from "../helpers";
+import { getMessageByErrorCode } from "../../../frontend/ai-chatbot/lib/errors";
 import { AuthPage } from "../pages/auth";
 import { ChatPage } from "../pages/chat";
 
-test.describe
-  .serial("Guest Session", () => {
+test.describe("Guest Session", () => {
     test("Authenticate as guest user when a new session is loaded", async ({
       page,
     }) => {
@@ -28,11 +28,17 @@ test.describe
         request = previous;
       }
 
-      expect(chain).toEqual([
-        "http://localhost:3000/",
-        "http://localhost:3000/api/auth/guest?redirectUrl=http%3A%2F%2Flocalhost%3A3000%2F",
-        "http://localhost:3000/",
-      ]);
+      // Reuse the canonical base URL resolution from the shared helpers so
+      // tests are consistent with Playwright config and helper flows.
+      const base = DEFAULT_BASE_URL;
+
+      const expected = [
+        `${base}/`,
+        `${base}/api/auth/guest?redirectUrl=${encodeURIComponent(base + "/")}`,
+        `${base}/`,
+      ];
+
+      expect(chain).toEqual(expected);
     });
 
     test("Log out is not available for guest users", async ({ page }) => {
@@ -74,7 +80,9 @@ test.describe
         request = previous;
       }
 
-      expect(chain).toEqual(["http://localhost:3000/"]);
+      const base = DEFAULT_BASE_URL;
+
+      expect(chain).toEqual([`${base}/`]);
     });
 
     test("Allow navigating to /login as guest user", async ({ page }) => {
@@ -100,8 +108,7 @@ test.describe
     });
   });
 
-test.describe
-  .serial("Login and Registration", () => {
+test.describe("Login and Registration", () => {
     let authPage: AuthPage;
 
     const testUser = generateRandomTestUser();
@@ -174,9 +181,7 @@ test.describe
       await expect(authMenuItem).toContainText("Sign out");
     });
 
-    test("Do not navigate to /register for non-guest users", async ({
-      page,
-    }) => {
+    test("Do not navigate to /register for non-guest users", async ({ page }) => {
       await authPage.login(testUser.email, testUser.password);
       await page.waitForURL("/");
 

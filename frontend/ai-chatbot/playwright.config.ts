@@ -1,4 +1,5 @@
 import { readFileSync, existsSync } from "node:fs";
+import path from "node:path";
 import { defineConfig, devices } from "@playwright/test";
 
 /** Minimal `.env` loader to keep the Playwright config self-contained. */
@@ -24,7 +25,26 @@ function loadEnvFile(path: string): void {
   }
 }
 
-loadEnvFile(".env.local");
+// Try loading .env.local from several likely locations so Playwright picks up
+// the environment variables developers often store at the repository root
+// (e.g. when they pull secrets from Vercel into `./.env.local`). We prefer
+// the frontend folder `.env.local` first, then the repository root.
+const candidateEnvPaths = [
+  path.resolve(__dirname, ".env.local"),
+  path.resolve(__dirname, "..", ".env.local"),
+  path.resolve(process.cwd(), ".env.local"),
+];
+
+for (const p of candidateEnvPaths) {
+  if (existsSync(p)) {
+    // loadEnvFile expects a relative path; call with the absolute path
+    loadEnvFile(p);
+    // expose which file we loaded for easier debugging in CI logs
+    // eslint-disable-next-line no-console
+    console.log(`Loaded environment variables from: ${p}`);
+    break;
+  }
+}
 
 /* Use process.env.PORT by default and fallback to port 3000 */
 const PORT = process.env.PORT || 3000;
@@ -46,9 +66,13 @@ const streamDebugFlag =
 
 /**
  * Set webServer.url and use.baseURL with the location
- * of the WebServer respecting the correct set port
+ * of the WebServer respecting the correct set port.
+ * Prefer an explicit PLAYWRIGHT_TEST_BASE_URL when present so
+ * test runs that reuse an existing server can control the base
+ * URL without needing to rely on the numeric PORT value.
  */
-const baseURL = `http://localhost:${PORT}`;
+const baseURL =
+  process.env.PLAYWRIGHT_TEST_BASE_URL || `http://127.0.0.1:${PORT}`;
 
 /** Allow external servers to satisfy the Playwright web server contract. */
 const shouldStartWebServer = !process.env.PLAYWRIGHT_SKIP_WEB_SERVER;
@@ -57,13 +81,14 @@ const shouldStartWebServer = !process.env.PLAYWRIGHT_SKIP_WEB_SERVER;
  * See https://playwright.dev/docs/test-configuration.
  */
 export default defineConfig({
-  testDir: "./tests",
+  testDir: "../../tests/frontend-ai-chatbot",
+  testMatch: "**/*.{test,spec}.ts",
   /* Run tests in files in parallel */
   fullyParallel: true,
   /* Fail the build on CI if you accidentally left test.only in the source code. */
   forbidOnly: !!process.env.CI,
   /* Retry on CI only */
-  retries: 0,
+  retries: process.env.CI ? 1 : 0,
   /* Opt out of parallel tests on CI. */
   workers: process.env.CI ? 2 : 8,
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
@@ -75,10 +100,25 @@ export default defineConfig({
 
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: "retain-on-failure",
+    /* Add safe launch options for CI / container environments to avoid
+       sandbox-related crashes when running headless browsers inside Docker
+       or limited containers. These flags are harmless locally and improve
+       stability in automated runs. */
+    // Force headless by default; can be disabled by setting PLAYWRIGHT_HEADLESS=false
+    headless: process.env.PLAYWRIGHT_HEADLESS !== "false",
+    launchOptions: {
+      args: [
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-dev-shm-usage",
+        "--disable-gpu",
+        "--disable-extensions",
+      ],
+    },
   },
 
   /* Configure global timeout for each test */
-  timeout: 240 * 1000, // 120 seconds
+  timeout: 240 * 1000, // 240 seconds
   expect: {
     timeout: 240 * 1000,
   },
@@ -154,13 +194,17 @@ export default defineConfig({
         // webpack-based dev server which is slower but significantly more stable
         // for automated end-to-end smoke tests by delegating to the dedicated
         // `dev:playwright` script.
-        command: "pnpm --filter ai-chatbot dev:playwright",
+        command:
+          "sh -c 'if [ \"${CI:-}\" = \"true\" ]; then pnpm --filter ai-chatbot exec next build && pnpm --filter ai-chatbot exec next start --hostname 127.0.0.1 --port ${PORT}; else pnpm --filter ai-chatbot dev:playwright; fi'",
         url: `${baseURL}/ping`,
-        timeout: 120 * 1000,
-        reuseExistingServer: false,
+  // Allow a longer startup window for Next.js compilation in dev mode
+  timeout: 300 * 1000,
+  // Allow reusing an already-running Next.js instance to avoid races
+  // when developers start the server manually before running tests.
+  reuseExistingServer: true,
         env: {
           MCP_API_BASE: apiBaseURL,
-          NEXT_PUBLIC_API_BASE_URL: process.env.NEXT_PUBLIC_API_BASE_URL || apiBaseURL,
+          NEXT_PUBLIC_API_BASE: process.env.NEXT_PUBLIC_API_BASE || apiBaseURL,
           MCP_API_TOKEN: process.env.MCP_API_TOKEN || "test-token",
           MCP_SESSION_USER: sessionUser,
           NEXT_PUBLIC_ENABLE_E2E_STREAM_DEBUG: streamDebugFlag,

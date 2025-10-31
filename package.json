@@ -1,10 +1,6 @@
 {
-  "name": "chart-mcp",
-  "version": "0.1.0",
-  "private": true,
-  "description": "Workspace root for the chart-mcp project",
-  "packageManager": "pnpm@8.15.7",
-  "workspaces": [
-    "frontend/ai-chatbot"
-  ]
+	"devDependencies": {
+		"@types/node": "^22.18.13",
+		"@playwright/test": "^1.56.1"
+	}
 }

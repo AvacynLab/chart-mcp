@@ -15,10 +15,14 @@ import { ChatPage } from "./pages/chat";
  * Default origin used to craft absolute URLs during Playwright runs. The
  * fallback matches the value defined in {@link playwright.config.ts}.
  */
-const DEFAULT_BASE_URL =
+// Resolve base URL for tests. Prefer explicit Playwright test override,
+// then public API base vars, then fall back to the configured PORT.
+export const DEFAULT_BASE_URL =
   process.env.PLAYWRIGHT_TEST_BASE_URL ||
+  process.env.NEXT_PUBLIC_API_BASE_URL ||
+  process.env.MCP_API_BASE ||
   process.env.PLAYWRIGHT_BASE_URL ||
-  "http://127.0.0.1:3000";
+  `http://127.0.0.1:${process.env.PORT || 3000}`;
 
 /** Convenience guard that flips to `true` for hermetic Playwright flows. */
 const isPlaywrightEnvironment = Boolean(
@@ -38,8 +42,7 @@ export async function createAuthenticatedContext({
 }: {
   browser: Browser;
   name: string;
-  /**
-   * Optional path that Playwright should land on immediately after the guest
+  /** Optional path that Playwright should land on immediately after the guest
    * authentication redirect completes. Providing a lightweight target keeps
    * the expensive chat surface from compiling when a specialised harness can
    * exercise the behaviour instead.
