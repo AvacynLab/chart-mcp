@@ -298,14 +298,14 @@ jobs:
           NEXT_PUBLIC_ENABLE_E2E_STREAM_DEBUG: "1"
         run: |
           LOG_FILE="$GITHUB_WORKSPACE/frontend/ai-chatbot/.next-dev.log"
-          pnpm dev > "$LOG_FILE" 2>&1 &
+          pnpm run dev:playwright > "$LOG_FILE" 2>&1 &
           NEXT_PID=$!
           echo "NEXT_PID=$NEXT_PID" >> "$GITHUB_ENV"
           echo "NEXT_LOG=$LOG_FILE" >> "$GITHUB_ENV"
       - name: Wait for frontend availability
         working-directory: frontend/ai-chatbot
         run: |
-          pnpm exec wait-on http://127.0.0.1:3000
+          pnpm exec wait-on --timeout 120000 http://127.0.0.1:3000
       - name: Run Playwright tests
         env:
           PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000
