@@ -1,4 +1,7 @@
-import type { LanguageModelV2CallOptions, LanguageModelV2StreamPart } from "ai";
+import type {
+  LanguageModelV2CallOptions,
+  LanguageModelV2StreamPart,
+} from "@ai-sdk/provider";
 import { describe, expect, it } from "vitest";
 
 import { chatModel, reasoningModel } from "@/lib/ai/models.mock";

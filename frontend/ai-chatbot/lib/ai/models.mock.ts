@@ -1,9 +1,19 @@
 import type {
-  LanguageModel,
+  LanguageModelV2,
   LanguageModelV2CallOptions,
   LanguageModelV2Message,
   LanguageModelV2StreamPart,
-} from "ai";
+  LanguageModelV2TextPart,
+} from "@ai-sdk/provider";
+
+/**
+ * Narrow a generic content part to the concrete text variant so we can
+ * safely read the string payload without resorting to `any` casts.
+ */
+function isTextPart(part: LanguageModelV2TextPart | { type: string }):
+  part is LanguageModelV2TextPart {
+  return part.type === "text";
+}
 
 type MockResponse = {
   text: string;
@@ -35,8 +45,8 @@ function normalisePrompt(prompt: LanguageModelV2CallOptions["prompt"]): string {
     }
 
     const textParts = message.content
-      .filter((part) => part.type === "text")
-      .map((part) => (part as { text: string }).text.trim())
+      .filter((part): part is LanguageModelV2TextPart => isTextPart(part))
+      .map((part) => part.text.trim())
       .filter(Boolean);
 
     if (textParts.length > 0) {
@@ -117,21 +127,20 @@ function createMockStream({
 
 const createMockModel = ({
   includeReasoning = false,
-}: { includeReasoning?: boolean } = {}): LanguageModel => {
+}: { includeReasoning?: boolean } = {}): LanguageModelV2 => {
+  // Build a minimal `LanguageModelV2` implementation so the mock provider used in
+  // tests satisfies the current AI SDK contract without relying on deprecated
+  // v1 helper types.
   return {
     specificationVersion: "v2",
     provider: "mock",
     modelId: includeReasoning ? "mock-reasoning-model" : "mock-model",
-    defaultObjectGenerationMode: "tool",
-    supportedUrls: [],
-    supportsImageUrls: false,
-    supportsStructuredOutputs: false,
+    supportedUrls: {},
     doGenerate: async (options: LanguageModelV2CallOptions) => {
       const promptText = normalisePrompt(options.prompt);
       const { text } = resolveMockResponse(promptText);
 
       return {
-        rawCall: { rawPrompt: null, rawSettings: {} },
         finishReason: "stop",
         usage: {
           inputTokens: Math.max(8, promptText.split(/\s+/).filter(Boolean).length + 3),
@@ -147,9 +156,8 @@ const createMockModel = ({
         prompt: options.prompt,
         includeReasoning,
       }),
-      rawCall: { rawPrompt: null, rawSettings: {} },
     }),
-  } as unknown as LanguageModel;
+  };
 };
 
 export const chatModel = createMockModel();
