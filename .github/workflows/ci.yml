@@ -298,14 +298,44 @@ jobs:
           NEXT_PUBLIC_ENABLE_E2E_STREAM_DEBUG: "1"
         run: |
           LOG_FILE="$GITHUB_WORKSPACE/frontend/ai-chatbot/.next-dev.log"
+          : > "$LOG_FILE"
           pnpm run dev:playwright > "$LOG_FILE" 2>&1 &
           NEXT_PID=$!
+          sleep 5
+          if ! kill -0 "$NEXT_PID" 2>/dev/null; then
+            echo "Next.js dev server exited before becoming ready." >&2
+            cat "$LOG_FILE" >&2 || true
+            exit 1
+          fi
           echo "NEXT_PID=$NEXT_PID" >> "$GITHUB_ENV"
           echo "NEXT_LOG=$LOG_FILE" >> "$GITHUB_ENV"
       - name: Wait for frontend availability
         working-directory: frontend/ai-chatbot
         run: |
-          pnpm exec wait-on --timeout 120000 http://127.0.0.1:3000
+          ATTEMPTS=120
+          for attempt in $(seq 1 "$ATTEMPTS"); do
+            if curl -fsS http://127.0.0.1:3000 >/dev/null; then
+              echo "Frontend became available after $attempt attempt(s)."
+              exit 0
+            fi
+            if ! kill -0 "${NEXT_PID:-}" 2>/dev/null; then
+              echo "Next.js process exited while waiting for readiness." >&2
+              if [ -n "${NEXT_LOG:-}" ] && [ -f "$NEXT_LOG" ]; then
+                echo "----- Next.js log -----" >&2
+                cat "$NEXT_LOG" >&2
+                echo "-----------------------" >&2
+              fi
+              exit 1
+            fi
+            sleep 1
+          done
+          echo "Frontend failed to become available within the timeout." >&2
+          if [ -n "${NEXT_LOG:-}" ] && [ -f "$NEXT_LOG" ]; then
+            echo "----- Next.js log -----" >&2
+            cat "$NEXT_LOG" >&2
+            echo "-----------------------" >&2
+          fi
+          exit 1
       - name: Run Playwright tests
         env:
           PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000
