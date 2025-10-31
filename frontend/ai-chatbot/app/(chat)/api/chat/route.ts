@@ -24,9 +24,9 @@ import { type RequestHints, systemPrompt } from "@/lib/ai/prompts";
 import { myProvider } from "@/lib/ai/providers";
 import { createDocument } from "@/lib/ai/tools/create-document";
 import { createFinanceArtifact } from "@/lib/ai/tools/create-finance-artifact";
+import { createSearchArtifact } from "@/lib/ai/tools/create-search-artifact";
 import { getWeather } from "@/lib/ai/tools/get-weather";
 import { requestSuggestions } from "@/lib/ai/tools/request-suggestions";
-import { createSearchArtifact } from "@/lib/ai/tools/create-search-artifact";
 import { updateDocument } from "@/lib/ai/tools/update-document";
 import { isProductionEnvironment } from "@/lib/constants";
 import {
@@ -198,7 +198,10 @@ export async function POST(request: Request) {
           tools: {
             getWeather,
             createDocument: createDocument({ session, dataStream }),
-            createFinanceArtifact: createFinanceArtifact({ session, dataStream }),
+            createFinanceArtifact: createFinanceArtifact({
+              session,
+              dataStream,
+            }),
             createSearchArtifact: createSearchArtifact({ session, dataStream }),
             updateDocument: updateDocument({ session, dataStream }),
             requestSuggestions: requestSuggestions({

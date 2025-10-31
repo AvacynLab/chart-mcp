@@ -26,6 +26,31 @@ d’investissement n’est fournie.
 | **Frontend (`frontend/ai-chatbot`)** | Copie stricte du template Vercel AI Chatbot étendue avec artefacts `finance` et `search`, réutilisant les composants chart internes. |
 | **CI GitHub Actions** | Pipeline séquentiel `lint → typecheck → tests → build → e2e` couvrant Python et Node. |
 
+## Démarrage rapide
+
+1. **Backend FastAPI + MCP**
+
+   ```bash
+   make setup && make dev
+   # → API accessible sur http://localhost:8000
+   ```
+
+2. **SearxNG** (moteur de recherche agrégé)
+
+   ```bash
+   docker compose -f docker/docker-compose.yml up searxng
+   # → Interface sur http://localhost:8080
+   ```
+
+3. **Frontend Next.js / Vercel AI Chatbot**
+
+   ```bash
+   cd frontend/ai-chatbot
+   pnpm install
+   pnpm dev
+   # → UI sur http://localhost:3000 (consomme l’API locale)
+   ```
+
 ## Environnement de développement
 
 ### Pré-requis
@@ -33,28 +58,6 @@ d’investissement n’est fournie.
 * Python 3.11 ou 3.12
 * Node.js 20 + `pnpm`
 * Docker / Docker Compose (pour SearxNG et exécution conteneurisée)
-
-### Backend (FastAPI + MCP)
-
-```bash
-make setup              # installe les dépendances Python
-make dev                # lance uvicorn en mode hot-reload sur http://localhost:8000
-```
-
-### SearxNG auto-hébergé
-
-```bash
-docker compose -f docker/docker-compose.yml up searxng
-# SearxNG écoute ensuite sur http://localhost:8080
-```
-
-### Frontend Vercel AI Chatbot
-
-```bash
-cd frontend/ai-chatbot
-pnpm install
-pnpm dev                # http://localhost:3000 (utilise l’API MCP locale)
-```
 
 ## Variables d’environnement
 
@@ -65,6 +68,9 @@ adaptez les valeurs. Les variables critiques côté backend :
 | --- | --- |
 | `API_TOKEN` | Jeton Bearer requis pour toutes les routes protégées et le flux SSE. |
 | `ALLOWED_ORIGINS` | Origines CORS autorisées (séparateur `,`). Obligatoire en production. |
+| `MCP_API_BASE` | Base URL du backend (ex. `http://localhost:8000`). |
+| `MCP_API_TOKEN` | Jeton utilisé par la CLI MCP et le frontend pour interroger l’API. |
+| `MCP_SESSION_USER` | Identité utilisée pour journaliser l’utilisateur courant côté backend. |
 | `EXCHANGE` | Exchange CCXT utilisé pour l’OHLCV (`binance` par défaut). |
 | `OHLC_CACHE_TTL_SECONDS` / `OHLC_CACHE_MAX_ENTRIES` | Paramètres du cache OHLCV en mémoire. |
 | `FEATURE_FINANCE` | Active/désactive les routes finance optionnelles. |
@@ -72,13 +78,9 @@ adaptez les valeurs. Les variables critiques côté backend :
 | `SEARXNG_TIMEOUT` | Timeout (secondes) des requêtes SearxNG. |
 | `RATE_LIMIT_PER_MINUTE` | Quota appliqué par le middleware de rate limiting. |
 
-Côté frontend (`frontend/ai-chatbot/.env.example`) :
-
-| Variable | Description |
-| --- | --- |
-| `MCP_API_BASE` | Base URL du backend (ex. `http://localhost:8000`). |
-| `MCP_API_TOKEN` | Jeton Bearer à réutiliser côté navigateur. |
-| `MCP_SESSION_USER` | Valeur envoyée dans `X-Session-User` pour les appels artefacts. |
+Côté frontend (`frontend/ai-chatbot/.env.example`) les mêmes couples `MCP_*` sont
+requis afin de contacter l’API MCP depuis le navigateur. Ajoutez également vos
+clés analytics/observabilité éventuelles.
 
 ## Appels API utiles
 
@@ -128,28 +130,43 @@ curl http://localhost:8000/metrics
 ```ts
 import { fetchEventSource } from "@microsoft/fetch-event-source";
 
-const controller = new AbortController();
-await fetchEventSource("http://localhost:8000/stream/analysis?symbol=BTCUSDT&timeframe=1h", {
-  headers: {
-    Authorization: `Bearer ${process.env.MCP_API_TOKEN}`,
-    "X-Session-User": "regular",
-  },
-  signal: controller.signal,
-  onmessage(message) {
-    if (!message.event) return;
-    const payload = JSON.parse(message.data);
-    switch (message.event) {
-      case "token":
-        appendToken(payload.text);
-        break;
-      case "ohlcv":
-        updateChart(payload.candles);
-        break;
-      case "done":
-        controller.abort();
-        break;
-    }
-  },
+/** Exemple Node.js/TypeScript pour analyser le flux SSE finance. */
+async function streamFinanceAnalysis() {
+  const controller = new AbortController();
+
+  await fetchEventSource(
+    "http://localhost:8000/stream/analysis?symbol=BTCUSDT&timeframe=1h",
+    {
+      headers: {
+        Authorization: `Bearer ${process.env.MCP_API_TOKEN}`,
+        "X-Session-User": process.env.MCP_SESSION_USER ?? "regular",
+      },
+      signal: controller.signal,
+      async onmessage(message) {
+        if (!message.event || !message.data) {
+          return;
+        }
+        const payload = JSON.parse(message.data);
+        switch (message.event) {
+          case "token":
+            console.log("Résumé partiel:", payload.payload?.text ?? payload.text);
+            break;
+          case "metric":
+            console.log("Métrique:", payload.payload);
+            break;
+          case "done":
+            controller.abort();
+            break;
+          default:
+            console.log(`[${message.event}]`, payload.payload ?? payload);
+        }
+      },
+    },
+  );
+}
+
+streamFinanceAnalysis().catch((error) => {
+  console.error("Stream interrompu", error);
 });
 ```
 

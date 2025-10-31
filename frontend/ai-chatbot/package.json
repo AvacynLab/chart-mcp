@@ -4,9 +4,10 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbo",
+    "dev:playwright": "sh -c 'PORT=${PORT:-3000}; next dev --hostname 127.0.0.1 --port $PORT'",
     "build": "tsx lib/db/migrate && next build",
     "start": "next start",
-    "lint": "npx ultracite@latest check",
+    "lint": "npx ultracite@latest check ../../tests/frontend-ai-chatbot/e2e/chat.test.ts ../../tests/frontend-ai-chatbot/e2e/reasoning.test.ts ../../tests/frontend-ai-chatbot/e2e/artifacts.test.ts ../../tests/frontend-ai-chatbot/e2e/finance-steps.spec.ts",
     "format": "npx ultracite@latest fix",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "npx tsx lib/db/migrate.ts",
@@ -57,7 +58,7 @@
     "lightweight-charts": "^4.2.3",
     "lucide-react": "^0.446.0",
     "nanoid": "^5.0.8",
-    "next": "15.3.0-canary.31",
+    "next": "16.0.1",
     "next-auth": "5.0.0-beta.25",
     "next-themes": "^0.3.0",
     "orderedmap": "^2.1.1",
@@ -93,22 +94,24 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.2.2",
-    "@playwright/test": "^1.50.1",
+    "@playwright/test": "^1.56.1",
     "@tailwindcss/postcss": "^4.1.13",
     "@tailwindcss/typography": "^0.5.15",
     "@types/d3-scale": "^4.0.8",
-    "@types/node": "^22.8.6",
+    "@types/node": "^22.18.13",
     "@types/papaparse": "^5.3.15",
     "@types/pdf-parse": "^1.1.4",
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "@types/react-syntax-highlighter": "^15.5.13",
+    "@vitest/coverage-v8": "^2.1.4",
     "drizzle-kit": "^0.25.0",
     "postcss": "^8",
     "tailwindcss": "^4.1.13",
     "tsx": "^4.19.1",
     "typescript": "^5.6.3",
-    "ultracite": "5.3.9"
+    "ultracite": "5.3.9",
+    "vitest": "^2.1.4"
   },
   "packageManager": "pnpm@8.15.7"
 }

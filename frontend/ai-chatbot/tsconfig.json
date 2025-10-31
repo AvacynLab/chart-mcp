@@ -1,7 +1,11 @@
 {
   "compilerOptions": {
     "target": "ESNext",
-    "lib": ["dom", "dom.iterable", "esnext"],
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
@@ -11,7 +15,7 @@
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "jsx": "preserve",
+    "jsx": "react-jsx",
     "incremental": true,
     "plugins": [
       {
@@ -19,17 +23,31 @@
       }
     ],
     "paths": {
-      "@/*": ["./*"],
-      "~~/chart-components/*": ["./thirdparty/chart-components/*"]
+      "@/*": [
+        "./*"
+      ],
+      "~~/chart-components/*": [
+        "./thirdparty/chart-components/*"
+      ]
     },
-    "strictNullChecks": true
+    "strictNullChecks": true,
+    "types": [
+      "node",
+      "vitest",
+      "vitest/importMeta",
+      "vitest/globals",
+      "@playwright/test"
+    ]
   },
   "include": [
     "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts",
-    "next.config.js"
+    "next.config.js",
+    ".next/dev/types/**/*.ts"
   ],
-  "exclude": ["node_modules"]
+  "exclude": [
+    "node_modules"
+  ]
 }

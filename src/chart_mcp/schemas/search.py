@@ -24,4 +24,8 @@ class SearchResponse(BaseModel):
     categories: List[str] = Field(
         default_factory=list, description="Categories applied to the upstream search request."
     )
+    time_range: str | None = Field(
+        default=None,
+        description="Filtre temporel passé à SearxNG (ex. day/week/month) ou ``None`` si absent.",
+    )
     results: List[SearchResult] = Field(default_factory=list, description="List of search hits.")

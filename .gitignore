@@ -26,3 +26,5 @@ playwright-results/
 test-results/
 tests/.auth/
 tsconfig.tsbuildinfo
+.vercel
+.env*.local

@@ -25,24 +25,39 @@ export default function Page() {
   const { update: updateSession } = useSession();
 
   useEffect(() => {
+    /**
+     * Map registration outcomes to user feedback while ensuring the session
+     * reflects the freshly created account. Similar to the login page we keep
+     * `router` and `updateSession` in the dependency array so the hook satisfies
+     * the lint rule without harming stability.
+     */
     if (state.status === "user_exists") {
       toast({ type: "error", description: "Account already exists!" });
-    } else if (state.status === "failed") {
+      return;
+    }
+
+    if (state.status === "failed") {
       toast({ type: "error", description: "Failed to create account!" });
-    } else if (state.status === "invalid_data") {
+      return;
+    }
+
+    if (state.status === "invalid_data") {
       toast({
         type: "error",
         description: "Failed validating your submission!",
       });
-    } else if (state.status === "success") {
-      toast({ type: "success", description: "Account created successfully!" });
+      return;
+    }
 
+    if (state.status === "success") {
+      toast({ type: "success", description: "Account created successfully!" });
       setIsSuccessful(true);
-      updateSession();
+      updateSession().catch(() => {
+        // Session refresh failures should not block the UI update; ignore silently.
+      });
       router.refresh();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.status]);
+  }, [router, state.status, updateSession]);
 
   const handleSubmit = (formData: FormData) => {
     setEmail(formData.get("email") as string);

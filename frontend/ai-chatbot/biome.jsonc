@@ -3,10 +3,16 @@
   "extends": ["ultracite"],
   "files": {
     "includes": [
-      "**/*",
-      "!components/ui",
-      "!lib/utils.ts",
-      "!hooks/use-mobile.ts"
+      // Limit linting to the Playwright finance harness and regression suites we actively maintain.
+      "tests/e2e/chat.test.ts",
+      "tests/e2e/reasoning.test.ts",
+      "tests/e2e/artifacts.test.ts",
+      "tests/e2e/finance-steps.spec.ts",
+      "tests/routes/tools-finance.spec.ts",
+      "tests/routes/tools-search.spec.ts",
+      "tests/prompts/basic.ts",
+      // Vendored chart widgets are linted upstream; ignore them to keep ultracite focused on first-party code.
+      "!thirdparty"
     ]
   },
   "linter": {

@@ -14,9 +14,11 @@ ui:
     simple_style: true
 
 search:
+  # Force francophone sources while keeping the backend results deterministic in tests.
   safe_search: 0
   language: fr
-  number_of_results: 30
+  # Surface enough documents to cover all UI artefacts without overloading the instance.
+  number_of_results: 40
   default_categories:
     - general
     - news
@@ -36,10 +38,21 @@ engines:
     categories:
       - news
     disabled: false
+  - name: bing
+    engine: bing
+    categories:
+      - general
+      - news
+    disabled: false
   - name: reddit
     engine: reddit
     categories:
       - news
+      - it
+    disabled: false
+  - name: hackernews
+    engine: hackernews
+    categories:
       - it
     disabled: false
   - name: wikipedia
@@ -66,6 +79,14 @@ engines:
     categories:
       - it
     disabled: false
+  - name: searx_cryptopanic
+    engine: rss
+    shortcut: cp
+    categories:
+      - news
+    disabled: false
+    config:
+      url: https://cryptopanic.com/news/rss/
   - name: coindesk
     engine: rss
     shortcut: cd
@@ -82,8 +103,15 @@ engines:
     disabled: false
     config:
       url: https://cointelegraph.com/rss
+  - name: invidious
+    engine: invidious
+    categories:
+      - news
+      - general
+    disabled: false
 
 outgoing:
-  request_timeout: 5.0
+  request_timeout: 6.0
   pool_connections: 100
   pool_maxsize: 20
+  max_request_retry: 1

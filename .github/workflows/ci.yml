@@ -228,11 +228,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Typecheck frontend
-        run: pnpm exec tsc --noEmit
+        run: pnpm --filter ai-chatbot exec tsc --noEmit
       - name: Run Vitest
         run: |
           mkdir -p reports
-          pnpm exec vitest run --coverage --reporter=junit --outputFile=reports/vitest-junit.xml
+          pnpm --filter ai-chatbot exec vitest run --coverage --reporter=junit --outputFile=reports/vitest-junit.xml
       - name: Upload Vitest artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -259,11 +259,59 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Install Playwright browsers
-        run: pnpm exec playwright install --with-deps
+        run: pnpm --filter ai-chatbot exec playwright install --with-deps
+      - name: Start Next.js server
+        env:
+          PORT: 3000
+          PLAYWRIGHT: "1"
+          CI_PLAYWRIGHT: "1"
+          AUTH_SECRET: ${{ env.AUTH_SECRET || 'playwright-secret' }}
+          MCP_API_BASE: ${{ env.MCP_API_BASE || 'http://127.0.0.1:3000/api/test-backend' }}
+          MCP_SESSION_USER: ${{ env.MCP_SESSION_USER || 'playwright-e2e' }}
+          MCP_API_TOKEN: ${{ env.MCP_API_TOKEN || 'test-token' }}
+          NEXT_PUBLIC_API_BASE_URL: ${{ env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:3000/api/test-backend' }}
+          NEXT_PUBLIC_ENABLE_E2E_STREAM_DEBUG: ${{ env.NEXT_PUBLIC_ENABLE_E2E_STREAM_DEBUG || '1' }}
+        run: |
+          cd frontend/ai-chatbot
+          LOG_FILE="$GITHUB_WORKSPACE/frontend/ai-chatbot/.next-dev.log"
+          pnpm run dev:playwright > "$LOG_FILE" 2>&1 &
+          NEXT_PID=$!
+          echo "NEXT_PID=$NEXT_PID" >> "$GITHUB_ENV"
+          echo "NEXT_LOG=$LOG_FILE" >> "$GITHUB_ENV"
+      - name: Wait for frontend availability
+        run: |
+          # Poll the local harness until Next.js responds or we hit the guardrail.
+          ATTEMPTS=120
+          SLEEP_SECONDS=3
+          for attempt in $(seq 1 "$ATTEMPTS"); do
+            if curl -sf http://127.0.0.1:3000 >/dev/null; then
+              echo "Frontend became ready after $attempt attempt(s)."
+              exit 0
+            fi
+            if [ -n "${NEXT_LOG:-}" ] && [ -f "$NEXT_LOG" ] && grep -q "Failed to start server" "$NEXT_LOG"; then
+              echo "Next.js reported a startup failure—dumping log:" >&2
+              cat "$NEXT_LOG" >&2
+              exit 1
+            fi
+            sleep "$SLEEP_SECONDS"
+          done
+          echo "Frontend did not become ready within $((ATTEMPTS * SLEEP_SECONDS)) seconds." >&2
+          if [ -n "${NEXT_LOG:-}" ] && [ -f "$NEXT_LOG" ]; then
+            echo "--- Next.js server log ---" >&2
+            cat "$NEXT_LOG" >&2
+          fi
+          exit 1
       - name: Run Playwright tests
         env:
           PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000
-        run: pnpm exec playwright test --reporter=line
+          PLAYWRIGHT_SKIP_WEB_SERVER: "1"
+        run: pnpm --filter ai-chatbot exec playwright test --reporter=line
+      - name: Stop Next.js server
+        if: always()
+        run: |
+          if [ -n "${NEXT_PID:-}" ]; then
+            kill "$NEXT_PID" || true
+          fi
       - name: Upload Playwright report
         if: always()
         uses: actions/upload-artifact@v4
