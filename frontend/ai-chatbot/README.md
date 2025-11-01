@@ -36,15 +36,13 @@
 
 ## Model Providers
 
-This template uses the [Vercel AI Gateway](https://vercel.com/docs/ai-gateway) to access multiple AI models through a unified interface. The default configuration includes [xAI](https://x.ai) models (`grok-2-vision-1212`, `grok-3-mini`) routed through the gateway.
+This template targets the [OpenAI API](https://platform.openai.com/) by default through the AI SDK. The examples are wired against models such as `gpt-5-nano`, but you can point the configuration to any other OpenAI deployment or compatible endpoint.
 
-### AI Gateway Authentication
+### OpenAI Authentication
 
-**For Vercel deployments**: Authentication is handled automatically via OIDC tokens.
+Provide an `OPENAI_API_KEY` environment variable in your `.env.local` file (or the hosting platform’s secret manager) so server actions and the Playwright suites can authenticate. When the variable is absent the project automatically falls back to the mock provider used for local E2E runs.
 
-**For non-Vercel deployments**: You need to provide an AI Gateway API key by setting the `AI_GATEWAY_API_KEY` environment variable in your `.env.local` file.
-
-With the [AI SDK](https://ai-sdk.dev/docs/introduction), you can also switch to direct LLM providers like [OpenAI](https://openai.com), [Anthropic](https://anthropic.com), [Cohere](https://cohere.com/), and [many more](https://ai-sdk.dev/providers/ai-sdk-providers) with just a few lines of code.
+With the [AI SDK](https://ai-sdk.dev/docs/introduction), you can also switch to other providers like [Anthropic](https://anthropic.com), [Cohere](https://cohere.com/), and [many more](https://ai-sdk.dev/providers/ai-sdk-providers) with just a few lines of code.
 
 ## Deploy Your Own
 
