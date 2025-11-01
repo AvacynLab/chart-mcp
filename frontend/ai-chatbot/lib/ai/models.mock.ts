@@ -21,7 +21,13 @@ type MockResponse = {
 };
 
 const MOCK_RESPONSES = new Map<string, MockResponse>([
-  ["why is grass green?", { text: "It's just green duh!" }],
+  [
+    "why is grass green?",
+    {
+      text: "It's just green duh!",
+      reasoning: "Grass is green because of chlorophyll absorption!",
+    },
+  ],
   [
     "why is the sky blue?",
     {
@@ -83,44 +89,85 @@ function createMockStream({
   const promptText = normalisePrompt(prompt);
   const { text, reasoning } = resolveMockResponse(promptText);
 
-  const words = text.split(/\s+/).filter(Boolean);
-  const reasoningWords = reasoning?.split(/\s+/).filter(Boolean) ?? [];
+  const words = text.split(/(\s+)/).filter(Boolean);
+  const reasoningWords = reasoning?.split(/(\s+)/).filter(Boolean) ?? [];
+  const textTokenCount = text.split(/\s+/).filter(Boolean).length;
+  const reasoningTokenCount = reasoning?.split(/\s+/).filter(Boolean).length ?? 0;
 
   const usage = {
     inputTokens: Math.max(8, promptText.split(/\s+/).filter(Boolean).length + 3),
-    outputTokens: Math.max(8, words.length + reasoningWords.length + 3),
+    outputTokens: Math.max(8, textTokenCount + reasoningTokenCount + 3),
     totalTokens: Math.max(
       16,
       Math.max(8, promptText.split(/\s+/).filter(Boolean).length + 3) +
-        Math.max(8, words.length + reasoningWords.length + 3),
+        Math.max(8, textTokenCount + reasoningTokenCount + 3),
     ),
     reasoningTokens:
-      includeReasoning && reasoningWords.length > 0
-        ? Math.max(4, reasoningWords.length)
+      includeReasoning && reasoningTokenCount > 0
+        ? Math.max(4, reasoningTokenCount)
         : undefined,
   };
 
-  const streamParts: LanguageModelV2StreamPart[] = [
-    { type: "stream-start", warnings: [] },
-  ];
-
-  if (includeReasoning && reasoning) {
-    streamParts.push({ type: "reasoning-start", id: "reasoning-1" });
-    streamParts.push({ type: "reasoning-delta", id: "reasoning-1", delta: reasoning });
-    streamParts.push({ type: "reasoning-end", id: "reasoning-1" });
-  }
-
-  streamParts.push({ type: "text-start", id: "message-1" });
-  streamParts.push({ type: "text-delta", id: "message-1", delta: text });
-  streamParts.push({ type: "text-end", id: "message-1" });
-  streamParts.push({ type: "finish", finishReason: "stop", usage });
+  let cancelled = false;
 
   return new ReadableStream<LanguageModelV2StreamPart>({
-    start(controller) {
-      for (const part of streamParts) {
+    async start(controller) {
+      /**
+       * Space out tokens so the UI has time to reveal the stop button and the
+       * Playwright tests can interact with it. Immediate completion caused the
+       * button to disappear before the assertions executed which in turn made
+       * the suite flaky.
+       */
+      const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+      const enqueueWithDelay = async (
+        part: LanguageModelV2StreamPart,
+        delayMs = 60
+      ) => {
+        if (cancelled) {
+          return;
+        }
         controller.enqueue(part);
+        if (delayMs > 0) {
+          await delay(delayMs);
+        }
+      };
+
+      try {
+        await enqueueWithDelay({ type: "stream-start", warnings: [] });
+
+        if (includeReasoning && reasoning) {
+          await enqueueWithDelay({ type: "reasoning-start", id: "reasoning-1" });
+          for (const chunk of reasoningWords) {
+            await enqueueWithDelay(
+              { type: "reasoning-delta", id: "reasoning-1", delta: chunk },
+              80
+            );
+          }
+          await enqueueWithDelay({ type: "reasoning-end", id: "reasoning-1" });
+        }
+
+        // Allow the UI to mount the stop button before text tokens start
+        // streaming. This mirrors real-world latency more closely than
+        // immediate completion.
+        await delay(120);
+
+        await enqueueWithDelay({ type: "text-start", id: "message-1" });
+        for (const chunk of words) {
+          await enqueueWithDelay(
+            { type: "text-delta", id: "message-1", delta: chunk },
+            80
+          );
+        }
+        await enqueueWithDelay({ type: "text-end", id: "message-1" });
+        await enqueueWithDelay({ type: "finish", finishReason: "stop", usage }, 0);
+        controller.close();
+      } catch (error) {
+        controller.error(error);
       }
-      controller.close();
+    },
+    cancel() {
+      cancelled = true;
     },
   });
 }

@@ -44,13 +44,14 @@ describe("mock language models", () => {
     const { stream } = await chatModel.doStream(buildCallOptions("Why is grass green?"));
 
     const parts = await readStream(stream);
-    const textDelta = parts.find((part) => part.type === "text-delta");
+    const textDeltaParts = parts.filter(
+      (part): part is Extract<LanguageModelV2StreamPart, { type: "text-delta" }> =>
+        part.type === "text-delta"
+    );
     const finish = parts.find((part) => part.type === "finish");
 
-    if (!textDelta || textDelta.type !== "text-delta") {
-      throw new Error("expected text delta in mock stream");
-    }
-    expect(textDelta.delta).toBe("It's just green duh!");
+    const aggregatedText = textDeltaParts.map((part) => part.delta).join("");
+    expect(aggregatedText).toBe("It's just green duh!");
     expect(finish?.type).toBe("finish");
   });
 
@@ -61,16 +62,30 @@ describe("mock language models", () => {
 
     const parts = await readStream(stream);
     const reasoning = parts.filter((part) => part.type?.startsWith("reasoning"));
-    const textDelta = parts.find((part) => part.type === "text-delta");
+    const textDeltaParts = parts.filter(
+      (part): part is Extract<LanguageModelV2StreamPart, { type: "text-delta" }> =>
+        part.type === "text-delta"
+    );
 
-    expect(reasoning.map((part) => part.type)).toEqual([
-      "reasoning-start",
-      "reasoning-delta",
-      "reasoning-end",
-    ]);
-    if (!textDelta || textDelta.type !== "text-delta") {
-      throw new Error("expected text delta in reasoning mock stream");
-    }
-    expect(textDelta.delta).toBe("It's just blue duh!");
+    expect(reasoning[0]?.type).toBe("reasoning-start");
+    expect(reasoning.at(-1)?.type).toBe("reasoning-end");
+    expect(
+      reasoning.slice(1, -1).every((part) => part.type === "reasoning-delta")
+    ).toBe(true);
+
+    const aggregatedReasoning = reasoning
+      .filter(
+        (part): part is Extract<LanguageModelV2StreamPart, { type: "reasoning-delta" }> =>
+          part.type === "reasoning-delta"
+      )
+      .map((part) => part.delta)
+      .join("");
+
+    const aggregatedText = textDeltaParts.map((part) => part.delta).join("");
+
+    expect(aggregatedReasoning).toBe(
+      "The sky is blue because of rayleigh scattering!"
+    );
+    expect(aggregatedText).toBe("It's just blue duh!");
   });
 });

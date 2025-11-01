@@ -25,13 +25,17 @@ export function MessageReasoning({
   }, [isLoading]);
 
   return (
-    <Reasoning
-      data-testid="message-reasoning"
-      defaultOpen={hasBeenStreaming}
-      isStreaming={isLoading}
-    >
-      <ReasoningTrigger />
-      <ReasoningContent>{reasoning}</ReasoningContent>
-    </Reasoning>
+    <>
+      {/* Expose the full reasoning text so automated accessibility checks and the Playwright smoke tests can assert on the content without forcing the accordion open. */}
+      <Reasoning
+        data-reasoning-text={reasoning}
+        data-testid="message-reasoning"
+        defaultOpen={hasBeenStreaming}
+        isStreaming={isLoading}
+      >
+        <ReasoningTrigger />
+        <ReasoningContent>{reasoning}</ReasoningContent>
+      </Reasoning>
+    </>
   );
 }
