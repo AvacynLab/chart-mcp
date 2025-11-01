@@ -324,6 +324,11 @@ jobs:
           fi
           echo "NEXT_PID=$NEXT_PID" >> "$GITHUB_ENV"
           echo "NEXT_LOG=$LOG_FILE" >> "$GITHUB_ENV"
+      # Aggregate stdout/stderr and the server log into a dedicated folder so we
+      # can publish them as downloadable artifacts after the run.
+      - name: Prepare Playwright log directory
+        run: |
+          mkdir -p playwright-logs
       - name: Wait for frontend availability
         working-directory: frontend/ai-chatbot
         run: |
@@ -351,6 +356,9 @@ jobs:
             echo "-----------------------" >&2
           fi
           exit 1
+      # Stream the Playwright reporter output to both stdout (for live logs) and
+      # a file that we can bundle into the artifact archive without losing the
+      # original exit code when the suite fails.
       - name: Run Playwright tests
         env:
           PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000
@@ -360,17 +368,43 @@ jobs:
           REDIS_URL: ${{ env.REDIS_URL }}
           BLOB_READ_WRITE_TOKEN: ${{ env.BLOB_READ_WRITE_TOKEN }}
           PLAYWRIGHT_USE_REAL_SERVICES: "1"
-        run: pnpm --filter ai-chatbot exec playwright test --reporter=line
+        run: |
+          set -o pipefail
+          pnpm --filter ai-chatbot exec playwright test --reporter=line \
+            | tee "$GITHUB_WORKSPACE/playwright-logs/playwright-run.log"
       - name: Stop Next.js server
         if: always()
         run: |
           if [ -n "${NEXT_PID:-}" ]; then
             kill "$NEXT_PID" || true
           fi
+      # Gather the various logs (Next.js dev output, Playwright test-results,
+      # HTML report) into the aggregation folder so downstream jobs only need to
+      # download a single artifact to inspect failures.
+      - name: Collect Playwright logs
+        if: always()
+        run: |
+          mkdir -p playwright-logs
+          if [ -n "${NEXT_LOG:-}" ] && [ -f "$NEXT_LOG" ]; then
+            cp "$NEXT_LOG" playwright-logs/next-dev.log
+          fi
+          if [ -d frontend/ai-chatbot/test-results ]; then
+            rm -rf playwright-logs/test-results
+            cp -R frontend/ai-chatbot/test-results playwright-logs/test-results
+          fi
+          if [ -d playwright-report ]; then
+            cp -R playwright-report playwright-logs/report-html
+          fi
       - name: Shutdown containers
         if: always()
         run: |
           docker compose -f docker/docker-compose.yml down
+      - name: Upload Playwright logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-logs
+          path: playwright-logs
       - name: Upload Playwright report
         if: always()
         uses: actions/upload-artifact@v4
