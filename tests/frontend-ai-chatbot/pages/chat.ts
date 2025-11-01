@@ -20,7 +20,14 @@ export class ChatPage {
 
   async createNewChat() {
     await this.page.goto("/");
-    await this.page.waitForLoadState("networkidle");
+    await this.page.waitForLoadState("domcontentloaded");
+    // The Next.js dev server may keep retrying failed font downloads when
+    // outbound TLS is blocked inside CI containers. Waiting for "networkidle"
+    // would therefore hang the suite, so instead wait for the chat composer to
+    // appear which signals that the shell finished hydrating.
+    await this.page.waitForSelector('[data-testid="send-button"]', {
+      state: "visible",
+    });
   }
 
   async sendUserMessage(message: string) {
