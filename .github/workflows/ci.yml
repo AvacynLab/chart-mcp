@@ -313,6 +313,7 @@ jobs:
           else
             echo "Using POSTGRES_URL provided via secrets"
             echo "POSTGRES_URL=$POSTGRES_URL" >> "$GITHUB_ENV"
+          fi
       - name: Run database migrations
         working-directory: frontend/ai-chatbot
         env:
