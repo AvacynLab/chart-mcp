@@ -252,6 +252,14 @@ jobs:
       MCP_SESSION_USER: regular
       PLAYWRIGHT: "1"
       PLAYWRIGHT_TEST_BASE_URL: http://127.0.0.1:3000
+      PLAYWRIGHT_USE_REAL_SERVICES: "1"
+      AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
+      POSTGRES_URL: ${{ secrets.POSTGRES_URL }}
+      BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+      REDIS_URL: ${{ secrets.REDIS_URL }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      LLM_PROVIDER: openai
+      LLM_MODEL: gpt-5-nano
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v3
@@ -290,12 +298,19 @@ jobs:
         working-directory: frontend/ai-chatbot
         env:
           PORT: 3000
-          AUTH_SECRET: playwright-secret
+          AUTH_SECRET: ${{ env.AUTH_SECRET || 'playwright-secret' }}
           MCP_API_BASE: http://127.0.0.1:8000
           MCP_SESSION_USER: regular
           MCP_API_TOKEN: ${{ secrets.MCP_API_TOKEN || 'playwright-token' }}
           NEXT_PUBLIC_API_BASE_URL: http://127.0.0.1:8000
           NEXT_PUBLIC_ENABLE_E2E_STREAM_DEBUG: "1"
+          POSTGRES_URL: ${{ env.POSTGRES_URL }}
+          BLOB_READ_WRITE_TOKEN: ${{ env.BLOB_READ_WRITE_TOKEN }}
+          REDIS_URL: ${{ env.REDIS_URL }}
+          OPENAI_API_KEY: ${{ env.OPENAI_API_KEY }}
+          PLAYWRIGHT_USE_REAL_SERVICES: "1"
+          LLM_PROVIDER: ${{ env.LLM_PROVIDER }}
+          LLM_MODEL: ${{ env.LLM_MODEL }}
         run: |
           LOG_FILE="$GITHUB_WORKSPACE/frontend/ai-chatbot/.next-dev.log"
           : > "$LOG_FILE"
@@ -340,6 +355,11 @@ jobs:
         env:
           PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000
           PLAYWRIGHT_SKIP_WEB_SERVER: "1"
+          OPENAI_API_KEY: ${{ env.OPENAI_API_KEY }}
+          POSTGRES_URL: ${{ env.POSTGRES_URL }}
+          REDIS_URL: ${{ env.REDIS_URL }}
+          BLOB_READ_WRITE_TOKEN: ${{ env.BLOB_READ_WRITE_TOKEN }}
+          PLAYWRIGHT_USE_REAL_SERVICES: "1"
         run: pnpm --filter ai-chatbot exec playwright test --reporter=line
       - name: Stop Next.js server
         if: always()

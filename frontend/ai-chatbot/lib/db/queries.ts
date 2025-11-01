@@ -34,11 +34,17 @@ import {
 } from "./schema";
 import { generateHashedPassword } from "./utils";
 
-const useInMemoryDb = Boolean(
-  process.env.PLAYWRIGHT ||
-    process.env.PLAYWRIGHT_TEST_BASE_URL ||
-    process.env.CI_PLAYWRIGHT,
-);
+const playWrightWantsRealServices =
+  process.env.PLAYWRIGHT_USE_REAL_SERVICES === "1";
+
+const useInMemoryDb =
+  !playWrightWantsRealServices &&
+  !process.env.POSTGRES_URL &&
+  Boolean(
+    process.env.PLAYWRIGHT ||
+      process.env.PLAYWRIGHT_TEST_BASE_URL ||
+      process.env.CI_PLAYWRIGHT,
+  );
 
 let db: ReturnType<typeof drizzle> | undefined;
 

@@ -1,7 +1,7 @@
 import { expect, test } from "../fixtures";
 import type { Page } from "@playwright/test";
 import { generateRandomTestUser, DEFAULT_BASE_URL } from "../helpers";
-import { guestRegex } from "../../../frontend-ai-chatbot/lib/constants";
+import { guestRegex } from "../../../frontend/ai-chatbot/lib/constants";
 import { getMessageByErrorCode } from "../../../frontend/ai-chatbot/lib/errors";
 import { AuthPage } from "../pages/auth";
 import { ChatPage } from "../pages/chat";

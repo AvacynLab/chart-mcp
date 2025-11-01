@@ -63,6 +63,7 @@ const apiBaseURL = process.env.MCP_API_BASE || `http://localhost:${PORT}/api/tes
 const sessionUser = process.env.MCP_SESSION_USER || "playwright-e2e";
 const streamDebugFlag =
   process.env.NEXT_PUBLIC_ENABLE_E2E_STREAM_DEBUG || "1";
+const useRealServices = process.env.PLAYWRIGHT_USE_REAL_SERVICES === "1";
 
 /**
  * Set webServer.url and use.baseURL with the location
@@ -210,6 +211,7 @@ export default defineConfig({
           NEXT_PUBLIC_ENABLE_E2E_STREAM_DEBUG: streamDebugFlag,
           NEXTAUTH_URL: baseURL,
           NEXTAUTH_URL_INTERNAL: baseURL,
+          PLAYWRIGHT_USE_REAL_SERVICES: useRealServices ? "1" : "0",
           // Auth.js refuses to start without a secret key. Provide a deterministic
           // fallback so local contributors are not forced to create an `.env` when
           // running the smoke suite.
