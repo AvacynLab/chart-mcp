@@ -274,6 +274,50 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Install Playwright browsers
         run: pnpm --filter ai-chatbot exec playwright install --with-deps
+      - name: Launch Postgres for Playwright (fallback)
+        if: env.POSTGRES_URL == ''
+        env:
+          POSTGRES_DB: playwright
+          POSTGRES_PASSWORD: playwright
+          POSTGRES_USER: playwright
+        run: |
+          docker run -d --rm --name playwright-postgres \
+            -e POSTGRES_DB="$POSTGRES_DB" \
+            -e POSTGRES_PASSWORD="$POSTGRES_PASSWORD" \
+            -e POSTGRES_USER="$POSTGRES_USER" \
+            -p 5432:5432 \
+            postgres:15-alpine
+          echo "PLAYWRIGHT_POSTGRES_CONTAINER=playwright-postgres" >> "$GITHUB_ENV"
+      - name: Wait for Postgres
+        if: env.POSTGRES_URL == ''
+        env:
+          POSTGRES_USER: playwright
+        run: |
+          ATTEMPTS=60
+          for attempt in $(seq 1 "$ATTEMPTS"); do
+            if docker exec playwright-postgres pg_isready -U "$POSTGRES_USER" >/dev/null 2>&1; then
+              echo "Postgres became ready after $attempt attempt(s)."
+              break
+            fi
+            sleep 2
+          done
+          if ! docker exec playwright-postgres pg_isready -U "$POSTGRES_USER" >/dev/null 2>&1; then
+            echo "Postgres failed to become ready." >&2
+            docker logs playwright-postgres >&2 || true
+            exit 1
+          fi
+      - name: Export Playwright database URL
+        run: |
+          if [ -z "${POSTGRES_URL:-}" ]; then
+            echo "POSTGRES_URL=postgresql://playwright:playwright@127.0.0.1:5432/playwright" >> "$GITHUB_ENV"
+          else
+            echo "Using POSTGRES_URL provided via secrets"
+            echo "POSTGRES_URL=$POSTGRES_URL" >> "$GITHUB_ENV"
+      - name: Run database migrations
+        working-directory: frontend/ai-chatbot
+        env:
+          POSTGRES_URL: ${{ env.POSTGRES_URL }}
+        run: pnpm exec drizzle-kit push
       - name: Launch API and SearxNG containers
         env:
           API_TOKEN: ${{ secrets.MCP_API_TOKEN || 'playwright-token' }}
@@ -399,6 +443,9 @@ jobs:
         if: always()
         run: |
           docker compose -f docker/docker-compose.yml down
+          if [ -n "${PLAYWRIGHT_POSTGRES_CONTAINER:-}" ]; then
+            docker stop "$PLAYWRIGHT_POSTGRES_CONTAINER" || true
+          fi
       - name: Upload Playwright logs
         if: always()
         uses: actions/upload-artifact@v4
