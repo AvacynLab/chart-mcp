@@ -380,10 +380,10 @@ jobs:
       - name: Wait for frontend availability
         working-directory: frontend/ai-chatbot
         run: |
-          # `npx wait-on` provides consistent readiness checks across local runs
-          # and CI, surfacing a non-zero exit when the dev server never binds to
-          # the expected port.
-          if ! npx wait-on --timeout 120000 http-get://localhost:3000; then
+          # Poll the dev server via TCP so the readiness gate succeeds even when
+          # Auth.js keeps redirecting unauthenticated HTTP requests to the guest
+          # login endpoint (those 307s caused the HTTP-based probe to time out).
+          if ! npx wait-on --timeout 120000 tcp:127.0.0.1:3000; then
             echo "Frontend failed to become available within the timeout." >&2
             if [ -n "${NEXT_LOG:-}" ] && [ -f "$NEXT_LOG" ]; then
               echo "----- Next.js log -----" >&2
