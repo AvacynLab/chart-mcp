@@ -63,6 +63,8 @@ def test_search_raises_upstream_error_on_server_failure() -> None:
         client.search(query="btc", categories=None)
 
     assert "503" in str(exc_info.value)
+    assert exc_info.value.status_code == 502
+    assert exc_info.value.details == {"status_code": 503}
 
 
 def test_search_raises_upstream_error_on_timeout() -> None:
@@ -80,6 +82,8 @@ def test_search_raises_upstream_error_on_timeout() -> None:
         client.search(query="eth", categories=["crypto"], time_range="week")
 
     assert "timeout" in str(exc_info.value).lower()
+    assert exc_info.value.status_code == 502
+    assert exc_info.value.details == {}
 
 
 def test_search_wraps_network_errors() -> None:
@@ -90,5 +94,9 @@ def test_search_wraps_network_errors() -> None:
 
     client = SearxNGClient("http://searx.local", transport=httpx.MockTransport(handler))
 
-    with pytest.raises(UpstreamError):
+    with pytest.raises(UpstreamError) as exc_info:
         client.search(query="eth", categories=["news"])
+
+    assert "boom" in str(exc_info.value)
+    assert exc_info.value.status_code == 502
+    assert exc_info.value.details == {}

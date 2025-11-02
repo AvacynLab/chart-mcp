@@ -6,7 +6,8 @@
 un frontend Next.js basé sur le template **Vercel AI Chatbot** et une instance
 **SearxNG** autohébergée pour produire un copilote d’analyse crypto. Le projet
 diffuse les étapes d’analyse technique via SSE et propose deux artefacts
-spécifiques :
+spécifiques. Tous les tests (backend comme frontend) sont regroupés sous
+`/tests` pour faciliter la navigation et la couverture croisée :
 
 * `finance` — pipeline temps réel (OHLCV, indicateurs, niveaux, patterns et
   résumé tokenisé).
@@ -35,6 +36,8 @@ d’investissement n’est fournie.
    # → API accessible sur http://localhost:8000
    ```
 
+   > Alternative : `docker compose -f docker/docker-compose.yml up api` pour un run conteneurisé.
+
 2. **SearxNG** (moteur de recherche agrégé)
 
    ```bash
@@ -50,6 +53,11 @@ d’investissement n’est fournie.
    pnpm dev
    # → UI sur http://localhost:3000 (consomme l’API locale)
    ```
+
+4. **Variables communes**
+
+   Copiez `.env.example` (racine) et `frontend/ai-chatbot/.env.example` vers des
+   fichiers locaux (`.env`, `.env.local`) puis ajustez les jetons MCP/SearxNG.
 
 ## Environnement de développement
 
@@ -80,7 +88,10 @@ adaptez les valeurs. Les variables critiques côté backend :
 
 Côté frontend (`frontend/ai-chatbot/.env.example`) les mêmes couples `MCP_*` sont
 requis afin de contacter l’API MCP depuis le navigateur. Ajoutez également vos
-clés analytics/observabilité éventuelles.
+clés analytics/observabilité éventuelles. Les variables `PLAYWRIGHT` et
+`PLAYWRIGHT_TEST_BASE_URL` restent commentées pour accélérer les runs E2E :
+exportez-les avant `pnpm exec playwright test` tout en laissant `OPENAI_API_KEY`
+non défini afin d’utiliser le provider mock.
 
 ## Appels API utiles
 
@@ -194,6 +205,22 @@ pipeline strict.
 | Tests frontend | `pnpm --filter ai-chatbot exec vitest run` + `pnpm exec playwright test` |
 
 Les artefacts JUnit/couverture sont publiés par la CI pour faciliter le suivi.
+
+### Playwright / E2E
+
+Avant d’exécuter Playwright, exportez :
+
+```bash
+export PLAYWRIGHT=1
+export PLAYWRIGHT_TEST_BASE_URL=http://127.0.0.1:3000
+export MCP_API_BASE=http://127.0.0.1:8000
+export MCP_API_TOKEN=playwright-token
+export MCP_SESSION_USER=regular
+```
+
+Laissez `OPENAI_API_KEY` non défini pour ces tests afin de forcer l’usage du
+provider mock (aucune requête réelle ne doit partir vers OpenAI). Pour les runs
+productionnels, définissez la clé dans vos secrets d’environnement.
 
 ## Sécurité & bonnes pratiques
 
