@@ -1,10 +1,35 @@
-import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import {
   customProvider,
   extractReasoningMiddleware,
   wrapLanguageModel,
 } from "ai";
 import { isTestEnvironment } from "../constants";
+
+function loadOpenAICompatible() {
+  try {
+    const moduleName = ["@ai-sdk", "openai-compatible"].join("/");
+    const dynamicRequire =
+      typeof require === "function"
+        ? // Use `eval("require")` so bundlers do not eagerly include the optional
+          // dependency while still allowing Node.js to resolve it at runtime.
+          ((eval("require") as NodeRequire) ?? undefined)
+        : undefined;
+    if (!dynamicRequire) {
+      return undefined;
+    }
+    const { createOpenAICompatible } = dynamicRequire(moduleName);
+    return createOpenAICompatible as typeof import("@ai-sdk/openai-compatible")["createOpenAICompatible"];
+  } catch (error) {
+    // Provide a descriptive warning so production environments without the
+    // optional dependency can fall back to the deterministic mock provider.
+    // eslint-disable-next-line no-console
+    console.warn(
+      "@ai-sdk/openai-compatible is not available; continuing with the mock provider.",
+      error,
+    );
+    return undefined;
+  }
+}
 
 /**
  * Build the deterministic mock provider that powers hermetic tests and falls
@@ -51,6 +76,11 @@ function createProvider() {
   }
 
   const baseURL = process.env.OPENAI_BASE_URL ?? "https://api.openai.com/v1";
+
+  const createOpenAICompatible = loadOpenAICompatible();
+  if (!createOpenAICompatible) {
+    return createMockProvider();
+  }
 
   const openai = createOpenAICompatible({
     apiKey,

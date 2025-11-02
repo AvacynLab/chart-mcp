@@ -251,7 +251,8 @@ jobs:
       MCP_API_TOKEN: ${{ secrets.MCP_API_TOKEN || 'playwright-token' }}
       MCP_SESSION_USER: regular
       PLAYWRIGHT: "1"
-      PLAYWRIGHT_TEST_BASE_URL: http://127.0.0.1:3000
+      PLAYWRIGHT_TEST_BASE_URL: http://localhost:3000
+      PLAYWRIGHT_USE_REAL_SERVICES: "0"
       AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
       POSTGRES_URL: ${{ secrets.POSTGRES_URL }}
       BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
@@ -272,24 +273,6 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Install Playwright browsers
         run: pnpm --filter ai-chatbot exec playwright install --with-deps
-      - name: Configure OpenAI credentials
-        id: configure-openai
-        env:
-          PLAYWRIGHT_OPENAI_KEY: ${{ secrets.OPENAI_API_KEY }}
-        run: |
-          if [ -n "$PLAYWRIGHT_OPENAI_KEY" ]; then
-            # Propagate the OpenAI API key to subsequent steps without ever
-            # echoing the secret in the workflow logs. The flag mirrors whether
-            # we should exercise the real provider or fall back to the mock.
-            echo "OPENAI_API_KEY=$PLAYWRIGHT_OPENAI_KEY" >> "$GITHUB_ENV"
-            echo "PLAYWRIGHT_USE_REAL_SERVICES=1" >> "$GITHUB_ENV"
-            echo "use-real-services=1" >> "$GITHUB_OUTPUT"
-          else
-            # Missing credentials mean we keep the deterministic mocks so the
-            # suite remains hermetic instead of crashing at runtime.
-            echo "PLAYWRIGHT_USE_REAL_SERVICES=0" >> "$GITHUB_ENV"
-            echo "use-real-services=0" >> "$GITHUB_OUTPUT"
-          fi
       - name: Launch Postgres for Playwright (fallback)
         if: env.POSTGRES_URL == ''
         env:
@@ -368,9 +351,14 @@ jobs:
           POSTGRES_URL: ${{ env.POSTGRES_URL }}
           BLOB_READ_WRITE_TOKEN: ${{ env.BLOB_READ_WRITE_TOKEN }}
           REDIS_URL: ${{ env.REDIS_URL }}
-          PLAYWRIGHT_USE_REAL_SERVICES: ${{ steps.configure-openai.outputs.use-real-services || '0' }}
+          PLAYWRIGHT_USE_REAL_SERVICES: ${{ env.PLAYWRIGHT_USE_REAL_SERVICES }}
           LLM_PROVIDER: ${{ env.LLM_PROVIDER }}
           LLM_MODEL: ${{ env.LLM_MODEL }}
+          # Force Auth.js to mint cookies for `localhost` so Playwright requests
+          # inherit the guest session instead of bouncing between 127.0.0.1 and
+          # localhost during the redirect flow.
+          NEXTAUTH_URL: http://localhost:3000
+          NEXTAUTH_URL_INTERNAL: http://localhost:3000
         run: |
           LOG_FILE="$GITHUB_WORKSPACE/frontend/ai-chatbot/.next-dev.log"
           : > "$LOG_FILE"
@@ -392,41 +380,29 @@ jobs:
       - name: Wait for frontend availability
         working-directory: frontend/ai-chatbot
         run: |
-          ATTEMPTS=120
-          for attempt in $(seq 1 "$ATTEMPTS"); do
-            if curl -fsS http://127.0.0.1:3000 >/dev/null; then
-              echo "Frontend became available after $attempt attempt(s)."
-              exit 0
+          # Poll the dev server via TCP so the readiness gate succeeds even when
+          # Auth.js keeps redirecting unauthenticated HTTP requests to the guest
+          # login endpoint (those 307s caused the HTTP-based probe to time out).
+          if ! npx wait-on --timeout 120000 tcp:127.0.0.1:3000; then
+            echo "Frontend failed to become available within the timeout." >&2
+            if [ -n "${NEXT_LOG:-}" ] && [ -f "$NEXT_LOG" ]; then
+              echo "----- Next.js log -----" >&2
+              cat "$NEXT_LOG" >&2
+              echo "-----------------------" >&2
             fi
-            if ! kill -0 "${NEXT_PID:-}" 2>/dev/null; then
-              echo "Next.js process exited while waiting for readiness." >&2
-              if [ -n "${NEXT_LOG:-}" ] && [ -f "$NEXT_LOG" ]; then
-                echo "----- Next.js log -----" >&2
-                cat "$NEXT_LOG" >&2
-                echo "-----------------------" >&2
-              fi
-              exit 1
-            fi
-            sleep 1
-          done
-          echo "Frontend failed to become available within the timeout." >&2
-          if [ -n "${NEXT_LOG:-}" ] && [ -f "$NEXT_LOG" ]; then
-            echo "----- Next.js log -----" >&2
-            cat "$NEXT_LOG" >&2
-            echo "-----------------------" >&2
+            exit 1
           fi
-          exit 1
       # Stream the Playwright reporter output to both stdout (for live logs) and
       # a file that we can bundle into the artifact archive without losing the
       # original exit code when the suite fails.
       - name: Run Playwright tests
         env:
-          PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000
+          PLAYWRIGHT_BASE_URL: http://localhost:3000
           PLAYWRIGHT_SKIP_WEB_SERVER: "1"
           POSTGRES_URL: ${{ env.POSTGRES_URL }}
           REDIS_URL: ${{ env.REDIS_URL }}
           BLOB_READ_WRITE_TOKEN: ${{ env.BLOB_READ_WRITE_TOKEN }}
-          PLAYWRIGHT_USE_REAL_SERVICES: ${{ steps.configure-openai.outputs.use-real-services || '0' }}
+          PLAYWRIGHT_USE_REAL_SERVICES: ${{ env.PLAYWRIGHT_USE_REAL_SERVICES }}
         run: |
           set -o pipefail
           pnpm --filter ai-chatbot exec playwright test --reporter=line \

@@ -28,6 +28,12 @@ export const MessageContent = ({
 }: MessageContentProps) => (
   <div
     className={cn(
+      // Provide semantic formatting defaults for streamed markdown content
+      // while retaining the pill styling that differentiates user/assistant
+      // bubbles. Individual callers can still override specifics via
+      // `className` and the spread below ensures accessibility/test hooks land
+      // on the DOM node Playwright asserts against.
+      "prose dark:prose-invert max-w-none",
       "flex flex-col gap-2 overflow-hidden rounded-lg px-4 py-3 text-foreground text-sm",
       "group-[.is-user]:bg-primary group-[.is-user]:text-primary-foreground",
       "group-[.is-assistant]:bg-secondary group-[.is-assistant]:text-foreground",

@@ -47,4 +47,9 @@ export const test = baseTest.extend<object, Fixtures>({
   ],
 });
 
+// Guard against excessively long retries by enforcing a one-minute cap per
+// test. Individual suites can still override this when necessary via
+// `test.setTimeout` but the default keeps flakiness diagnosable.
+test.setTimeout(60_000);
+
 export const expect = baseExpect;
