@@ -17,6 +17,7 @@ search:
   # Force francophone sources while keeping the backend results deterministic in tests.
   safe_search: 0
   language: fr
+  locale: fr_FR
   # Surface enough documents to cover all UI artefacts without overloading the instance.
   number_of_results: 40
   default_categories:
@@ -33,28 +34,37 @@ engines:
     categories:
       - news
     disabled: false
+    timeout: 4.5
   - name: duckduckgo_news
     engine: duckduckgo_news
     categories:
       - news
     disabled: false
+    timeout: 4.5
   - name: bing
     engine: bing
     categories:
       - general
       - news
     disabled: false
+    timeout: 4.5
+    # Provide ``BING_SEARCH_API_KEY`` in the environment to switch to the
+    # authenticated Bing backend. When unset, SearxNG will fall back to the
+    # community instance relying on HTML scraping which remains adequate for
+    # CI search artefact smoke tests.
   - name: reddit
     engine: reddit
     categories:
       - news
       - it
     disabled: false
+    timeout: 4.5
   - name: hackernews
     engine: hackernews
     categories:
       - it
     disabled: false
+    timeout: 4.5
   - name: wikipedia
     engine: wikipedia
     languages:
@@ -64,21 +74,25 @@ engines:
       - general
       - science
     disabled: false
+    timeout: 4.5
   - name: arxiv
     engine: arxiv
     categories:
       - science
     disabled: false
+    timeout: 4.5
   - name: github
     engine: github
     categories:
       - it
     disabled: false
+    timeout: 4.5
   - name: stackoverflow
     engine: stackoverflow
     categories:
       - it
     disabled: false
+    timeout: 4.5
   - name: searx_cryptopanic
     engine: rss
     shortcut: cp
@@ -87,6 +101,7 @@ engines:
     disabled: false
     config:
       url: https://cryptopanic.com/news/rss/
+    timeout: 4.5
   - name: coindesk
     engine: rss
     shortcut: cd
@@ -95,6 +110,7 @@ engines:
     disabled: false
     config:
       url: https://www.coindesk.com/arc/outboundfeeds/rss/
+    timeout: 4.5
   - name: cointelegraph
     engine: rss
     shortcut: ct
@@ -103,12 +119,14 @@ engines:
     disabled: false
     config:
       url: https://cointelegraph.com/rss
+    timeout: 4.5
   - name: invidious
     engine: invidious
     categories:
       - news
       - general
     disabled: false
+    timeout: 4.5
 
 outgoing:
   request_timeout: 6.0

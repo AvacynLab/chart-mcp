@@ -15,6 +15,11 @@ type SuggestedActionsProps = {
 
 function PureSuggestedActions({ chatId, sendMessage }: SuggestedActionsProps) {
   const suggestedActions = [
+    // The Playwright suite and deterministic mock model expect this exact
+    // phrasing so we keep the historical suggestion available. The
+    // accessibility hardening now hides the textual label, therefore the
+    // suggestion remains the most reliable way to exercise the mock flow.
+    "How do you build apps?",
     "What are the advantages of using Next.js?",
     "Write code to demonstrate Dijkstra's algorithm",
     "Help me write an essay about Silicon Valley",

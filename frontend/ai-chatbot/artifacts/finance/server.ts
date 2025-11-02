@@ -172,7 +172,8 @@ async function streamFinanceAnalysis(
   }
 
   const shouldUseFixture = Boolean(
-    process.env.PLAYWRIGHT ?? process.env.CI_PLAYWRIGHT,
+    (process.env.PLAYWRIGHT ?? process.env.CI_PLAYWRIGHT) &&
+      process.env.PLAYWRIGHT_USE_REAL_SERVICES !== "1",
   );
 
   /**

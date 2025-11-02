@@ -1,15 +1,18 @@
 #!/usr/bin/env python3
-"""Small utility: parse DATABASE_URL/POSTGRES_URL from repo .env.local and test TCP connectivity to the DB host:port.
+"""Parse database URLs from local configuration files and test connectivity.
 
-This script will NOT print secrets. It prints host:port and whether a TCP connection was possible.
+This script will NOT print secrets. It prints host:port and whether a TCP
+connection was possible.
 """
-from urllib.parse import urlparse
+
 import os
 import socket
+from urllib.parse import urlparse
 
 CANDIDATES = ["DATABASE_URL", "POSTGRES_URL", "POSTGRES_PRISMA_URL", "POSTGRES_URL_NON_POOLING", "POSTGRES_URL_NO_SSL"]
 
 def load_env(path):
+    """Load key/value pairs from a dotenv-like file without leaking secrets."""
     data = {}
     if not os.path.exists(path):
         return data
@@ -64,4 +67,4 @@ try:
     raise SystemExit(0)
 except Exception as exc:
     print(f"TCP connection failed: {exc}")
-    raise SystemExit(1)
+    raise SystemExit(1) from exc

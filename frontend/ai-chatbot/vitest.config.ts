@@ -29,6 +29,12 @@ export default defineConfig({
       "tests/routes/**/*.spec.tsx",
       "tests/**/*.{vitest,unit}.ts",
       "tests/**/*.{vitest,unit}.tsx",
+      /**
+       * Workspace-level route tests live under `tests/frontend-ai-chatbot` so
+       * they can share Playwright fixtures with the browser suite. Vitest
+       * still needs to pick them up when running from the package root.
+       */
+      "../../tests/frontend-ai-chatbot/routes/**/*.spec.ts",
     ],
     exclude: [
       "tests/e2e/**",

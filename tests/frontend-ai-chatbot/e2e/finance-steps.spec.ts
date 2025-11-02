@@ -9,6 +9,8 @@ import { createAuthenticatedContext, type UserContext } from "../helpers";
  * step/start, metric, token, and finish payloads are already buffered before
  * the test inspects the stream snapshot.
  */
+const MIN_TOKEN_COUNT = 2;
+
 async function waitForFinanceLifecycle(page: Page) {
   await page.waitForFunction(() => {
     const stream = (window as typeof window & { __chartMcpDataStream?: any[] })
@@ -22,6 +24,7 @@ async function waitForFinanceLifecycle(page: Page) {
     let hasMetric = false;
     let hasToken = false;
     let hasFinish = false;
+    let tokenCount = 0;
 
     for (const part of stream) {
       if (part?.type === "data-finance:step") {
@@ -41,13 +44,21 @@ async function waitForFinanceLifecycle(page: Page) {
         typeof part?.data === "string"
       ) {
         hasToken = true;
+        tokenCount += 1;
       }
       if (part?.type === "data-finish") {
         hasFinish = true;
       }
     }
 
-    return hasStepStart && hasStepEnd && hasMetric && hasToken && hasFinish;
+    return (
+      hasStepStart &&
+      hasStepEnd &&
+      hasMetric &&
+      hasToken &&
+      hasFinish &&
+      tokenCount >= MIN_TOKEN_COUNT
+    );
   });
 }
 
@@ -102,7 +113,13 @@ test.describe("Finance artifact streaming lifecycle", () => {
         (part: any) => part?.type === "data-finish"
       ).length;
 
-      return { steps, tokens, finishes };
+      const timeline = stream.map((part: any, index: number) => ({
+        index,
+        type: part?.type,
+        data: part?.data,
+      }));
+
+      return { steps, tokens, finishes, timeline };
     });
 
     const stepEvents = snapshot.steps.map((step) => step.event);
@@ -118,6 +135,20 @@ test.describe("Finance artifact streaming lifecycle", () => {
       snapshot.tokens.some((token) => token.includes("Analyse complète"))
     ).toBe(true);
     expect(snapshot.finishes).toBeGreaterThanOrEqual(1);
+    expect(snapshot.tokens.length).toBeGreaterThanOrEqual(MIN_TOKEN_COUNT);
+
+    const finishIndices = snapshot.timeline
+      .filter((entry) => entry.type === "data-finish")
+      .map((entry) => entry.index);
+    const tokenIndices = snapshot.timeline
+      .filter((entry) => entry.type === "data-finance:token")
+      .map((entry) => entry.index);
+
+    expect(tokenIndices.length).toBeGreaterThanOrEqual(MIN_TOKEN_COUNT);
+    if (finishIndices.length > 0) {
+      const firstFinish = Math.min(...finishIndices);
+      expect(tokenIndices.every((index) => index < firstFinish)).toBe(true);
+    }
 
     await expect(page.getByTestId("artifact")).toBeVisible();
     await expect(page.getByTestId("artifact")).toContainText(

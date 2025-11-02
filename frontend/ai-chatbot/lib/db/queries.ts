@@ -34,11 +34,27 @@ import {
 } from "./schema";
 import { generateHashedPassword } from "./utils";
 
-const useInMemoryDb = Boolean(
+const playWrightWantsRealServices =
+  process.env.PLAYWRIGHT_USE_REAL_SERVICES === "1";
+
+const isPlaywrightRuntime = Boolean(
   process.env.PLAYWRIGHT ||
     process.env.PLAYWRIGHT_TEST_BASE_URL ||
     process.env.CI_PLAYWRIGHT,
 );
+
+/**
+ * Prefer the hermetic in-memory database whenever we are running the
+ * Playwright smoke tests _or_ no Postgres connection string has been
+ * provided.  The previous logic only enabled the fallback when the
+ * Playwright markers were present, which meant local `pnpm exec
+ * playwright …` runs without a `POSTGRES_URL` still attempted to talk
+ * to Postgres and immediately failed when Auth.js tried to create the
+ * synthetic guest account.
+ */
+const useInMemoryDb =
+  !playWrightWantsRealServices &&
+  (!process.env.POSTGRES_URL || isPlaywrightRuntime);
 
 let db: ReturnType<typeof drizzle> | undefined;
 

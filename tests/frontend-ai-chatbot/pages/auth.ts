@@ -1,4 +1,4 @@
-import { type Page } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 
 export class AuthPage {
   constructor(private page: Page) {}
@@ -44,10 +44,11 @@ export class AuthPage {
   }
 
   async expectToastToContain(text: string) {
-    await this.page.waitForSelector('[data-testid="toast"]');
-    await this.page.getByTestId('toast').waitFor({ state: 'visible' });
-    await this.page.getByTestId('toast').innerText();
-    // Basic assertion handled by tests using expect; helper just waits
+    // Work with the most recent toast to avoid Playwright's strict mode errors
+    // when multiple notifications stack during registration/login flows.
+    const toast = this.page.getByTestId("toast").last();
+    await toast.waitFor({ state: "visible" });
+    await expect(toast).toContainText(text);
   }
 
   openSidebar() {

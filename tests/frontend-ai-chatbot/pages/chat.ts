@@ -1,87 +1,116 @@
-import { type Page } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 
 export class ChatPage {
   constructor(private page: Page) {}
 
   get textArea() {
-    return this.page.getByRole("textbox");
+    return this.page.getByTestId("multimodal-input");
   }
 
   get sendButton() {
-    return this.page.getByRole("button", { name: "Send message" });
+    // Anchor the lookup on the explicit test identifier so the suite remains
+    // resilient to future accessibility tweaks (e.g. aria-label vs. sr-only
+    // content) while still asserting the button stays visible.
+    return this.page.getByTestId("send-button");
   }
 
   get stopButton() {
-    return this.page.getByRole("button", { name: "Stop generating" });
+    return this.page.getByTestId("stop-button");
   }
 
   async createNewChat() {
     await this.page.goto("/");
-    await this.page.waitForLoadState("networkidle");
+    await this.page.waitForLoadState("domcontentloaded");
+    // The Next.js dev server may keep retrying failed font downloads when
+    // outbound TLS is blocked inside CI containers. Waiting for "networkidle"
+    // would therefore hang the suite, so instead wait for the chat composer to
+    // appear which signals that the shell finished hydrating.
+    await this.page.waitForSelector('[data-testid="send-button"]', {
+      state: "visible",
+    });
   }
 
   async sendUserMessage(message: string) {
     await this.textArea.click();
     await this.textArea.fill(message);
+    await expect(this.sendButton).toBeEnabled();
     await this.sendButton.click();
   }
 
   async sendUserMessageFromSuggestion() {
-    await this.page
-      .getByRole("button", { name: "How do you build apps?" })
-      .click();
+    const suggestion = this.page.getByRole("button", { name: "How do you build apps?" });
+    await suggestion.waitFor({ state: "visible" });
+    await suggestion.click();
   }
 
   async getRecentUserMessage() {
-    const messageItem = this.page.getByTestId("message-item").last();
-    const content = (await messageItem.getByTestId("message-content").innerText()) ?? "";
-    const attachments = await messageItem.getByTestId("message-attachments").count();
+    const messageItem = this.page
+      .locator('[data-message-item="true"][data-role="user"]')
+      .last();
+    await messageItem.waitFor({ state: "visible" });
+
+    const contentLocator = messageItem.getByTestId("message-content");
+    await contentLocator.waitFor({ state: "visible" });
+    const content = (await contentLocator.innerText()) ?? "";
+
+    const attachmentsLocator = messageItem.getByTestId("message-attachments");
+    const attachments = (await attachmentsLocator.count().catch(() => 0)) ?? 0;
 
     return {
       content,
       attachments,
       edit: async (newMessage: string) => {
         await messageItem.getByRole("button", { name: "Edit" }).click();
-        await this.textArea.fill(newMessage);
-        await this.sendButton.click();
+        const editor = this.page.getByTestId("message-editor");
+        await editor.waitFor({ state: "visible" });
+        await editor.fill(newMessage);
+
+        const editorSubmit = this.page.getByTestId("message-editor-send-button");
+        await expect(editorSubmit).toBeEnabled();
+        await editorSubmit.click();
       },
     };
   }
 
   async getRecentAssistantMessage() {
     const messageItem = this.page
-      .getByTestId("message-item")
-      .filter({ hasText: "Assistant" })
+      .locator('[data-message-item="true"][data-role="assistant"]')
       .last();
 
-    if (!(await messageItem.isVisible())) {
+    if ((await messageItem.count()) === 0) {
       return null;
     }
 
-    const content = (await messageItem.getByTestId("message-content").innerText().catch(() => null)) ?? "";
+    await messageItem.waitFor({ state: "visible" });
 
-    const reasoning = await messageItem
-      .getByTestId("message-reasoning")
-      .isVisible()
-      .then(async (visible) =>
-        visible
-          ? await messageItem.getByTestId("message-reasoning").innerText().catch(() => null)
-          : null
-      )
-      .catch(() => null);
+    const contentLocator = messageItem.getByTestId("message-content");
+    await contentLocator.waitFor({ state: "visible" });
+    const content = (await contentLocator.innerText().catch(() => null)) ?? "";
+
+    const reasoningLocator = messageItem.getByTestId("message-reasoning");
+    const reasoning =
+      (await reasoningLocator
+        .getAttribute("data-reasoning-text")
+        .catch(() => null)) ?? (await reasoningLocator.innerText().catch(() => null));
 
     return {
       element: messageItem,
       content,
       reasoning,
       async toggleReasoningVisibility() {
-        await messageItem.getByTestId("message-reasoning-toggle").click();
+        const toggle = messageItem.getByTestId("message-reasoning-toggle");
+        await toggle.waitFor({ state: "visible" });
+        await toggle.click();
       },
       async upvote() {
-        await messageItem.getByTestId("message-upvote").click();
+        const upvoteButton = messageItem.getByTestId("message-upvote");
+        await upvoteButton.waitFor({ state: "visible" });
+        await upvoteButton.click();
       },
       async downvote() {
-        await messageItem.getByTestId("message-downvote").click();
+        const downvoteButton = messageItem.getByTestId("message-downvote");
+        await downvoteButton.waitFor({ state: "visible" });
+        await downvoteButton.click();
       },
     };
   }
@@ -89,8 +118,8 @@ export class ChatPage {
   async isGenerationComplete() {
     await this.page.waitForFunction(
       () => {
-        const stop = document.querySelector('[aria-label="Stop generating"]');
-        return !stop || getComputedStyle(stop).display === 'none';
+        const stop = document.querySelector('[data-testid="stop-button"]');
+        return !stop || getComputedStyle(stop).display === "none";
       },
       null,
       { timeout: 30000 }
@@ -98,7 +127,12 @@ export class ChatPage {
   }
 
   async isVoteComplete() {
-    await this.page.waitForSelector('[data-testid="vote-success"]');
+    // Wait for the PATCH vote request to settle instead of relying on toast
+    // notifications which can stack and trigger Playwright's strict mode.
+    await this.page.waitForResponse(
+      (response) =>
+        response.url().includes("/api/vote") && response.request().method() === "PATCH"
+    );
   }
 
   async chooseModelFromSelector(modelId: string) {
@@ -171,9 +205,8 @@ export class ChatPage {
   }
 
   async expectToastToContain(text: string) {
-    await this.page.waitForSelector('[data-testid="toast"]');
-    await this.page.getByTestId('toast').waitFor({ state: 'visible' });
-    await this.page.getByTestId('toast').innerText();
-    // Basic assertion handled by tests using expect; helper just waits
+    const toast = this.page.getByTestId("toast").last();
+    await toast.waitFor({ state: "visible" });
+    await expect(toast).toContainText(text);
   }
 }
