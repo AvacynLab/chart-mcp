@@ -66,14 +66,15 @@ const streamDebugFlag =
 const useRealServices = process.env.PLAYWRIGHT_USE_REAL_SERVICES === "1";
 
 /**
- * Set webServer.url and use.baseURL with the location
- * of the WebServer respecting the correct set port.
- * Prefer an explicit PLAYWRIGHT_TEST_BASE_URL when present so
- * test runs that reuse an existing server can control the base
- * URL without needing to rely on the numeric PORT value.
+ * Set webServer.url and use.baseURL with the location of the web server while
+ * defaulting to `http://localhost`.  NextAuth's strict host validation treats
+ * `localhost` as a trusted origin, whereas `127.0.0.1` can trigger "Host must
+ * be trusted" responses even when `AUTH_TRUST_HOST` is exported.  The explicit
+ * override remains available through `PLAYWRIGHT_TEST_BASE_URL` for advanced
+ * scenarios.
  */
 const baseURL =
-  process.env.PLAYWRIGHT_TEST_BASE_URL || `http://127.0.0.1:${PORT}`;
+  process.env.PLAYWRIGHT_TEST_BASE_URL || `http://localhost:${PORT}`;
 
 /** Allow external servers to satisfy the Playwright web server contract. */
 const shouldStartWebServer = !process.env.PLAYWRIGHT_SKIP_WEB_SERVER;
@@ -100,7 +101,10 @@ export default defineConfig({
     baseURL,
 
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
-    trace: "retain-on-failure",
+    trace: "on-first-retry",
+    /* Capture screenshots on failure to simplify diagnosis without bloating the
+       happy-path artifact footprint. */
+    screenshot: "only-on-failure",
     /* Add safe launch options for CI / container environments to avoid
        sandbox-related crashes when running headless browsers inside Docker
        or limited containers. These flags are harmless locally and improve
@@ -211,6 +215,7 @@ export default defineConfig({
           NEXT_PUBLIC_ENABLE_E2E_STREAM_DEBUG: streamDebugFlag,
           NEXTAUTH_URL: baseURL,
           NEXTAUTH_URL_INTERNAL: baseURL,
+          AUTH_TRUST_HOST: process.env.AUTH_TRUST_HOST || "true",
           PLAYWRIGHT_USE_REAL_SERVICES: useRealServices ? "1" : "0",
           // Auth.js refuses to start without a secret key. Provide a deterministic
           // fallback so local contributors are not forced to create an `.env` when

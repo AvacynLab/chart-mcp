@@ -10,6 +10,12 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
+/**
+ * Lightweight flex wrapper for action buttons displayed next to messages.
+ *
+ * The props are always forwarded to the root element so Playwright selectors,
+ * accessibility attributes or extra styling hooks make it down to the DOM.
+ */
 export type ActionsProps = ComponentProps<"div">;
 
 export const Actions = ({ className, children, ...props }: ActionsProps) => (
@@ -29,9 +35,14 @@ export const Action = ({
   label,
   className,
   variant = "ghost",
-  size = "sm",
+  size = "icon",
   ...props
 }: ActionProps) => {
+  /**
+   * Build the button once so it can optionally be wrapped by a tooltip. Using
+   * the spread operator ensures data attributes (`data-testid`) and callbacks
+   * bubble all the way to the actual clickable control that lives in the DOM.
+   */
   const button = (
     <Button
       className={cn(
