@@ -251,7 +251,7 @@ jobs:
       MCP_API_TOKEN: ${{ secrets.MCP_API_TOKEN || 'playwright-token' }}
       MCP_SESSION_USER: regular
       PLAYWRIGHT: "1"
-      PLAYWRIGHT_TEST_BASE_URL: http://127.0.0.1:3000
+      PLAYWRIGHT_TEST_BASE_URL: http://localhost:3000
       PLAYWRIGHT_USE_REAL_SERVICES: "0"
       AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
       POSTGRES_URL: ${{ secrets.POSTGRES_URL }}
@@ -354,6 +354,11 @@ jobs:
           PLAYWRIGHT_USE_REAL_SERVICES: ${{ env.PLAYWRIGHT_USE_REAL_SERVICES }}
           LLM_PROVIDER: ${{ env.LLM_PROVIDER }}
           LLM_MODEL: ${{ env.LLM_MODEL }}
+          # Force Auth.js to mint cookies for `localhost` so Playwright requests
+          # inherit the guest session instead of bouncing between 127.0.0.1 and
+          # localhost during the redirect flow.
+          NEXTAUTH_URL: http://localhost:3000
+          NEXTAUTH_URL_INTERNAL: http://localhost:3000
         run: |
           LOG_FILE="$GITHUB_WORKSPACE/frontend/ai-chatbot/.next-dev.log"
           : > "$LOG_FILE"
@@ -378,7 +383,7 @@ jobs:
           # `npx wait-on` provides consistent readiness checks across local runs
           # and CI, surfacing a non-zero exit when the dev server never binds to
           # the expected port.
-          if ! npx wait-on --timeout 120000 http-get://127.0.0.1:3000; then
+          if ! npx wait-on --timeout 120000 http-get://localhost:3000; then
             echo "Frontend failed to become available within the timeout." >&2
             if [ -n "${NEXT_LOG:-}" ] && [ -f "$NEXT_LOG" ]; then
               echo "----- Next.js log -----" >&2
@@ -392,7 +397,7 @@ jobs:
       # original exit code when the suite fails.
       - name: Run Playwright tests
         env:
-          PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000
+          PLAYWRIGHT_BASE_URL: http://localhost:3000
           PLAYWRIGHT_SKIP_WEB_SERVER: "1"
           POSTGRES_URL: ${{ env.POSTGRES_URL }}
           REDIS_URL: ${{ env.REDIS_URL }}
